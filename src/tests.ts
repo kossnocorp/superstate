@@ -9,7 +9,8 @@ describe("Q", () => {
 
     class Sound extends Q.Machine<SoundState, SoundAction> {
       constructor() {
-        super("stopped", [
+        super("sound", [
+          "[*] --> stopped",
           "playing --> paused: pause",
           "playing --> stopped: stop",
           "paused --> playing: play",
@@ -27,15 +28,26 @@ describe("Q", () => {
         expect(sound.state).toEqual({ type: "state", kind: "stopped" });
       });
 
-      it("throws an error on invalid transition definition", () => {
+      it("throws an error on invalid initial transition definition", () => {
         class BadSound extends Q.Machine<SoundState, SoundAction> {
-          constructor(badTransitions: any[]) {
-            super("stopped", badTransitions);
+          constructor(badTransitions: [any, ...any]) {
+            super("sound", badTransitions);
           }
         }
         expect(() => new BadSound(["playing + paused = pause"])).toThrow(
-          "Invalid transition definition: playing + paused = pause"
+          "Invalid initial transition definition: playing + paused = pause"
         );
+      });
+
+      it("throws an error on invalid transition definition", () => {
+        class BadSound extends Q.Machine<SoundState, SoundAction> {
+          constructor(badTransitions: [any, ...any]) {
+            super("sound", badTransitions);
+          }
+        }
+        expect(
+          () => new BadSound(["[*] --> stopped", "playing + paused = pause"])
+        ).toThrow("Invalid transition definition: playing + paused = pause");
       });
     });
 

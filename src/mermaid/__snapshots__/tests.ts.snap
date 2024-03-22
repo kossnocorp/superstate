@@ -1,0 +1,14 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`QMermaid > generate > Machine > generates a mermaid diagram from a machine 1`] = `
+"%% Generated with QCraft
+stateDiagram-v2
+	state "sound" as sound {
+		[*] --> sound.stopped
+		sound.playing --> sound.paused: sound.pause
+		sound.playing --> sound.stopped: sound.stop
+		sound.paused --> sound.playing: sound.play
+		sound.paused --> sound.stopped: sound.stop
+		sound.stopped --> sound.playing: sound.play
+	}"
+`;

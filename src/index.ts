@@ -1,3 +1,6 @@
+/**
+ * The root QCraft namespace. It contains all the QCraft types and functions.
+ */
 export namespace Q {
   /**
    * The machine entity.
@@ -66,12 +69,29 @@ export namespace Q {
     : Type;
 
   /**
+   * The machine transition definitions
+   */
+  export type TransitionDefs<
+    MachineState extends StateType,
+    MachineAction extends ActionType
+  > = [
+    InitialTransitionDef<MachineState>,
+    ...TransitionDef<MachineState, MachineAction>[]
+  ];
+
+  /**
    * The machine transition definition.
    */
   export type TransitionDef<
     MachineState extends StateType,
     MachineAction extends ActionType
   > = `${StateKind<MachineState>} --> ${StateKind<MachineState>}: ${ActionKind<MachineAction>}`;
+
+  /**
+   * The machine transition definition.
+   */
+  export type InitialTransitionDef<MachineState extends StateType> =
+    `[*] --> ${StateKind<MachineState>}`;
 
   /**
    * The transition type.
@@ -95,6 +115,12 @@ export namespace Q {
     MachineState extends StateType,
     MachineAction extends ActionType
   > {
+    /** The machine name. */
+    name: string;
+
+    /** Initial state. */
+    initialState: StateKind<MachineState>;
+
     /** Current state. */
     state: NormalizedState<MachineState>;
 
@@ -104,15 +130,19 @@ export namespace Q {
     /**
      * The state machine.
      *
-     * @param initialState - The initial state of the machine.
+     * @param name - The state name
      * @param transitions - The transition definitions.
      */
     constructor(
-      initialState: MachineState,
-      transitions: TransitionDef<MachineState, MachineAction>[]
+      name: string,
+      transitions: TransitionDefs<MachineState, MachineAction>
     ) {
-      this.state = this.normalizeState(initialState);
-      this.transitions = transitions.map(this.parseTransition);
+      this.name = name;
+
+      const [initialDef, ...defs] = transitions;
+      this.initialState = this.parseInitialTransition(initialDef);
+      this.state = this.normalizeState(this.initialState);
+      this.transitions = defs.map(this.parseTransition);
     }
 
     /**
@@ -152,6 +182,25 @@ export namespace Q {
       return (
         typeof action === "string" ? { type: "state", kind: action } : action
       ) as NormalizedAction<MachineAction>;
+    }
+
+    /**
+     * Parses the initial transition definition.
+     *
+     * @param transition - The initial transition definition.
+     *
+     * @returns The initial state
+     */
+    private parseInitialTransition(
+      transition: InitialTransitionDef<MachineState>
+    ) {
+      const [_, state] = transition.match(/^\[\*\] --> (.+)$/) || [];
+
+      const valid = typeof state === "string";
+      if (!valid)
+        throw new Error(`Invalid initial transition definition: ${transition}`);
+
+      return state as StateKind<MachineState>;
     }
 
     /**
