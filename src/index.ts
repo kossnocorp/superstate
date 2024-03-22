@@ -1,1 +1,180 @@
-export class QCraft {}
+export namespace Q {
+  /**
+   * The machine entity.
+   */
+  export interface Entity<Type extends string> {
+    /** The entity type. */
+    type: Type;
+  }
+
+  /**
+   * The machine state object.
+   */
+  export interface State<Kind extends string> extends Entity<"state"> {
+    /** The state kind. */
+    kind: Kind;
+  }
+
+  /**
+   * Acceptable machine state type. Unions with string allowing to define states
+   * using a shortcut.
+   */
+  export type StateType = State<string> | (string & {});
+
+  /**
+   * Resolves state object type from the shortcut definition.
+   */
+  export type NormalizedState<Type extends StateType> = Type extends string
+    ? State<Type>
+    : Type;
+
+  /**
+   * Resolves state kind from the state type.
+   */
+  export type StateKind<Type extends StateType> = Type extends State<infer Kind>
+    ? Kind
+    : Type;
+
+  /**
+   * The machine action object.
+   */
+  export interface Action<Kind extends string> extends Entity<"action"> {
+    /** The action kind. */
+    kind: Kind;
+  }
+
+  /**
+   * Acceptable machine action type. Unions with string allowing to define
+   * actions using a shortcut.
+   */
+  export type ActionType = Action<string> | (string & {});
+
+  /**
+   * Resolves action object type from the shortcut definition.
+   */
+  export type NormalizedAction<Type extends ActionType> = Type extends string
+    ? Action<Type>
+    : Type;
+
+  /**
+   * Resolves action kind from the action type.
+   */
+  export type ActionKind<Type extends ActionType> = Type extends Action<
+    infer Kind
+  >
+    ? Kind
+    : Type;
+
+  /**
+   * The machine transition definition.
+   */
+  export type TransitionDef<
+    MachineState extends StateType,
+    MachineAction extends ActionType
+  > = `${StateKind<MachineState>} --> ${StateKind<MachineState>}: ${ActionKind<MachineAction>}`;
+
+  /**
+   * The transition type.
+   */
+  export interface Transition<
+    MachineState extends StateType,
+    MachineAction extends ActionType
+  > {
+    /** The transition action. */
+    action: ActionKind<MachineAction>;
+    /** The from state. */
+    from: StateKind<MachineState>;
+    /** The to state. */
+    to: StateKind<MachineState>;
+  }
+
+  /**
+   * The state machine.
+   */
+  export abstract class Machine<
+    MachineState extends StateType,
+    MachineAction extends ActionType
+  > {
+    /** Current state. */
+    state: NormalizedState<MachineState>;
+
+    /** Avaliable transitions. */
+    transitions: Transition<MachineState, MachineAction>[];
+
+    /**
+     * The state machine.
+     *
+     * @param initialState - The initial state of the machine.
+     * @param transitions - The transition definitions.
+     */
+    constructor(
+      initialState: MachineState,
+      transitions: TransitionDef<MachineState, MachineAction>[]
+    ) {
+      this.state = this.normalizeState(initialState);
+      this.transitions = transitions.map(this.parseTransition);
+    }
+
+    /**
+     * Sends an action to the machine.
+     */
+    send(action: MachineAction) {
+      const transition = this.transitions.find(
+        (transition) =>
+          transition.from === this.state.kind && transition.action === action
+      );
+
+      if (!transition) return null;
+      return (this.state = this.normalizeState(transition.to));
+    }
+
+    /**
+     * Normalizes the state to the state object.
+     *
+     * @param state - The state type, either an object or string.
+     *
+     * @returns Normalized state object.
+     */
+    private normalizeState(state: MachineState | StateKind<MachineState>) {
+      return (
+        typeof state === "string" ? { type: "state", kind: state } : state
+      ) as NormalizedState<MachineState>;
+    }
+
+    /**
+     * Normalizes the action to the action object.
+     *
+     * @param action - The action type, either an object or string.
+     *
+     * @returns Normalized action object.
+     */
+    private normalizeAction(action: MachineAction) {
+      return (
+        typeof action === "string" ? { type: "state", kind: action } : action
+      ) as NormalizedAction<MachineAction>;
+    }
+
+    /**
+     * Parses the transition definition.
+     *
+     * @param transition - The transition definition.
+     *
+     * @returns The transition object.
+     */
+    private parseTransition(
+      transition: TransitionDef<MachineState, MachineAction>
+    ) {
+      const [_, from, to, action] =
+        transition.match(/^(.+) --> (.+): (.+)$/) || [];
+
+      const valid =
+        typeof from === "string" &&
+        typeof to === "string" &&
+        typeof action === "string";
+      if (!valid)
+        throw new Error(`Invalid transition definition: ${transition}`);
+
+      return { action, from, to } as Transition<MachineState, MachineAction>;
+    }
+  }
+}
