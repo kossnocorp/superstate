@@ -227,3 +227,39 @@ export namespace Q {
     }
   }
 }
+
+/**
+ * The root QCraft namespace. It contains all the QCraft types and functions.
+ * It's a WIP API revamp.
+ */
+export namespace QQ {
+  export interface Generator<StateName extends string> {
+    (q: GeneratorHelpers<StateName>): StateMap<StateName>;
+  }
+
+  export interface GeneratorHelpers<StateName extends string> {
+    (): State<StateName>;
+
+    entry(): State<StateName, true>;
+  }
+
+  export type StateMap<StateName extends string> = {
+    [Name in StateName]: State<StateName, boolean>;
+  };
+
+  export interface State<
+    StateName extends string,
+    Entry extends boolean = false
+  > {
+    entry: Entry;
+  }
+
+  export interface Builder {
+    <StateName extends string>(
+      name: string,
+      generator: Generator<StateName>
+    ): any;
+  }
+}
+
+export const q: QQ.Builder = (() => {}) as QQ.Builder;
