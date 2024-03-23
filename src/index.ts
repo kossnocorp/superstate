@@ -290,9 +290,9 @@ export namespace QQ {
     MachineAction extends Action<string, any>,
     EntryState extends StateName
   > {
-    send<SendAction extends MachineAction>(
-      action: SendAction["name"],
-      ...args: SendAction extends ActionFork<any, infer Condition>
+    send<SendAction extends MachineAction, Name extends SendAction["name"]>(
+      action: Name,
+      ...args: SendAction extends ActionFork<Name, infer Condition>
         ? [Condition] | []
         : []
     ): void;
