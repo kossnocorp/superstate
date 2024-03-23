@@ -1,3 +1,5 @@
+import { QUtils } from "./utils.js";
+
 /**
  * The root QCraft namespace. It contains all the QCraft types and functions.
  */
@@ -234,7 +236,7 @@ export namespace Q {
  */
 export namespace QQ {
   export interface Generator<StateName extends string> {
-    (q: GeneratorHelpers<StateName>): StateMap<StateName>;
+    (q: GeneratorHelpers<StateName> & any): StateMap<StateName>;
   }
 
   export interface GeneratorHelpers<StateName extends string> {
@@ -254,11 +256,57 @@ export namespace QQ {
     entry: Entry;
   }
 
+  export type Action<
+    ActionName extends string,
+    ActionCondition extends string | never
+  > = ActionTransition<ActionName> | ActionFork<ActionName, ActionCondition>;
+
+  export interface ActionTransition<ActionName extends string> {
+    name: ActionName;
+  }
+
+  export interface ActionFork<
+    ActionName extends string,
+    ActionCondition extends string | null | never
+  > {
+    name: ActionName;
+    condition: ActionCondition;
+  }
+
+  export interface MachineFactory<
+    StateName extends string,
+    MachineAction extends Action<string, any>,
+    EntryState extends StateName
+  > {
+    enter(
+      ...args: QUtils.IsUnion<EntryState> extends true
+        ? [EntryState]
+        : [] | [EntryState]
+    ): MachineInstance<StateName, MachineAction, EntryState>;
+  }
+
+  export interface MachineInstance<
+    StateName extends string,
+    MachineAction extends Action<string, any>,
+    EntryState extends StateName
+  > {
+    send<SendAction extends MachineAction>(
+      action: SendAction["name"],
+      ...args: SendAction extends ActionFork<any, infer Condition>
+        ? [Condition] | []
+        : []
+    ): void;
+  }
+
   export interface Builder {
-    <StateName extends string>(
+    <
+      StateName extends string,
+      MachineAction extends Action<string, any>,
+      EntryState extends StateName
+    >(
       name: string,
       generator: Generator<StateName>
-    ): any;
+    ): MachineFactory<StateName, MachineAction, EntryState>;
   }
 }
 
