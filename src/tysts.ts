@@ -164,9 +164,20 @@ import { QQ, q } from "./index.js";
         name: "drink";
       };
 
+  // TODO: Temp should be inferred?
+  type TeaEditState =
+    | {
+        state: "ready";
+        action: "drink";
+      }
+    | {
+        state: "steeping";
+        action: "drink";
+      };
+
   const teaMachine = q<TeaState, TeaAction, "water", {}>("tea", ($) => ({
-    water: $.entry($.on("infuse", "steeping")),
-    steeping: $($.on("done", "ready")),
+    water: $.entry($.on("infuse", "steeping"), $.exit("drink")),
+    steeping: $($.on("done", "ready"), $.exit("drink")),
     ready: $.entry($.exit("drink")),
   }));
 
@@ -188,8 +199,66 @@ import { QQ, q } from "./index.js";
     "mug",
     ($) => ({
       clear: $.entry($.on("pour", "full")),
-      full: $($.on("empty", "dirty")),
+      full: $($.on("empty", "dirty"))
+        //! When nesting you specify the entry state
+        // TODO: Unless it's single entry
+        .nest(teaMachine, "water", [
+          //! Nesting a machine makes to connect all the exits to states
+          "water -> drink -> clear",
+          "steeping -> drink -> dirty",
+          "ready -> drink -> dirty",
+        ]),
       dirty: $.entry($.on("clean", "clear")),
+    })
+  );
+}
+
+//! It allows specifing parallel states
+{
+  type ExpireState = "fresh" | "expired";
+
+  type ExpireAction = {
+    name: "expire";
+  };
+
+  // TODO: Temp, should be inferred?
+  const expireMachine = q<ExpireState, ExpireAction, "fresh", {}>(
+    "expire",
+    ($) => ({
+      fresh: $($.on("expire", "expired")),
+      expired: $(),
+    })
+  );
+
+  type HeatState = "frozen" | "thawed" | "hot";
+
+  // TODO: Temp, should be inferred?
+  type HeatAction =
+    | {
+        name: "thaw";
+      }
+    | {
+        name: "heat";
+      };
+
+  const heatMachine = q<HeatState, HeatAction, "frozen", {}>("heat", ($) => ({
+    frozen: $.entry($.on("thaw", "thawed")),
+    thawed: $($.on("heat", "hot")),
+    hot: $(),
+  }));
+
+  type MeatPieState = "unpacked" | "cooked";
+
+  // TODO: Temp, should be inferred?
+  type MeatPieAction = {
+    name: "cook";
+  };
+
+  const meatPieMachine = q<MeatPieState, MeatPieAction, "unpacked", {}>(
+    "meatPie",
+    ($) => ({
+      unpacked: $.nest(expireMachine).nest(heatMachine),
+      cooked: $(),
     })
   );
 }
