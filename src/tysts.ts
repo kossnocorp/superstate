@@ -27,6 +27,8 @@ import { QQ, q } from "./index.js";
     })
   );
 
+  //! enter
+
   //! No need for the entry state as there's only one state
   const player = playerMachine.enter();
   //! It's ok to explicitly pass the entry state
@@ -34,6 +36,8 @@ import { QQ, q } from "./index.js";
   //! The state is not defined as entry
   // @ts-expect-error
   playerMachine.enter("playing");
+
+  //! send
 
   //! The machine accepts the actions
   player.send("play");
@@ -148,7 +152,7 @@ import { QQ, q } from "./index.js";
   pc.send("restart", null);
 }
 
-//! It allows composing state machines
+//! Composite states
 {
   type TeaState = "water" | "steeping" | "ready";
 
@@ -213,7 +217,7 @@ import { QQ, q } from "./index.js";
   );
 }
 
-//! It allows specifing parallel states
+//! Parallel states
 {
   type ExpireState = "fresh" | "expired";
 
