@@ -16,7 +16,7 @@ import { QQ, q } from "./index.js";
         name: "stop";
       };
 
-  const playerMachine = q<PlayerState, PlayerAction, "stopped">(
+  const playerMachine = q<PlayerState, PlayerAction, "stopped", {}>(
     "action",
     ($) => ({
       stopped: $.entry($.on("play", "playing")),
@@ -55,13 +55,15 @@ import { QQ, q } from "./index.js";
     name: "swing";
   };
 
-  const pendulumMachine = q<PendulumState, PendulumAction, "left" | "right">(
-    "pendulum",
-    ($) => ({
-      left: $.entry($.on("swing", "right")),
-      right: $.entry($.on("swing", "left")),
-    })
-  );
+  const pendulumMachine = q<
+    PendulumState,
+    PendulumAction,
+    "left" | "right",
+    {}
+  >("pendulum", ($) => ({
+    left: $.entry($.on("swing", "right")),
+    right: $.entry($.on("swing", "left")),
+  }));
 
   //! Entry should be defined as there're multiple entry states
   pendulumMachine.enter("left");
@@ -69,6 +71,44 @@ import { QQ, q } from "./index.js";
   //! The state is missing
   // @ts-expect-error:
   pendulumMachine.enter();
+}
+
+//! Exit state
+{
+  type CassetteState = "stopped" | "playing";
+
+  // TODO: Temp, should be inferred?
+  type CassetteAction =
+    | {
+        name: "play";
+      }
+    | {
+        name: "stop";
+      }
+    | {
+        name: "eject";
+      };
+
+  // TODO: Temp, should be inferred?
+  type CassetteExitState =
+    | {
+        state: "stopped";
+        action: "eject";
+      }
+    | {
+        state: "playing";
+        action: "eject";
+      };
+
+  const casseteMachine = q<
+    CassetteState,
+    CassetteAction,
+    "stopped",
+    CassetteExitState
+  >("cassette", ($) => ({
+    stopped: $.entry($.on("play", "playing"), $.exit("eject")),
+    playing: $($.on("stop", "stopped"), $.exit("eject")),
+  }));
 }
 
 //! Conditions
@@ -85,7 +125,7 @@ import { QQ, q } from "./index.js";
         name: "restart";
       };
 
-  const pcMachine = q<PCState, PCAction, "off">("pendulum", ($) => ({
+  const pcMachine = q<PCState, PCAction, "off", {}>("pendulum", ($) => ({
     off: $.entry($.on("press", "on")),
     sleep: $($.on("press", "on").if("long", "off"), $.on("restart", "on")),
     on: $($.on("press").if("long", "off").else("sleep"), $.on("restart", "on")),
@@ -108,63 +148,48 @@ import { QQ, q } from "./index.js";
   pc.send("restart", null);
 }
 
-// It allows composing state machines
+//! It allows composing state machines
 {
-  type ServerState =
-    | "initializing"
-    | "ghost"
-    | "readingConfig"
-    | "running"
-    | "stopped";
+  type TeaState = "water" | "steeping" | "ready";
 
-  // Temp, should be inferred?
-  type ServerAction =
+  // TODO: Temp, should be inferred?
+  type TeaAction =
     | {
-        name: "initialized";
-        condition: "defined" | null;
+        name: "infuse";
       }
     | {
-        name: "serverUpdated";
+        name: "done";
       }
     | {
-        name: "configRead";
-      }
-    | {
-        name: "start";
+        name: "drink";
       };
 
-  const server = q<ServerState, ServerAction>("server", ($) => ({
-    initializing: $.entry(
-      $.on("initialized").if("defined", "readingConfig").else("ghost")
-    ),
-    ghost: $($.on("serverUpdated", "initializing")),
-    readingConfig: $(
-      $.on("configRead").if("enabled", "running").else("stopped")
-    ),
-    running: $.parallel(
-      process.child("starting", {
-        crashed: $.break("stopped"),
-        stop: $.break("stopped"),
-        crashed: $.break.else("crashed"),
-      }),
-      processLogs.child("readingConfig")
-    ),
-    stopped: $($.on("start", "running")),
+  const teaMachine = q<TeaState, TeaAction, "water", {}>("tea", ($) => ({
+    water: $.entry($.on("infuse", "steeping")),
+    steeping: $($.on("done", "ready")),
+    ready: $.entry($.exit("drink")),
   }));
 
-  server.send("initialized", null);
+  type MugState = "clear" | "full" | "dirty";
 
-  server.send("initialized", null);
+  // TODO: Temp, should be inferred?
+  type MugAction =
+    | {
+        name: "clean";
+      }
+    | {
+        name: "pour";
+      }
+    | {
+        name: "empty";
+      };
 
-  server.send("");
-
-  type ProcessState = "starting" | "running";
-
-  const process = q<ProcessState>("process", ($) => ({
-    starting: $.entry($.on("started", "running"), $.exit("crashed")),
-  }));
-
-  type ProcessLogsState = "readingConfig" | "muted" | "printing";
-
-  const processLogs: any = null;
+  const mugMachine = q<MugState, MugAction, "clear" | "dirty", {}>(
+    "mug",
+    ($) => ({
+      clear: $.entry($.on("pour", "full")),
+      full: $($.on("empty", "dirty")),
+      dirty: $.entry($.on("clean", "clear")),
+    })
+  );
 }
