@@ -273,6 +273,12 @@ export namespace QQ {
     condition: ActionCondition;
   }
 
+  export interface ExitState<
+    StateName extends string,
+    MachineAction extends Action<string, any>,
+    ActionCondition extends string | null | never
+  > {}
+
   export interface MachineFactory<
     StateName extends string,
     MachineAction extends Action<string, any>,
@@ -302,7 +308,8 @@ export namespace QQ {
     <
       StateName extends string,
       MachineAction extends Action<string, any>,
-      EntryState extends StateName
+      EntryState extends StateName,
+      MachineExitState extends ExitState<StateName, MachineAction, any>
     >(
       name: string,
       generator: Generator<StateName>
