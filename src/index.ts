@@ -291,6 +291,39 @@ export namespace QQ {
     ): MachineInstance<StateName, MachineAction, EntryState>;
   }
 
+  export interface Off {
+    (): void;
+  }
+
+  export type OnTarget<
+    StateName extends string,
+    MachineAction extends Action<string, any>
+  > = "*" | StateName | MachineAction["name"];
+
+  export type Event<
+    StateName extends string,
+    MachineAction extends Action<string, any>
+  > = EventState<StateName> | EventAction<MachineAction>;
+
+  export interface EventState<StateName extends string> {
+    type: "state";
+    state: StateName;
+  }
+
+  export interface EventAction<MachineAction extends Action<string, any>> {
+    type: "action";
+    action: MachineAction;
+    // TODO: from, to, condition
+  }
+
+  export interface OnListener<
+    StateName extends string,
+    MachineAction extends Action<string, any>,
+    Target extends OnTarget<string, any>
+  > {
+    (event: Target extends "*" ? Event<StateName, MachineAction> : never): void;
+  }
+
   export interface MachineInstance<
     StateName extends string,
     MachineAction extends Action<string, any>,
@@ -302,6 +335,11 @@ export namespace QQ {
         ? [Condition] | []
         : []
     ): void;
+
+    on<Target extends OnTarget<StateName, MachineAction>>(
+      target: Target | Target[],
+      listener: OnListener<StateName, MachineAction, Target>
+    ): Off;
   }
 
   export interface Builder {

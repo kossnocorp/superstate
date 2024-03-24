@@ -48,6 +48,56 @@ import { QQ, q } from "./index.js";
   //! The action is not defined
   // @ts-expect-error
   player.send("nope");
+
+  //! on
+
+  //! The machine allows to subscribe to all states
+  const off = player.on("*", (event) => {
+    if (event.type === "state") {
+      switch (event.state) {
+        //! There's no such state
+        // @ts-expect-error
+        case "nope":
+          break;
+
+        //! We expect all states
+        case "stopped":
+        case "playing":
+        case "paused":
+          break;
+
+        //! We don't expect other states
+        default:
+          event.state satisfies never;
+      }
+    } else if (event.type === "action") {
+      switch (event.action.name) {
+        //! There's no such action
+        // @ts-expect-error
+        case "nope":
+          break;
+
+        //! We expect all actions
+        case "play":
+        case "pause":
+        case "stop":
+          break;
+
+        //! We don't expect other actions
+        default:
+          event.action satisfies never;
+      }
+    } else {
+      //! No other type is expected
+      event satisfies never;
+    }
+  });
+
+  //! on returns off that unsubscribes the listener
+  off();
+
+  //! The machine allows to subscribe to specific states
+  // TODO:
 }
 
 //! Multiple entries
