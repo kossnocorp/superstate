@@ -256,32 +256,67 @@ export namespace QQ {
     entry: Entry;
   }
 
-  export type Action<
-    ActionName extends string,
-    ActionCondition extends string | never
-  > = ActionTransition<ActionName> | ActionFork<ActionName, ActionCondition>;
+  export type AnyAction =
+    | ActionTransition<string, string, string, string>
+    | ActionTransitionFork<string, string, string, string, string>
+    | ActionExit<string, string, string>
+    | ActionExitFork<string, string, string, string>;
 
-  export interface ActionTransition<ActionName extends string> {
+  export interface ActionTransition<
+    ActionName extends string,
+    StateName extends string,
+    FromState extends StateName,
+    ToState extends StateName
+  > {
     name: ActionName;
+    from: FromState;
+    to: ToState;
   }
 
-  export interface ActionFork<
+  // TODO: I don't like fork name
+  export interface ActionTransitionFork<
     ActionName extends string,
-    ActionCondition extends string | null | never
+    StateName extends string,
+    FromState extends StateName,
+    ToState extends StateName,
+    ActionCondition extends string
   > {
     name: ActionName;
     condition: ActionCondition;
+    from: FromState;
+    to: ToState;
+  }
+
+  export interface ActionExit<
+    ActionName extends string,
+    StateName extends string,
+    FromState extends StateName
+  > {
+    name: ActionName;
+    from: FromState;
+  }
+
+  // TODO: Add tysts
+  export interface ActionExitFork<
+    ActionName extends string,
+    StateName extends string,
+    FromState extends StateName,
+    ActionCondition extends string
+  > {
+    name: ActionName;
+    condition: ActionCondition;
+    from: FromState;
   }
 
   export interface ExitState<
     StateName extends string,
-    MachineAction extends Action<string, any>,
+    MachineAction extends AnyAction,
     ActionCondition extends string | null | never
   > {}
 
   export interface MachineFactory<
     StateName extends string,
-    MachineAction extends Action<string, any>,
+    MachineAction extends AnyAction,
     EntryState extends StateName
   > {
     enter(
@@ -297,12 +332,12 @@ export namespace QQ {
 
   export type OnTarget<
     StateName extends string,
-    MachineAction extends Action<string, any>
+    MachineAction extends AnyAction
   > = "*" | StateName | MachineAction["name"];
 
   export type Event<
     StateName extends string,
-    MachineAction extends Action<string, any>
+    MachineAction extends AnyAction
   > = EventState<StateName> | EventAction<MachineAction>;
 
   export interface EventState<StateName extends string> {
@@ -310,7 +345,7 @@ export namespace QQ {
     state: StateName;
   }
 
-  export interface EventAction<MachineAction extends Action<string, any>> {
+  export interface EventAction<MachineAction extends AnyAction> {
     type: "action";
     action: MachineAction;
     // TODO: from, to, condition
@@ -318,20 +353,34 @@ export namespace QQ {
 
   export interface OnListener<
     StateName extends string,
-    MachineAction extends Action<string, any>,
+    MachineAction extends AnyAction,
     Target extends OnTarget<string, any>
   > {
-    (event: Target extends "*" ? Event<StateName, MachineAction> : never): void;
+    (
+      event: Target extends "*"
+        ? Event<StateName, MachineAction>
+        : Target extends
+            | Array<infer StateTarget extends StateName>
+            | infer StateTarget extends StateName
+        ? EventState<StateTarget>
+        : never
+    ): void;
   }
 
   export interface MachineInstance<
     StateName extends string,
-    MachineAction extends Action<string, any>,
+    MachineAction extends AnyAction,
     EntryState extends StateName
   > {
     send<SendAction extends MachineAction, Name extends SendAction["name"]>(
       action: Name,
-      ...args: SendAction extends ActionFork<Name, infer Condition>
+      ...args: SendAction extends ActionTransitionFork<
+        Name,
+        string,
+        string,
+        string,
+        infer Condition
+      >
         ? [Condition] | []
         : []
     ): void;
@@ -345,9 +394,19 @@ export namespace QQ {
   export interface Builder {
     <
       StateName extends string,
-      MachineAction extends Action<string, any>,
-      EntryState extends StateName,
-      MachineExitState extends ExitState<StateName, MachineAction, any>
+      MachineAction extends AnyAction,
+      EntryState extends StateName
+    >(
+      name: string,
+      generator: Generator<StateName>
+    ): MachineFactory<StateName, MachineAction, EntryState>;
+  }
+
+  export interface Builder2 {
+    <
+      StateName extends string,
+      MachineAction extends AnyAction,
+      EntryState extends StateName
     >(
       name: string,
       generator: Generator<StateName>
@@ -355,4 +414,5 @@ export namespace QQ {
   }
 }
 
+// @ts-expect-error: This is fine, it's just a placeholder
 export const q: QQ.Builder = (() => {}) as QQ.Builder;
