@@ -8,15 +8,31 @@ import { QQ, q } from "./index.js";
   type PlayerAction =
     | {
         name: "play";
+        from: "stopped";
+        to: "playing";
+      }
+    | {
+        name: "play";
+        from: "paused";
+        to: "playing";
       }
     | {
         name: "pause";
+        from: "playing";
+        to: "paused";
       }
     | {
         name: "stop";
+        from: "playing";
+        to: "stopped";
+      }
+    | {
+        name: "stop";
+        from: "paused";
+        to: "stopped";
       };
 
-  const playerMachine = q<PlayerState, PlayerAction, "stopped", {}>(
+  const playerMachine = q<PlayerState, PlayerAction, "stopped">(
     "action",
     ($) => ({
       stopped: $.entry($.on("play", "playing")),
@@ -97,7 +113,52 @@ import { QQ, q } from "./index.js";
   off();
 
   //! The machine allows to subscribe to specific states
-  // TODO:
+  player.on("stopped", (event) => {
+    //! It can only be stopped state
+    if (event.type === "state") {
+      if (event.state === "stopped") {
+        return;
+      }
+
+      //! Can't be anything but stopped
+      event.state satisfies never;
+      return;
+    }
+
+    //! Can only be only state event
+    event.type satisfies never;
+  });
+
+  //! The machine allows to subscribe to few states
+  player.on(["stopped", "playing"], (event) => {
+    //! It can only be stopped or playing state
+    if (event.type === "state") {
+      switch (event.state) {
+        //! Can't be invalid state
+        // @ts-expect-error
+        case "nope":
+          break;
+
+        case "stopped":
+        case "playing":
+          return;
+
+        default:
+          //! Can't be anything but stopped or playing
+          event satisfies never;
+      }
+      return;
+    }
+
+    //! Can only be only state event
+    event.type satisfies never;
+  });
+
+  //! Can't subscribe to invalid states
+  // @ts-expect-error
+  player.on("nope", () => {});
+  // @ts-expect-error
+  player.on(["stopped", "nope"], () => {});
 }
 
 //! Multiple entries
@@ -105,19 +166,25 @@ import { QQ, q } from "./index.js";
   type PendulumState = "left" | "right";
 
   // TODO: Temp, should be inferred?
-  type PendulumAction = {
-    name: "swing";
-  };
+  type PendulumAction =
+    | {
+        name: "swing";
+        from: "left";
+        to: "right";
+      }
+    | {
+        name: "swing";
+        from: "right";
+        to: "left";
+      };
 
-  const pendulumMachine = q<
-    PendulumState,
-    PendulumAction,
-    "left" | "right",
-    {}
-  >("pendulum", ($) => ({
-    left: $.entry($.on("swing", "right")),
-    right: $.entry($.on("swing", "left")),
-  }));
+  const pendulumMachine = q<PendulumState, PendulumAction, "left" | "right">(
+    "pendulum",
+    ($) => ({
+      left: $.entry($.on("swing", "right")),
+      right: $.entry($.on("swing", "left")),
+    })
+  );
 
   //! Entry should be defined as there're multiple entry states
   pendulumMachine.enter("left");
@@ -127,7 +194,7 @@ import { QQ, q } from "./index.js";
   pendulumMachine.enter();
 }
 
-//! Exit state
+//! Exit actions
 {
   type CassetteState = "stopped" | "playing";
 
@@ -135,34 +202,36 @@ import { QQ, q } from "./index.js";
   type CassetteAction =
     | {
         name: "play";
+        from: "stopped";
+        to: "playing";
       }
     | {
         name: "stop";
+        from: "playing";
+        to: "stopped";
+      }
+    // Exit actions
+    | {
+        name: "eject";
+        from: "stopped";
       }
     | {
         name: "eject";
+        from: "playing";
       };
 
-  // TODO: Temp, should be inferred?
-  type CassetteExitState =
-    | {
-        state: "stopped";
-        action: "eject";
-      }
-    | {
-        state: "playing";
-        action: "eject";
-      };
+  const casseteMachine = q<CassetteState, CassetteAction, "stopped">(
+    "cassette",
+    ($) => ({
+      stopped: $.entry($.on("play", "playing"), $.exit("eject")),
+      playing: $($.on("stop", "stopped"), $.exit("eject")),
+    })
+  );
 
-  const casseteMachine = q<
-    CassetteState,
-    CassetteAction,
-    "stopped",
-    CassetteExitState
-  >("cassette", ($) => ({
-    stopped: $.entry($.on("play", "playing"), $.exit("eject")),
-    playing: $($.on("stop", "stopped"), $.exit("eject")),
-  }));
+  const cassete = casseteMachine.enter();
+
+  //! Should be able to send exit actions
+  cassete.send("eject");
 }
 
 //! Conditions
@@ -173,13 +242,38 @@ import { QQ, q } from "./index.js";
   type PCAction =
     | {
         name: "press";
-        condition: "long" | null;
+        from: "off";
+        to: "on";
+      }
+    | {
+        name: "press";
+        from: "sleep";
+        to: "off";
+        condition: "long";
       }
     | {
         name: "restart";
+        from: "sleep";
+        to: "on";
+      }
+    | {
+        name: "press";
+        from: "on";
+        to: "off";
+        condition: "long";
+      }
+    | {
+        name: "press";
+        from: "on";
+        to: "sleep";
+      }
+    | {
+        name: "restart";
+        from: "on";
+        to: "on";
       };
 
-  const pcMachine = q<PCState, PCAction, "off", {}>("pendulum", ($) => ({
+  const pcMachine = q<PCState, PCAction, "off">("pendulum", ($) => ({
     off: $.entry($.on("press", "on")),
     sleep: $($.on("press", "on").if("long", "off"), $.on("restart", "on")),
     on: $($.on("press").if("long", "off").else("sleep"), $.on("restart", "on")),
@@ -191,15 +285,9 @@ import { QQ, q } from "./index.js";
   pc.send("press");
   //! Allows to send an action with the condition
   pc.send("press", "long");
-  //! Allows to send null condition
-  pc.send("press", null);
   //! The condition is undefined
   // @ts-expect-error
   pc.send("press", "nope");
-  //! The condition is not expected
-  pc.send("restart");
-  // @ts-expect-error
-  pc.send("restart", null);
 }
 
 //! Composite states
@@ -210,26 +298,29 @@ import { QQ, q } from "./index.js";
   type TeaAction =
     | {
         name: "infuse";
+        from: "water";
+        to: "steeping";
       }
     | {
         name: "done";
+        from: "steepeing";
+        to: "ready";
+      }
+    // Exit actions
+    | {
+        name: "drink";
+        from: "water";
       }
     | {
         name: "drink";
-      };
-
-  // TODO: Temp should be inferred?
-  type TeaEditState =
-    | {
-        state: "ready";
-        action: "drink";
+        from: "ready";
       }
     | {
-        state: "steeping";
-        action: "drink";
+        name: "drink";
+        from: "steeping";
       };
 
-  const teaMachine = q<TeaState, TeaAction, "water", {}>("tea", ($) => ({
+  const teaMachine = q<TeaState, TeaAction, "water">("tea", ($) => ({
     water: $.entry($.on("infuse", "steeping"), $.exit("drink")),
     steeping: $($.on("done", "ready"), $.exit("drink")),
     ready: $.entry($.exit("drink")),
@@ -241,30 +332,28 @@ import { QQ, q } from "./index.js";
   type MugAction =
     | {
         name: "clean";
+        from: "dirty";
+        to: "clear";
       }
     | {
         name: "pour";
-      }
-    | {
-        name: "empty";
+        from: "clear";
+        to: "full";
       };
 
-  const mugMachine = q<MugState, MugAction, "clear" | "dirty", {}>(
-    "mug",
-    ($) => ({
-      clear: $.entry($.on("pour", "full")),
-      full: $($.on("empty", "dirty"))
-        //! When nesting you specify the entry state
-        // TODO: Unless it's single entry
-        .nest(teaMachine, "water", [
-          //! Nesting a machine makes to connect all the exits to states
-          "water -> drink -> clear",
-          "steeping -> drink -> dirty",
-          "ready -> drink -> dirty",
-        ]),
-      dirty: $.entry($.on("clean", "clear")),
-    })
-  );
+  const mugMachine = q<MugState, MugAction, "clear" | "dirty">("mug", ($) => ({
+    clear: $.entry($.on("pour", "full")),
+    full:
+      //! When nesting you specify the entry state
+      // TODO: Unless it's single entry
+      $.nest(teaMachine, "water", [
+        //! Nesting a machine makes to connect all the exits to states
+        "water -> drink -> clear",
+        "steeping -> drink -> dirty",
+        "ready -> drink -> dirty",
+      ]),
+    dirty: $.entry($.on("clean", "clear")),
+  }));
 }
 
 //! Parallel states
@@ -273,10 +362,12 @@ import { QQ, q } from "./index.js";
 
   type ExpireAction = {
     name: "expire";
+    from: "fresh";
+    to: "expired";
   };
 
   // TODO: Temp, should be inferred?
-  const expireMachine = q<ExpireState, ExpireAction, "fresh", {}>(
+  const expireMachine = q<ExpireState, ExpireAction, "fresh">(
     "expire",
     ($) => ({
       fresh: $($.on("expire", "expired")),
@@ -290,12 +381,16 @@ import { QQ, q } from "./index.js";
   type HeatAction =
     | {
         name: "thaw";
+        from: "frozen";
+        to: "thawed";
       }
     | {
         name: "heat";
+        from: "thawed";
+        to: "hot";
       };
 
-  const heatMachine = q<HeatState, HeatAction, "frozen", {}>("heat", ($) => ({
+  const heatMachine = q<HeatState, HeatAction, "frozen">("heat", ($) => ({
     frozen: $.entry($.on("thaw", "thawed")),
     thawed: $($.on("heat", "hot")),
     hot: $(),
@@ -306,9 +401,11 @@ import { QQ, q } from "./index.js";
   // TODO: Temp, should be inferred?
   type MeatPieAction = {
     name: "cook";
+    from: "unpacked";
+    to: "cooked";
   };
 
-  const meatPieMachine = q<MeatPieState, MeatPieAction, "unpacked", {}>(
+  const meatPieMachine = q<MeatPieState, MeatPieAction, "unpacked">(
     "meatPie",
     ($) => ({
       unpacked: $.nest(expireMachine).nest(heatMachine),
