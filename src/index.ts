@@ -256,11 +256,21 @@ export namespace QQ {
     entry: Entry;
   }
 
-  export type AnyAction =
-    | ActionTransition<string, string, string, string>
-    | ActionTransitionFork<string, string, string, string, string>
-    | ActionExit<string, string, string>
-    | ActionExitFork<string, string, string, string>;
+  export type AnyAction<
+    ActionName extends string = string,
+    MachineStateName extends string = string,
+    FromStateName extends MachineStateName = MachineStateName
+  > =
+    | ActionTransition<ActionName, MachineStateName, FromStateName, any>
+    | ActionTransitionFork<
+        ActionName,
+        MachineStateName,
+        FromStateName,
+        any,
+        string
+      >
+    | ActionExit<ActionName, MachineStateName, FromStateName>
+    | ActionExitFork<ActionName, MachineStateName, FromStateName, string>;
 
   export type StateAction<
     MachineStateName extends string,
@@ -335,15 +345,15 @@ export namespace QQ {
   > {}
 
   export interface MachineFactory<
-    StateName extends string,
-    MachineAction extends AnyAction,
-    EntryState extends StateName
+    MachineStateName extends string,
+    MachineAction extends AnyAction<any, MachineStateName>,
+    EntryState extends MachineStateName
   > {
     enter(
       ...args: QUtils.IsUnion<EntryState> extends true
         ? [EntryState]
         : [] | [EntryState]
-    ): MachineInstance<StateName, MachineAction, EntryState>;
+    ): MachineInstance<MachineStateName, MachineAction>;
   }
 
   export interface Off {
@@ -388,33 +398,34 @@ export namespace QQ {
   }
 
   export interface MachineInstance<
-    StateName extends string,
-    MachineAction extends AnyAction,
-    EntryState extends StateName
+    MachineStateName extends string,
+    MachineAction extends AnyAction<MachineStateName>
   > {
-    send<SendAction extends MachineAction, Name extends SendAction["name"]>(
-      action: Name,
-      ...args: SendAction extends ActionTransitionFork<
-        Name,
-        string,
-        string,
-        string,
-        infer Condition
-      >
-        ? [Condition] | []
+    send<ActionName extends MachineAction["name"]>(
+      action: ActionName,
+      ...args: MachineAction extends { name: ActionName }
+        ? MachineAction extends ActionTransitionFork<
+            any,
+            any,
+            any,
+            any,
+            infer Condition
+          >
+          ? [Condition]
+          : []
         : []
     ): void;
 
-    on<Target extends OnTarget<StateName, MachineAction>>(
+    on<Target extends OnTarget<MachineStateName, MachineAction>>(
       target: Target | Target[],
-      listener: OnListener<StateName, MachineAction, Target>
+      listener: OnListener<MachineStateName, MachineAction, Target>
     ): Off;
   }
 
   export interface Builder {
     <
       StateName extends string,
-      MachineAction extends AnyAction,
+      MachineAction extends AnyAction<any, StateName>,
       EntryState extends StateName
     >(
       name: string,
@@ -435,14 +446,27 @@ export namespace QQ {
 
   export type ActionDef<
     MachineStateName extends string,
-    ActionName extends string
-  > = `${ActionName} -> ${MachineStateName}` | `${ActionName} ->`;
+    ActionName extends string,
+    Condition extends string
+  > =
+    | `${ActionName}(${Condition}) -> ${MachineStateName}`
+    | `${ActionName} -> ${MachineStateName}`
+    | `${ActionName}(${Condition}) ->`
+    | `${ActionName} ->`;
 
   export type ActionFromDef<
     MachineStateName extends string,
     FromStateName extends MachineStateName,
-    Def extends ActionDef<any, any>
-  > = Def extends `${infer ActionName} -> ${infer ToState extends MachineStateName}`
+    Def extends ActionDef<any, any, any>
+  > = Def extends `${infer ActionName}(${infer Condition}) -> ${infer ToState extends MachineStateName}`
+    ? ActionTransitionFork<
+        ActionName,
+        MachineStateName,
+        FromStateName,
+        ToState,
+        Condition
+      >
+    : Def extends `${infer ActionName} -> ${infer ToState extends MachineStateName}`
     ? ActionTransition<ActionName, MachineStateName, FromStateName, ToState>
     : Def extends `${infer ActionName} ->`
     ? ActionExit<ActionName, MachineStateName, FromStateName>
@@ -471,7 +495,7 @@ export namespace QQ {
     ChainStateName extends MachineStateName,
     MachineState extends State2<MachineStateName, any, any, any>,
     StateName extends ChainStateName,
-    StateActionDef extends ActionDef<MachineStateName, any>,
+    StateActionDef extends ActionDef<MachineStateName, any, any>,
     _StateProps extends StateProps<any>
   > = Exclude<ChainStateName, StateName> extends never
     ? BuilderChainResultFactory<
@@ -506,7 +530,7 @@ export namespace QQ {
   export type BuilderChainState<
     MachineStateName extends string,
     StateName extends MachineStateName,
-    StateActionDef extends ActionDef<MachineStateName, any>,
+    StateActionDef extends ActionDef<MachineStateName, any, any>,
     _StateProps extends StateProps<any>
   > = {
     name: StateName;
@@ -521,10 +545,10 @@ export namespace QQ {
   > {
     state<
       StateName extends ChainStateName,
-      StateActionDef extends ActionDef<MachineStateName, any>
+      StateActionDef extends ActionDef<MachineStateName, any, any>
     >(
       name: StateName,
-      actions: StateActionDef[]
+      actions?: StateActionDef | StateActionDef[]
     ): BuilderChainResult<
       MachineStateName,
       ChainStateName,
@@ -536,10 +560,10 @@ export namespace QQ {
 
     entry<
       StateName extends ChainStateName,
-      StateActionDef extends ActionDef<MachineStateName, any>
+      StateActionDef extends ActionDef<MachineStateName, any, any>
     >(
       name: StateName,
-      actions: StateActionDef[]
+      actions?: StateActionDef | StateActionDef[]
     ): BuilderChainResult<
       MachineStateName,
       ChainStateName,
