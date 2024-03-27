@@ -269,6 +269,13 @@ export namespace QQ {
         any,
         string
       >
+    | AnyExitAction<ActionName, MachineStateName, FromStateName>;
+
+  export type AnyExitAction<
+    ActionName extends string = string,
+    MachineStateName extends string = string,
+    FromStateName extends MachineStateName = MachineStateName
+  > =
     | ActionExit<ActionName, MachineStateName, FromStateName>
     | ActionExitFork<ActionName, MachineStateName, FromStateName, string>;
 
@@ -409,6 +416,12 @@ export namespace QQ {
     | ActionExitFork<any, any, any, any>
   >;
 
+  export type ExtractExitAction<MachineAction extends AnyAction> = Exclude<
+    MachineAction,
+    | ActionTransition<any, any, any, any>
+    | ActionTransitionFork<any, any, any, any, any>
+  >;
+
   export interface MachineInstance<
     MachineStateName extends string,
     MachineAction extends AnyAction<MachineStateName>
@@ -485,6 +498,33 @@ export namespace QQ {
     ? ActionExit<ActionName, MachineStateName, FromStateName>
     : never;
 
+  export type DefFromAction<Action extends AnyAction> =
+    Action extends ActionTransitionFork<
+      infer ActionName,
+      any,
+      infer FromStateName,
+      infer ToStateName,
+      infer Condition
+    >
+      ? `${FromStateName} -> ${ActionName}(${Condition}) -> ${ToStateName}`
+      : Action extends ActionTransition<
+          infer ActionName,
+          any,
+          infer FromStateName,
+          infer ToStateName
+        >
+      ? `${FromStateName} -> ${ActionName} -> ${ToStateName}`
+      : Action extends ActionExitFork<
+          infer ActionName,
+          any,
+          infer FromStateName,
+          infer Condition
+        >
+      ? `${FromStateName} -> ${ActionName}(${Condition}) ->`
+      : Action extends ActionExit<infer ActionName, any, infer FromStateName>
+      ? `${FromStateName} -> ${ActionName} ->`
+      : never;
+
   export interface Builder2 {
     <State extends string>(name: string): BuilderChain<State, State>;
   }
@@ -553,6 +593,14 @@ export namespace QQ {
 
   interface StateChild {}
 
+  export type ChildExits<
+    ChildStateName extends string,
+    ChildAction extends AnyAction<any, ChildStateName>,
+    PartentStateName extends string
+  > = {
+    [Def in DefFromAction<ExtractExitAction<ChildAction>>]: PartentStateName;
+  };
+
   export interface ChildrenBuilderChain<
     MachineStateName extends string,
     Child extends StateChild = never
@@ -565,8 +613,10 @@ export namespace QQ {
         infer ChildEntryStateName
       >
         ? QUtils.IsUnion<ChildEntryStateName> extends true
-          ? // TODO:
-            [ChildEntryStateName, object]
+          ? [
+              ChildEntryStateName,
+              ChildExits<ChildStateName, ChildAction, MachineStateName>
+            ]
           : // TODO:
             [never]
         : never
