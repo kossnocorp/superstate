@@ -277,37 +277,10 @@ import { QQ, q, q2 } from "./index.js";
 {
   type TeaState = "water" | "steeping" | "ready";
 
-  // TODO: Temp, should be inferred?
-  type TeaAction =
-    | {
-        name: "infuse";
-        from: "water";
-        to: "steeping";
-      }
-    | {
-        name: "done";
-        from: "steepeing";
-        to: "ready";
-      }
-    // Exit actions
-    | {
-        name: "drink";
-        from: "water";
-      }
-    | {
-        name: "drink";
-        from: "ready";
-      }
-    | {
-        name: "drink";
-        from: "steeping";
-      };
-
-  const teaMachine = q<TeaState, TeaAction, "water">("tea", ($) => ({
-    water: $.entry($.on("infuse", "steeping"), $.exit("drink")),
-    steeping: $($.on("done", "ready"), $.exit("drink")),
-    ready: $.entry($.exit("drink")),
-  }));
+  const teaMachine = q2<TeaState>("tea")
+    .entry("water", ["infuse -> steeping", "drink ->"])
+    .state("steeping", ["done -> ready", "drink ->"])
+    .entry("ready", ["drink ->"]);
 
   type MugState = "clear" | "full" | "dirty";
 
@@ -337,6 +310,46 @@ import { QQ, q, q2 } from "./index.js";
       ]),
     dirty: $.entry($.on("clean", "clear")),
   }));
+
+  q2<MugState>("mug")
+    .entry("clear", "pour -> full")
+    .state("full", ["drink -> clear"], ($) =>
+      //! The entry must be specified if there are multiple entries
+      // @ts-expect-error
+      $.child(teaMachine, "wter", {
+        "water -> drink ->": "clear",
+        "steeping -> drink ->": "dirty",
+        "ready -> drink ->": "dirty",
+      })
+    )
+    .state("dirty", ["clean -> clear"]);
+
+  q2<MugState>("mug")
+    .entry("clear", "pour -> full")
+    .state("full", ["drink -> clear"], ($) =>
+      $.child(teaMachine, "water", {
+        //! The exit must be correct
+        // @ts-expect-error
+        "ater -> drink ->": "clear",
+        "steeping -> drink ->": "dirty",
+        //! The exiting state must be correct
+        // @ts-expect-error
+        "ready -> drink ->": "dity",
+      })
+    )
+    .state("dirty", ["clean -> clear"]);
+
+  const mugMachine2 = q2<MugState>("mug")
+    .entry("clear", "pour -> full")
+    .state("full", ["drink -> clear"], ($) =>
+      // TODO: Unless it's single entry
+      $.child(teaMachine, "water", {
+        "water -> drink ->": "clear",
+        "steeping -> drink ->": "dirty",
+        "ready -> drink ->": "dirty",
+      })
+    )
+    .state("dirty", ["clean -> clear"]);
 }
 
 //! Parallel states
