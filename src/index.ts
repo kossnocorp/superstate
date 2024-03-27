@@ -628,8 +628,12 @@ export namespace QQ {
       ...args: ChildMachine extends MachineFactory<infer ChildState>
         ? EntryStateName<ChildState> extends infer ChildEntryStateName
           ? QUtils.IsUnion<ChildEntryStateName> extends true
-            ? [ChildEntryStateName, ChildExitDef]
-            : [ChildExitDef]
+            ? keyof ChildExitDef extends never
+              ? [ChildEntryStateName]
+              : [ChildEntryStateName, ChildExitDef]
+            : keyof ChildExitDef extends never
+            ? [ChildEntryStateName] | []
+            : [ChildEntryStateName, ChildExitDef] | [ChildExitDef]
           : never
         : never
     ): ChildState<ChildMachine, ChildExitDefToAction<ChildExitDef>>;
@@ -739,6 +743,24 @@ export namespace QQ {
       StateActionDef,
       { Entry: true },
       never
+    >;
+
+    entry<
+      StateName extends ChainStateName,
+      StateActionDef extends ActionDef<MachineStateName, any, any>,
+      Children extends ChildrenMap<MachineStateName, any>
+    >(
+      name: StateName,
+      actions: StateActionDef | StateActionDef[],
+      children: ChildrenGenerator<MachineStateName, Children>
+    ): BuilderChainResult<
+      MachineStateName,
+      ChainStateName,
+      MachineState,
+      StateName,
+      StateActionDef,
+      { Entry: true },
+      Children
     >;
   }
 }

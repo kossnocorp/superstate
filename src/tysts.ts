@@ -351,8 +351,6 @@ import { q2 } from "./index.js";
   const mug = mugMachine.enter();
 
   mug.on("full", (event) => {
-    type Test = typeof event.state.children.tea;
-
     event.state.children.tea.on("ready", (childEvent) => {
       if (childEvent.state.name === "ready") return;
 
@@ -360,68 +358,47 @@ import { q2 } from "./index.js";
       childEvent.state.name satisfies never;
     });
   });
-}
 
-//! Conditional children exits
-{
   // TODO:
-  // TODO: Single entry nested machine -> optional entry on $.child
+  mug.on("full.tea.ready", (event) => {
+    if (childEvent.state.name === "ready") return;
+
+    //! The state can only be ready
+    childEvent.state.name satisfies never;
+  });
 }
 
 //! Parallel states
 {
   type ExpireState = "fresh" | "expired";
 
-  type ExpireAction = {
-    name: "expire";
-    from: "fresh";
-    to: "expired";
-  };
-
-  // TODO: Temp, should be inferred?
-  const expireMachine = q<ExpireState, ExpireAction, "fresh">(
-    "expire",
-    ($) => ({
-      fresh: $($.on("expire", "expired")),
-      expired: $(),
-    })
-  );
+  const expireMachine = q2<ExpireState>("expire")
+    .entry("expired", ["expire -> expired"])
+    .state("fresh");
 
   type HeatState = "frozen" | "thawed" | "hot";
 
-  // TODO: Temp, should be inferred?
-  type HeatAction =
-    | {
-        name: "thaw";
-        from: "frozen";
-        to: "thawed";
-      }
-    | {
-        name: "heat";
-        from: "thawed";
-        to: "hot";
-      };
-
-  const heatMachine = q<HeatState, HeatAction, "frozen">("heat", ($) => ({
-    frozen: $.entry($.on("thaw", "thawed")),
-    thawed: $($.on("heat", "hot")),
-    hot: $(),
-  }));
+  const heatMachine = q2<HeatState>("heat")
+    .entry("frozen", "thaw -> thawed")
+    .state("thawed", "heat -> hot")
+    .state("hot");
 
   type MeatPieState = "unpacked" | "cooked";
 
-  // TODO: Temp, should be inferred?
-  type MeatPieAction = {
-    name: "cook";
-    from: "unpacked";
-    to: "cooked";
-  };
+  type EatState = "eating";
 
-  const meatPieMachine = q<MeatPieState, MeatPieAction, "unpacked">(
-    "meatPie",
-    ($) => ({
-      unpacked: $.nest(expireMachine).nest(heatMachine),
-      cooked: $(),
-    })
-  );
+  const eatMachine = q2<EatState>("eat").entry("eating", "eat -> eating");
+
+  const meatPieMachine = q2<MeatPieState>("meatPie")
+    .entry("unpacked", [], ($) => ({
+      expire: $.child(expireMachine),
+      heat: $.child(heatMachine),
+      eat: $.child(eatMachine, {
+        "eating ->": "cooked",
+        //! The exit state is invalid
+        // @ts-expect-error
+        "nope ->": "cooked",
+      }),
+    }))
+    .state("cooked");
 }
