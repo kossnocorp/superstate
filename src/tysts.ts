@@ -367,7 +367,18 @@ import { QQ, q2 } from "./index.js";
   });
 
   mug.on("*", (event) => {
-    // TODO: Nested events!
+    if (event.type === "state") {
+      //! The nested events should be propogated
+      if (event.state.name === "ready") return;
+    }
+  });
+
+  mug.on("*", (event) => {
+    if (event.type === "state") {
+      //! The state is not defined
+      // @ts-expect-error
+      if (event.state.name === "rady") return;
+    }
   });
 }
 
