@@ -391,8 +391,18 @@ export namespace QQ {
           : never
         : never);
 
+  export type DeepAllState<MachineState> =
+    | MachineState
+    | (MachineState extends { children: infer Children }
+        ? Children extends Record<string, any>
+          ? Children[keyof Children] extends MachineInstance<infer ChildState>
+            ? DeepAllState<ChildState>
+            : never
+          : never
+        : never);
+
   export type Event<_State extends { name: string }, MachineAction> =
-    | EventState<_State>
+    | EventState<DeepAllState<_State>>
     | EventAction<MachineAction>;
 
   export interface EventState<_State extends { name: string }> {
