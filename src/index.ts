@@ -355,23 +355,18 @@ export namespace QQ {
     MachineState extends { name: string },
     Prefix extends string | undefined = undefined
   > =
+    // First we get the root level state names
     | (Prefix extends undefined
         ? MachineState["name"]
         : `${Prefix}.${MachineState["name"]}`)
-    | (MachineState extends infer ParentState extends State<
-        any,
-        any,
-        any,
-        any,
-        any
-      >
-        ? ParentState extends State<any, any, any, any, infer Children>
-          ? Children extends ChildrenInstancesMap<any>
-            ? keyof Children extends infer ChildName extends string
-              ? Children[ChildName] extends MachineInstance<infer ChildState>
-                ? StateTarget<ChildState, `${ParentState["name"]}.${ChildName}`>
-                : never
-              : never
+    // Then we add the children state names
+    | (MachineState extends {
+        name: infer ParentStateName extends string;
+        children: infer Children extends Record<string, any>;
+      }
+        ? keyof Children extends infer ChildName extends string
+          ? Children[ChildName] extends MachineInstance<infer ChildState>
+            ? StateTarget<ChildState, `${ParentStateName}.${ChildName}`>
             : never
           : never
         : never);
@@ -380,47 +375,41 @@ export namespace QQ {
     MachineState extends { name: string },
     Target extends string
   > =
+    // First we get the root level states
     | (MachineState extends { name: Target } ? MachineState : never)
-    | (MachineState extends infer ParentState extends State<
-        any,
-        any,
-        any,
-        any,
-        any
-      >
-        ? ParentState extends State<any, any, any, any, infer Children>
-          ? Children extends ChildrenInstancesMap<any>
-            ? keyof Children extends infer ChildName extends string
-              ? Children[ChildName] extends MachineInstance<infer ChildState>
-                ? Target extends `${ParentState["name"]}.${ChildName}.${infer ChildTarget}`
-                  ? MatchTargetState<ChildState, ChildTarget>
-                  : never
-                : never
+    // Then we get the children states
+    | (MachineState extends {
+        name: infer ParentStateName extends string;
+        children: infer Children extends Record<string, any>;
+      }
+        ? keyof Children extends infer ChildName extends string
+          ? Children[ChildName] extends MachineInstance<infer ChildState>
+            ? Target extends `${ParentStateName}.${ChildName}.${infer ChildTarget}`
+              ? MatchTargetState<ChildState, ChildTarget>
               : never
             : never
           : never
         : never);
 
-  export type Event<
-    _State extends State<any, any, any, any, any>,
-    MachineAction extends AnyAction
-  > = EventState<_State> | EventAction<MachineAction>;
+  export type Event<_State extends { name: string }, MachineAction> =
+    | EventState<_State>
+    | EventAction<MachineAction>;
 
-  export interface EventState<_State extends State<any, any, any, any, any>> {
+  export interface EventState<_State extends { name: string }> {
     type: "state";
     state: _State;
   }
 
-  export interface EventAction<MachineAction extends AnyAction> {
+  export interface EventAction<MachineAction> {
     type: "action";
     action: MachineAction;
     // TODO: from, to, condition
   }
 
   export interface OnListener<
-    MachineState extends State<any, any, any, any, any>,
+    MachineState extends { name: string },
     MachineAction extends AnyAction,
-    Target extends OnTarget<MachineState["name"], any>
+    Target extends OnTarget<MachineState, any>
   > {
     (
       event: Target extends "*"
@@ -479,9 +468,9 @@ export namespace QQ {
   export interface State<
     MachineStateName extends string,
     StateName extends MachineStateName,
-    Action extends StateAction<MachineStateName, StateName>,
-    Props extends StateProps<boolean>,
-    Children extends ChildrenInstancesMap<any>
+    Action, // extends StateAction<MachineStateName, StateName>, // optimization
+    Props, // extends StateProps<boolean>, // optimization
+    Children // extends ChildrenInstancesMap<any> // optimization
   > {
     name: StateName;
     actions: Action[];
@@ -551,7 +540,7 @@ export namespace QQ {
   }
 
   export interface StateProps<Entry extends boolean> {
-    Entry: Entry;
+    entry: Entry;
   }
 
   type MachineAction<MachineState extends State<any, any, any, any, any>> =
@@ -559,12 +548,15 @@ export namespace QQ {
       ? Action
       : never;
 
-  type EntryStateName<MachineState extends State<any, any, any, any, any>> =
-    MachineState extends State<any, any, any, infer Props, any>
-      ? Props["Entry"] extends true
-        ? MachineState["name"]
-        : never
-      : never;
+  /**
+   * Infers the entry state name from the machine state.
+   */
+  type EntryStateName<State> = State extends {
+    name: infer Name;
+    props: { entry: true };
+  }
+    ? Name
+    : never;
 
   type BuilderChainResult<
     MachineStateName extends string,
@@ -693,12 +685,12 @@ export namespace QQ {
   }
 
   export type ChildrenInstancesMap<
-    ChildState extends NamedChildState<any, any, any>
+    _ChildState extends NamedChildState<any, any, any>
   > = {
-    [ChildStateName in ChildState["name"]]: ChildState extends {
+    [ChildStateName in _ChildState["name"]]: _ChildState extends {
       name: ChildStateName;
     }
-      ? ChildState["factory"] extends MachineFactory<infer State>
+      ? _ChildState["factory"] extends MachineFactory<infer State>
         ? MachineInstance<State>
         : never
       : never;
@@ -744,7 +736,7 @@ export namespace QQ {
       MachineState,
       StateName,
       never,
-      { Entry: false },
+      { entry: false },
       never
     >;
 
@@ -760,7 +752,7 @@ export namespace QQ {
       MachineState,
       StateName,
       StateActionDef,
-      { Entry: false },
+      { entry: false },
       never
     >;
 
@@ -778,7 +770,7 @@ export namespace QQ {
       MachineState,
       StateName,
       StateActionDef,
-      { Entry: false },
+      { entry: false },
       Children
     >;
 
@@ -794,7 +786,7 @@ export namespace QQ {
       MachineState,
       StateName,
       StateActionDef,
-      { Entry: true },
+      { entry: true },
       never
     >;
 
@@ -812,7 +804,7 @@ export namespace QQ {
       MachineState,
       StateName,
       StateActionDef,
-      { Entry: true },
+      { entry: true },
       Children
     >;
   }
