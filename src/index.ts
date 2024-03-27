@@ -593,13 +593,24 @@ export namespace QQ {
 
   interface StateChild {}
 
-  export type ChildExits<
+  export type ChildExitsDef<
     ChildStateName extends string,
     ChildAction extends AnyAction<any, ChildStateName>,
     PartentStateName extends string
   > = {
     [Def in DefFromAction<ExtractExitAction<ChildAction>>]: PartentStateName;
   };
+
+  export type ChildExit = {};
+
+  export interface ChildState<
+    MachineStateName extends string,
+    ChildStateName extends string
+  > {
+    name: ChildStateName;
+    factory: MachineFactory<any, any, any>;
+    exits: ChildExit[];
+  }
 
   export interface ChildrenBuilderChain<
     MachineStateName extends string,
@@ -615,13 +626,30 @@ export namespace QQ {
         ? QUtils.IsUnion<ChildEntryStateName> extends true
           ? [
               ChildEntryStateName,
-              ChildExits<ChildStateName, ChildAction, MachineStateName>
+              ChildExitsDef<ChildStateName, ChildAction, MachineStateName>
             ]
           : // TODO:
             [never]
         : never
-    ): ChildrenBuilderChain<MachineStateName, Child>;
+    ): any; // TODO:
   }
+
+  export type ChildrenMap<
+    MachineStateName extends string,
+    ChildrenStateNam extends string
+  > = {
+    [ChildStateName in ChildrenStateNam]: ChildState<
+      MachineStateName,
+      ChildStateName
+    >;
+  };
+
+  export type ChildrenGenerator<
+    MachineStateName extends string,
+    ChildrenStateName extends string
+  > = (
+    builder: ChildrenBuilderChain<MachineStateName>
+  ) => ChildrenMap<MachineStateName, ChildrenStateName>;
 
   export interface BuilderChain<
     MachineStateName extends string,
@@ -660,7 +688,7 @@ export namespace QQ {
     >(
       name: StateName,
       actions: StateActionDef | StateActionDef[],
-      children: (builder: ChildrenBuilderChain<MachineStateName>) => void
+      children: ChildrenGenerator<MachineStateName, any>
       // TODO: Result
     ): BuilderChainResult<
       MachineStateName,

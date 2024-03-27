@@ -338,17 +338,26 @@ import { QQ, q, q2 } from "./index.js";
 
   const mugMachine = q2<MugState>("mug")
     .entry("clear", "pour -> full")
-    .state("full", ["drink -> clear"], ($) =>
+    .state("full", ["drink -> clear"], ($) => ({
       // TODO: Unless it's single entry
-      $.child(teaMachine, "water", {
+      tea: $.child(teaMachine, "water", {
         "water -> drink ->": "clear",
         "steeping -> drink ->": "dirty",
         "ready -> drink ->": "dirty",
-      })
-    )
+      }),
+    }))
     .state("dirty", ["clean -> clear"]);
 
-  mugMachine.enter();
+  const mug = mugMachine.enter();
+
+  mug.on("full", (event) => {
+    event.state.children.tea.on("ready", (childEvent) => {
+      if (childEvent.state.name === "ready") return;
+
+      //! The state can only be ready
+      childEvent.state satisfies never;
+    });
+  });
 }
 
 //! Conditional children exits
