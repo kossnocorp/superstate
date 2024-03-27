@@ -1,4 +1,4 @@
-import { q, q2 } from "./index.js";
+import { QQ, q, q2 } from "./index.js";
 
 //! Simple machine
 {
@@ -17,7 +17,7 @@ import { q, q2 } from "./index.js";
     .state("stopped", ["play -> playing"]);
 
   const playerMachine = q2<PlayerState>("action")
-    .entry("stopped", ["play -> playing"])
+    .entry("stopped", "play -> playing")
     .state("playing", ["pause -> paused", "stop -> stopped"])
     .state("paused", ["play -> playing", "stop -> stopped"]);
 
@@ -151,8 +151,8 @@ import { q, q2 } from "./index.js";
   type PendulumState = "left" | "right";
 
   const pendulumMachine = q2<PendulumState>("pendulum")
-    .entry("left", ["swing -> right"])
-    .entry("right", ["swing -> left"]);
+    .entry("left", "swing -> right")
+    .entry("right", "swing -> left");
 
   //! Entry should be defined as there're multiple entry states
   pendulumMachine.enter("left");
@@ -165,28 +165,6 @@ import { q, q2 } from "./index.js";
 //! Exit actions
 {
   type CassetteState = "stopped" | "playing";
-
-  // TODO: Temp, should be inferred?
-  type CassetteAction =
-    | {
-        name: "play";
-        from: "stopped";
-        to: "playing";
-      }
-    | {
-        name: "stop";
-        from: "playing";
-        to: "stopped";
-      }
-    // Exit actions
-    | {
-        name: "eject";
-        from: "stopped";
-      }
-    | {
-        name: "eject";
-        from: "playing";
-      };
 
   const casseteMachine = q2<CassetteState>("cassette")
     .entry("stopped", ["play -> playing", "eject ->"])
@@ -202,56 +180,74 @@ import { q, q2 } from "./index.js";
 {
   type PCState = "on" | "sleep" | "off";
 
-  // TODO: Temp, should be inferred?
-  type PCAction =
-    | {
-        name: "press";
-        from: "off";
-        to: "on";
-      }
-    | {
-        name: "press";
-        from: "sleep";
-        to: "off";
-        condition: "long";
-      }
-    | {
-        name: "restart";
-        from: "sleep";
-        to: "on";
-      }
-    | {
-        name: "press";
-        from: "on";
-        to: "off";
-        condition: "long";
-      }
-    | {
-        name: "press";
-        from: "on";
-        to: "sleep";
-      }
-    | {
-        name: "restart";
-        from: "on";
-        to: "on";
-      };
-
-  const pcMachine = q<PCState, PCAction, "off">("pendulum", ($) => ({
-    off: $.entry($.on("press", "on")),
-    sleep: $($.on("press", "on").if("long", "off"), $.on("restart", "on")),
-    on: $($.on("press").if("long", "off").else("sleep"), $.on("restart", "on")),
-  }));
+  const pcMachine = q2<PCState>("pc")
+    .entry("off", "press -> on")
+    .state("sleep", ["press -> on", "press(long) -> off", "restart -> on"])
+    .state("on", ["press -> sleep", "press(long) -> off", "restart -> on"]);
 
   const pc = pcMachine.enter();
 
   //! Allows to send an action without the condition
   pc.send("press");
+
   //! Allows to send an action with the condition
   pc.send("press", "long");
+
   //! The condition is undefined
   // @ts-expect-error
   pc.send("press", "nope");
+
+  //! Can't send conditions to wrong actions
+  // @ts-expect-error
+  pc.send("restart", "long");
+
+  //! Can't send undefined actions
+  // @ts-expect-error
+  pc.send();
+  // @ts-expect-error
+  pc.send("nope");
+  // @ts-expect-error
+  pc.send("nope", "nope");
+  // @ts-expect-error
+  pc.send("nope", "long");
+}
+
+//! Conditional exits
+{
+  type CatState = "boxed" | "alive" | "dead";
+
+  const catMachine = q2<CatState>("cat")
+    .entry("boxed", ["reveal(lucky) -> alive", "reveal(unlucky) -> dead"])
+    .state("alive", "pet -> alive")
+    .state("dead");
+
+  const cat = catMachine.enter();
+
+  //! Allows to send conditional exit actions
+  cat.send("reveal", "lucky");
+  cat.send("reveal", "unlucky");
+
+  //! The condition is undefined
+  // @ts-expect-error
+  cat.send("reveal", "nope");
+
+  //! Should always pass the condition
+  // @ts-expect-error
+  cat.send("reveal");
+
+  //! Can't send conditions to wrong actions
+  // @ts-expect-error
+  cat.send("restart", "long");
+
+  //! Can't send undefined actions
+  // @ts-expect-error
+  cat.send();
+  // @ts-expect-error
+  cat.send("nope");
+  // @ts-expect-error
+  cat.send("nope", "nope");
+  // @ts-expect-error
+  cat.send("nope", "long");
 }
 
 //! Composite states
