@@ -347,9 +347,59 @@ export namespace QQ {
   }
 
   export type OnTarget<
-    StateName extends string,
+    MachineState extends { name: string },
     MachineAction extends AnyAction
-  > = "*" | StateName | MachineAction["name"];
+  > = "*" | StateTarget<MachineState> | MachineAction["name"];
+
+  export type StateTarget<
+    MachineState extends { name: string },
+    Prefix extends string | undefined = undefined
+  > =
+    | (Prefix extends undefined
+        ? MachineState["name"]
+        : `${Prefix}.${MachineState["name"]}`)
+    | (MachineState extends infer ParentState extends State<
+        any,
+        any,
+        any,
+        any,
+        any
+      >
+        ? ParentState extends State<any, any, any, any, infer Children>
+          ? Children extends ChildrenInstancesMap<any>
+            ? keyof Children extends infer ChildName extends string
+              ? Children[ChildName] extends MachineInstance<infer ChildState>
+                ? StateTarget<ChildState, `${ParentState["name"]}.${ChildName}`>
+                : never
+              : never
+            : never
+          : never
+        : never);
+
+  export type MatchTargetState<
+    MachineState extends { name: string },
+    Target extends string
+  > =
+    | (MachineState extends { name: Target } ? MachineState : never)
+    | (MachineState extends infer ParentState extends State<
+        any,
+        any,
+        any,
+        any,
+        any
+      >
+        ? ParentState extends State<any, any, any, any, infer Children>
+          ? Children extends ChildrenInstancesMap<any>
+            ? keyof Children extends infer ChildName extends string
+              ? Children[ChildName] extends MachineInstance<infer ChildState>
+                ? Target extends `${ParentState["name"]}.${ChildName}.${infer ChildTarget}`
+                  ? MatchTargetState<ChildState, ChildTarget>
+                  : never
+                : never
+              : never
+            : never
+          : never
+        : never);
 
   export type Event<
     _State extends State<any, any, any, any, any>,
@@ -368,15 +418,17 @@ export namespace QQ {
   }
 
   export interface OnListener<
-    _State extends State<any, any, any, any, any>,
+    MachineState extends State<any, any, any, any, any>,
     MachineAction extends AnyAction,
-    Target extends OnTarget<_State["name"], any>
+    Target extends OnTarget<MachineState["name"], any>
   > {
     (
       event: Target extends "*"
-        ? Event<_State, MachineAction>
-        : Target extends Array<infer StateTarget> | infer StateTarget
-        ? EventState<_State extends { name: StateTarget } ? _State : never>
+        ? Event<MachineState, MachineAction>
+        : Target extends
+            | Array<infer TargetString extends string>
+            | infer TargetString extends string
+        ? EventState<MatchTargetState<MachineState, TargetString>> // EventState<_State extends { name: StateTarget } ? _State : never>
         : never
     ): void;
   }
@@ -417,7 +469,7 @@ export namespace QQ {
           action: ActionName
         ): void;
 
-        on<Target extends OnTarget<MachineState["name"], Action>>(
+        on<Target extends OnTarget<MachineState, Action>>(
           target: Target | Target[],
           listener: OnListener<MachineState, Action, Target>
         ): Off;
@@ -601,6 +653,8 @@ export namespace QQ {
     exits: ExitAction[];
   }
 
+  // TODO: It seems like the name can't be infered, investigate and remove
+  // this generic
   export interface NamedChildState<
     ChildName extends string,
     ChildFactory extends MachineFactory<any>,

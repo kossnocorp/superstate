@@ -1,4 +1,4 @@
-import { q2 } from "./index.js";
+import { QQ, q2 } from "./index.js";
 
 //! Simple machine
 {
@@ -339,7 +339,6 @@ import { q2 } from "./index.js";
   const mugMachine = q2<MugState>("mug")
     .entry("clear", "pour -> full")
     .state("full", ["drink -> clear"], ($) => ({
-      // TODO: Unless it's single entry
       tea: $.child(teaMachine, "water", {
         "water -> drink ->": "clear",
         "steeping -> drink ->": "dirty",
@@ -350,6 +349,7 @@ import { q2 } from "./index.js";
 
   const mug = mugMachine.enter();
 
+  // TODO: Fix deeply nested type errors
   mug.on("full", (event) => {
     event.state.children.tea.on("ready", (childEvent) => {
       if (childEvent.state.name === "ready") return;
@@ -359,12 +359,15 @@ import { q2 } from "./index.js";
     });
   });
 
-  // TODO:
   mug.on("full.tea.ready", (event) => {
-    if (childEvent.state.name === "ready") return;
+    if (event.state.name === "ready") return;
 
     //! The state can only be ready
-    childEvent.state.name satisfies never;
+    event.state.name satisfies never;
+  });
+
+  mug.on("*", (event) => {
+    // TODO: Nested events!
   });
 }
 
