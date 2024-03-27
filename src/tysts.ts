@@ -150,26 +150,9 @@ import { q, q2 } from "./index.js";
 {
   type PendulumState = "left" | "right";
 
-  // TODO: Temp, should be inferred?
-  type PendulumAction =
-    | {
-        name: "swing";
-        from: "left";
-        to: "right";
-      }
-    | {
-        name: "swing";
-        from: "right";
-        to: "left";
-      };
-
-  const pendulumMachine = q<PendulumState, PendulumAction, "left" | "right">(
-    "pendulum",
-    ($) => ({
-      left: $.entry($.on("swing", "right")),
-      right: $.entry($.on("swing", "left")),
-    })
-  );
+  const pendulumMachine = q2<PendulumState>("pendulum")
+    .entry("left", ["swing -> right"])
+    .entry("right", ["swing -> left"]);
 
   //! Entry should be defined as there're multiple entry states
   pendulumMachine.enter("left");
@@ -205,13 +188,9 @@ import { q, q2 } from "./index.js";
         from: "playing";
       };
 
-  const casseteMachine = q<CassetteState, CassetteAction, "stopped">(
-    "cassette",
-    ($) => ({
-      stopped: $.entry($.on("play", "playing"), $.exit("eject")),
-      playing: $($.on("stop", "stopped"), $.exit("eject")),
-    })
-  );
+  const casseteMachine = q2<CassetteState>("cassette")
+    .entry("stopped", ["play -> playing", "eject ->"])
+    .state("playing", ["stop -> stopped", "eject ->"]);
 
   const cassete = casseteMachine.enter();
 
