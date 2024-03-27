@@ -273,7 +273,7 @@ import { QQ, q, q2 } from "./index.js";
   cat.send("confirm");
 }
 
-//! Composite states
+//! Children states
 {
   type TeaState = "water" | "steeping" | "ready";
 
@@ -284,37 +284,23 @@ import { QQ, q, q2 } from "./index.js";
 
   type MugState = "clear" | "full" | "dirty";
 
-  // TODO: Temp, should be inferred?
-  type MugAction =
-    | {
-        name: "clean";
-        from: "dirty";
-        to: "clear";
-      }
-    | {
-        name: "pour";
-        from: "clear";
-        to: "full";
-      };
-
-  const mugMachine = q<MugState, MugAction, "clear" | "dirty">("mug", ($) => ({
-    clear: $.entry($.on("pour", "full")),
-    full:
-      //! When nesting you specify the entry state
-      // TODO: Unless it's single entry
-      $.nest(teaMachine, "water", [
-        //! Nesting a machine makes to connect all the exits to states
-        "water -> drink -> clear",
-        "steeping -> drink -> dirty",
-        "ready -> drink -> dirty",
-      ]),
-    dirty: $.entry($.on("clean", "clear")),
-  }));
-
   q2<MugState>("mug")
     .entry("clear", "pour -> full")
     .state("full", ["drink -> clear"], ($) =>
       //! The entry must be specified if there are multiple entries
+      // @ts-expect-error
+      $.child(teaMachine, {
+        "water -> drink ->": "clear",
+        "steeping -> drink ->": "dirty",
+        "ready -> drink ->": "dirty",
+      })
+    )
+    .state("dirty", ["clean -> clear"]);
+
+  q2<MugState>("mug")
+    .entry("clear", "pour -> full")
+    .state("full", ["drink -> clear"], ($) =>
+      //! The nested machine entry is invalid
       // @ts-expect-error
       $.child(teaMachine, "wter", {
         "water -> drink ->": "clear",
@@ -332,6 +318,17 @@ import { QQ, q, q2 } from "./index.js";
         // @ts-expect-error
         "ater -> drink ->": "clear",
         "steeping -> drink ->": "dirty",
+        "ready -> drink ->": "dirty",
+      })
+    )
+    .state("dirty", ["clean -> clear"]);
+
+  q2<MugState>("mug")
+    .entry("clear", "pour -> full")
+    .state("full", ["drink -> clear"], ($) =>
+      $.child(teaMachine, "water", {
+        "after -> drink ->": "clear",
+        "steeping -> drink ->": "dirty",
         //! The exiting state must be correct
         // @ts-expect-error
         "ready -> drink ->": "dity",
@@ -339,7 +336,7 @@ import { QQ, q, q2 } from "./index.js";
     )
     .state("dirty", ["clean -> clear"]);
 
-  const mugMachine2 = q2<MugState>("mug")
+  const mugMachine = q2<MugState>("mug")
     .entry("clear", "pour -> full")
     .state("full", ["drink -> clear"], ($) =>
       // TODO: Unless it's single entry
@@ -350,6 +347,14 @@ import { QQ, q, q2 } from "./index.js";
       })
     )
     .state("dirty", ["clean -> clear"]);
+
+  mugMachine.enter();
+}
+
+//! Conditional children exits
+{
+  // TODO:
+  // TODO: Single entry nested machine -> optional entry on $.child
 }
 
 //! Parallel states
