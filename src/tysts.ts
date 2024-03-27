@@ -1,4 +1,4 @@
-import { QQ, q, q2 } from "./index.js";
+import { q2 } from "./index.js";
 
 //! Simple machine
 {
@@ -55,7 +55,7 @@ import { QQ, q, q2 } from "./index.js";
   //! The machine allows to subscribe to all states
   const off = player.on("*", (event) => {
     if (event.type === "state") {
-      switch (event.state) {
+      switch (event.state.name) {
         //! There's no such state
         // @ts-expect-error
         case "nope":
@@ -101,12 +101,12 @@ import { QQ, q, q2 } from "./index.js";
   player.on("stopped", (event) => {
     //! It can only be stopped state
     if (event.type === "state") {
-      if (event.state === "stopped") {
+      if (event.state.name === "stopped") {
         return;
       }
 
       //! Can't be anything but stopped
-      event.state satisfies never;
+      event.state.name satisfies never;
       return;
     }
 
@@ -118,7 +118,7 @@ import { QQ, q, q2 } from "./index.js";
   player.on(["stopped", "playing"], (event) => {
     //! It can only be stopped or playing state
     if (event.type === "state") {
-      switch (event.state) {
+      switch (event.state.name) {
         //! Can't be invalid state
         // @ts-expect-error
         case "nope":
@@ -130,7 +130,7 @@ import { QQ, q, q2 } from "./index.js";
 
         default:
           //! Can't be anything but stopped or playing
-          event satisfies never;
+          event.state satisfies never;
       }
       return;
     }
@@ -351,11 +351,13 @@ import { QQ, q, q2 } from "./index.js";
   const mug = mugMachine.enter();
 
   mug.on("full", (event) => {
+    type Test = typeof event.state.children.tea;
+
     event.state.children.tea.on("ready", (childEvent) => {
       if (childEvent.state.name === "ready") return;
 
       //! The state can only be ready
-      childEvent.state satisfies never;
+      childEvent.state.name satisfies never;
     });
   });
 }
