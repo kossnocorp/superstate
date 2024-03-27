@@ -545,7 +545,7 @@ export namespace QQ {
   > {
     state<
       StateName extends ChainStateName,
-      StateActionDef extends ActionDef<MachineStateName, any, any>
+      StateActionDef extends ActionDef<MachineStateName, any, any> = never
     >(
       name: StateName,
       actions?: StateActionDef | StateActionDef[]
@@ -560,7 +560,7 @@ export namespace QQ {
 
     entry<
       StateName extends ChainStateName,
-      StateActionDef extends ActionDef<MachineStateName, any, any>
+      StateActionDef extends ActionDef<MachineStateName, any, any> = never
     >(
       name: StateName,
       actions?: StateActionDef | StateActionDef[]
