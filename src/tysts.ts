@@ -212,7 +212,7 @@ import { QQ, q, q2 } from "./index.js";
   pc.send("nope", "long");
 }
 
-//! Conditional exits
+//! Only-conditional actions
 {
   type CatState = "boxed" | "alive" | "dead";
 
@@ -248,6 +248,29 @@ import { QQ, q, q2 } from "./index.js";
   cat.send("nope", "nope");
   // @ts-expect-error
   cat.send("nope", "long");
+}
+
+//! Conditional exits
+{
+  type ConfirmState = "showing" | "confirmed";
+
+  const confirmMachine = q2<ConfirmState>("confirm")
+    .entry("showing", ["confirm(confirm) -> confirmed", "confirm(cancel) ->"])
+    .state("confirmed");
+
+  const cat = confirmMachine.enter();
+
+  //! Allows to send conditional exit actions
+  cat.send("confirm", "confirm");
+  cat.send("confirm", "cancel");
+
+  //! The condition is undefined
+  // @ts-expect-error
+  cat.send("confirm", "nope");
+
+  //! Should always pass the condition
+  // @ts-expect-error
+  cat.send("confirm");
 }
 
 //! Composite states
