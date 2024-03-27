@@ -551,17 +551,67 @@ export namespace QQ {
     props: _StateProps;
   };
 
+  interface StateChild {}
+
+  export interface ChildrenBuilderChain<
+    MachineStateName extends string,
+    Child extends StateChild = never
+  > {
+    child<ChildMachine extends MachineFactory<any, any, any>>(
+      factory: ChildMachine,
+      ...args: ChildMachine extends MachineFactory<
+        infer ChildStateName,
+        infer ChildAction,
+        infer ChildEntryStateName
+      >
+        ? QUtils.IsUnion<ChildEntryStateName> extends true
+          ? // TODO:
+            [ChildEntryStateName, object]
+          : // TODO:
+            [never]
+        : never
+    ): ChildrenBuilderChain<MachineStateName, Child>;
+  }
+
   export interface BuilderChain<
     MachineStateName extends string,
     ChainStateName extends MachineStateName,
     MachineState extends State2<MachineStateName, any, any, any> = never
   > {
+    state<StateName extends ChainStateName>(
+      name: StateName
+    ): BuilderChainResult<
+      MachineStateName,
+      ChainStateName,
+      MachineState,
+      StateName,
+      never,
+      { Entry: false }
+    >;
+
     state<
       StateName extends ChainStateName,
-      StateActionDef extends ActionDef<MachineStateName, any, any> = never
+      StateActionDef extends ActionDef<MachineStateName, any, any>
     >(
       name: StateName,
-      actions?: StateActionDef | StateActionDef[]
+      actions: StateActionDef | StateActionDef[]
+    ): BuilderChainResult<
+      MachineStateName,
+      ChainStateName,
+      MachineState,
+      StateName,
+      StateActionDef,
+      { Entry: false }
+    >;
+
+    state<
+      StateName extends ChainStateName,
+      StateActionDef extends ActionDef<MachineStateName, any, any>
+    >(
+      name: StateName,
+      actions: StateActionDef | StateActionDef[],
+      children: (builder: ChildrenBuilderChain<MachineStateName>) => void
+      // TODO: Result
     ): BuilderChainResult<
       MachineStateName,
       ChainStateName,
