@@ -436,14 +436,16 @@ export namespace QQ {
   export type ActionDef<
     MachineStateName extends string,
     ActionName extends string
-  > = `${ActionName} -> ${MachineStateName}`;
+  > = `${ActionName} -> ${MachineStateName}` | `${ActionName} ->`;
 
   export type ActionFromDef<
-    MachineState extends string,
-    FromState extends MachineState,
+    MachineStateName extends string,
+    FromStateName extends MachineStateName,
     Def extends ActionDef<any, any>
-  > = Def extends `${infer ActionName} -> ${infer ToState extends MachineState}`
-    ? ActionTransition<ActionName, MachineState, FromState, ToState>
+  > = Def extends `${infer ActionName} -> ${infer ToState extends MachineStateName}`
+    ? ActionTransition<ActionName, MachineStateName, FromStateName, ToState>
+    : Def extends `${infer ActionName} ->`
+    ? ActionExit<ActionName, MachineStateName, FromStateName>
     : never;
 
   export interface Builder2 {
