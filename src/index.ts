@@ -262,50 +262,70 @@ export namespace QQ {
     | ActionExit<string, string, string>
     | ActionExitFork<string, string, string, string>;
 
+  export type StateAction<
+    MachineStateName extends string,
+    FromStateName extends MachineStateName
+  > =
+    | ActionTransition<
+        string,
+        MachineStateName,
+        FromStateName,
+        MachineStateName
+      >
+    | ActionTransitionFork<
+        string,
+        MachineStateName,
+        FromStateName,
+        MachineStateName,
+        string
+      >
+    | ActionExit<string, MachineStateName, FromStateName>
+    | ActionExitFork<string, MachineStateName, FromStateName, string>;
+
   export interface ActionTransition<
     ActionName extends string,
-    StateName extends string,
-    FromState extends StateName,
-    ToState extends StateName
+    MachineStateName extends string,
+    FromStateName extends MachineStateName,
+    ToStateName extends MachineStateName
   > {
     name: ActionName;
-    from: FromState;
-    to: ToState;
+    from: FromStateName;
+    to: ToStateName;
   }
 
   // TODO: I don't like fork name
   export interface ActionTransitionFork<
     ActionName extends string,
-    StateName extends string,
-    FromState extends StateName,
-    ToState extends StateName,
+    MachineStateName extends string,
+    FromStateName extends MachineStateName,
+    ToStateName extends MachineStateName,
     ActionCondition extends string
   > {
     name: ActionName;
     condition: ActionCondition;
-    from: FromState;
-    to: ToState;
+    from: FromStateName;
+    to: ToStateName;
   }
 
   export interface ActionExit<
     ActionName extends string,
-    StateName extends string,
-    FromState extends StateName
+    MachineStateName extends string,
+    FromStateName extends MachineStateName
   > {
     name: ActionName;
-    from: FromState;
+    from: FromStateName;
   }
 
   // TODO: Add tysts
   export interface ActionExitFork<
     ActionName extends string,
-    StateName extends string,
-    FromState extends StateName,
+    MachineStateName extends string,
+    FromStateName extends MachineStateName,
     ActionCondition extends string
   > {
     name: ActionName;
     condition: ActionCondition;
-    from: FromState;
+    from: FromStateName;
   }
 
   export interface ExitState<
@@ -402,17 +422,135 @@ export namespace QQ {
     ): MachineFactory<StateName, MachineAction, EntryState>;
   }
 
+  export interface State2<
+    MachineStateName extends string,
+    StateName extends MachineStateName,
+    Action extends StateAction<MachineStateName, StateName>,
+    Props extends StateProps<boolean>
+  > {
+    name: StateName;
+    actions: Action[];
+    props: Props;
+  }
+
+  export type ActionDef<
+    MachineStateName extends string,
+    ActionName extends string
+  > = `${ActionName} -> ${MachineStateName}`;
+
+  export type ActionFromDef<
+    MachineState extends string,
+    FromState extends MachineState,
+    Def extends ActionDef<any, any>
+  > = Def extends `${infer ActionName} -> ${infer ToState extends MachineState}`
+    ? ActionTransition<ActionName, MachineState, FromState, ToState>
+    : never;
+
   export interface Builder2 {
-    <
-      StateName extends string,
-      MachineAction extends AnyAction,
-      EntryState extends StateName
+    <State extends string>(name: string): BuilderChain<State, State>;
+  }
+
+  export interface StateProps<Entry extends boolean> {
+    Entry: Entry;
+  }
+
+  type MachineAction<MachineState extends State2<any, any, any, any>> =
+    MachineState extends State2<any, any, infer Action, any> ? Action : never;
+
+  type EntryStateName<MachineState extends State2<any, any, any, any>> =
+    MachineState extends State2<any, any, any, infer Props>
+      ? Props["Entry"] extends true
+        ? MachineState["name"]
+        : never
+      : never;
+
+  type BuilderChainResult<
+    MachineStateName extends string,
+    ChainStateName extends MachineStateName,
+    MachineState extends State2<MachineStateName, any, any, any>,
+    StateName extends ChainStateName,
+    StateActionDef extends ActionDef<MachineStateName, any>,
+    _StateProps extends StateProps<any>
+  > = Exclude<ChainStateName, StateName> extends never
+    ? BuilderChainResultFactory<
+        | MachineState
+        | BuilderChainState<
+            MachineStateName,
+            StateName,
+            StateActionDef,
+            _StateProps
+          >
+      >
+    : BuilderChain<
+        MachineStateName,
+        Exclude<ChainStateName, StateName>,
+        | MachineState
+        | BuilderChainState<
+            MachineStateName,
+            StateName,
+            StateActionDef,
+            _StateProps
+          >
+      >;
+
+  export type BuilderChainResultFactory<
+    MachineState extends State2<any, any, any, any>
+  > = MachineFactory<
+    MachineState["name"],
+    MachineAction<MachineState>,
+    EntryStateName<MachineState>
+  >;
+
+  export type BuilderChainState<
+    MachineStateName extends string,
+    StateName extends MachineStateName,
+    StateActionDef extends ActionDef<MachineStateName, any>,
+    _StateProps extends StateProps<any>
+  > = {
+    name: StateName;
+    actions: ActionFromDef<MachineStateName, StateName, StateActionDef>[];
+    props: _StateProps;
+  };
+
+  export interface BuilderChain<
+    MachineStateName extends string,
+    ChainStateName extends MachineStateName,
+    MachineState extends State2<MachineStateName, any, any, any> = never
+  > {
+    state<
+      StateName extends ChainStateName,
+      StateActionDef extends ActionDef<MachineStateName, any>
     >(
-      name: string,
-      generator: Generator<StateName>
-    ): MachineFactory<StateName, MachineAction, EntryState>;
+      name: StateName,
+      actions: StateActionDef[]
+    ): BuilderChainResult<
+      MachineStateName,
+      ChainStateName,
+      MachineState,
+      StateName,
+      StateActionDef,
+      { Entry: false }
+    >;
+
+    entry<
+      StateName extends ChainStateName,
+      StateActionDef extends ActionDef<MachineStateName, any>
+    >(
+      name: StateName,
+      actions: StateActionDef[]
+    ): BuilderChainResult<
+      MachineStateName,
+      ChainStateName,
+      MachineState,
+      StateName,
+      StateActionDef,
+      { Entry: true }
+    >;
   }
 }
 
 // @ts-expect-error: This is fine, it's just a placeholder
 export const q: QQ.Builder = (() => {}) as QQ.Builder;
+
+// @ts-expect-error: This is fine, it's just a placeholder
+export const q2: QQ.Builder2 = (() => {}) as QQ.Builder2;

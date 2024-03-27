@@ -1,47 +1,29 @@
-import { QQ, q } from "./index.js";
+import { q, q2 } from "./index.js";
 
 //! Simple machine
 {
   type PlayerState = "stopped" | "playing" | "paused";
 
-  // TODO: Temp, should be inferred?
-  type PlayerAction =
-    | {
-        name: "play";
-        from: "stopped";
-        to: "playing";
-      }
-    | {
-        name: "play";
-        from: "paused";
-        to: "playing";
-      }
-    | {
-        name: "pause";
-        from: "playing";
-        to: "paused";
-      }
-    | {
-        name: "stop";
-        from: "playing";
-        to: "stopped";
-      }
-    | {
-        name: "stop";
-        from: "paused";
-        to: "stopped";
-      };
+  q2<PlayerState>("action")
+    .state("stopped", ["play -> playing"])
+    //! The nope state is not defined
+    // @ts-expect-error
+    .state("nope", []);
 
-  const playerMachine = q<PlayerState, PlayerAction, "stopped">(
-    "action",
-    ($) => ({
-      stopped: $.entry($.on("play", "playing")),
+  q2<PlayerState>("action")
+    .state("stopped", ["play -> playing"])
+    //! The stopped state is already defined
+    // @ts-expect-error
+    .state("stopped", ["play -> playing"]);
 
-      playing: $($.on("pause", "paused"), $.on("stop", "stopped")),
+  const playerMachine = q2<PlayerState>("action")
+    .entry("stopped", ["play -> playing"])
+    .state("playing", ["pause -> paused", "stop -> stopped"])
+    .state("paused", ["play -> playing", "stop -> stopped"]);
 
-      paused: $($.on("play", "playing"), $.on("stop", "stopped")),
-    })
-  );
+  //! All the states are already defined
+  // @ts-expect-error
+  playerMachine.state;
 
   //! enter
 
@@ -52,6 +34,9 @@ import { QQ, q } from "./index.js";
   //! The state is not defined as entry
   // @ts-expect-error
   playerMachine.enter("playing");
+  //! The state is undefined
+  // @ts-expect-error
+  playerMachine.enter("nope");
 
   //! send
 
