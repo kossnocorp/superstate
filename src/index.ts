@@ -397,23 +397,34 @@ export namespace QQ {
     ): void;
   }
 
+  export type ExtractConditionAction<MachineAction extends AnyAction> = Extract<
+    MachineAction,
+    | ActionTransitionFork<any, any, any, any, any>
+    | ActionExitFork<any, any, any, any>
+  >;
+
+  export type ExcludeConditionAction<MachineAction extends AnyAction> = Exclude<
+    MachineAction,
+    | ActionTransitionFork<any, any, any, any, any>
+    | ActionExitFork<any, any, any, any>
+  >;
+
   export interface MachineInstance<
     MachineStateName extends string,
     MachineAction extends AnyAction<MachineStateName>
   > {
-    send<ActionName extends MachineAction["name"]>(
+    send<ActionName extends ExtractConditionAction<MachineAction>["name"]>(
       action: ActionName,
-      ...args: MachineAction extends { name: ActionName }
-        ? MachineAction extends ActionTransitionFork<
-            any,
-            any,
-            any,
-            any,
-            infer Condition
-          >
-          ? [Condition]
-          : []
-        : []
+      condition: MachineAction extends {
+        name: ActionName;
+        condition: infer Condition;
+      }
+        ? Condition
+        : never
+    ): void;
+
+    send<ActionName extends ExcludeConditionAction<MachineAction>["name"]>(
+      action: ActionName
     ): void;
 
     on<Target extends OnTarget<MachineStateName, MachineAction>>(
@@ -468,6 +479,8 @@ export namespace QQ {
       >
     : Def extends `${infer ActionName} -> ${infer ToState extends MachineStateName}`
     ? ActionTransition<ActionName, MachineStateName, FromStateName, ToState>
+    : Def extends `${infer ActionName}(${infer Condition}) ->`
+    ? ActionExitFork<ActionName, MachineStateName, FromStateName, Condition>
     : Def extends `${infer ActionName} ->`
     ? ActionExit<ActionName, MachineStateName, FromStateName>
     : never;
