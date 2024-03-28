@@ -144,6 +144,33 @@ import { QQ, q2 } from "./index.js";
   player.on("nope", () => {});
   // @ts-expect-error
   player.on(["stopped", "nope"], () => {});
+
+  //! Matching states
+
+  {
+    const state = player.in("paused");
+
+    //! The state might be undefined
+    // @ts-expect-error
+    state.name;
+
+    //! The state is paused
+    if (state) state.name satisfies "paused";
+  }
+
+  //! Multiple matches
+
+  {
+    const state = player.in(["paused", "playing"]);
+
+    //! The state might be undefined
+    // @ts-expect-error
+    state.name;
+
+    if (state)
+      //! The state is paused or playing
+      state.name satisfies "paused" | "playing";
+  }
 }
 
 //! Multiple entries
@@ -349,7 +376,8 @@ import { QQ, q2 } from "./index.js";
 
   const mug = mugMachine.enter();
 
-  // TODO: Fix deeply nested type errors
+  //! Event listeners
+
   mug.on("full", (event) => {
     event.state.children.tea.on("ready", (childEvent) => {
       if (childEvent.state.name === "ready") return;
@@ -380,6 +408,33 @@ import { QQ, q2 } from "./index.js";
       if (event.state.name === "rady") return;
     }
   });
+
+  //! Matching states
+
+  {
+    const state = mug.in("full.tea.steeping");
+
+    //! The state might be undefined
+    // @ts-expect-error
+    state.name;
+
+    //! The state is steeping
+    if (state) state.name satisfies "steeping";
+  }
+
+  //! Multiple matches
+
+  {
+    const state = mug.in(["clear", "full.tea.ready"]);
+
+    //! The state might be undefined
+    // @ts-expect-error
+    state.name;
+
+    if (state)
+      //! The state is clear or ready
+      state.name satisfies "clear" | "ready";
+  }
 }
 
 //! Parallel states

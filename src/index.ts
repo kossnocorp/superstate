@@ -392,11 +392,75 @@ export namespace QQ {
         : never);
 
   export type DeepAllState<MachineState> =
+    // First we get the root level states
     | MachineState
+    // Then we add the children states
     | (MachineState extends { children: infer Children }
         ? Children extends Record<string, any>
           ? Children[keyof Children] extends MachineInstance<infer ChildState>
             ? DeepAllState<ChildState>
+            : never
+          : never
+        : never);
+
+  export type ActionTarger<
+    MachineState extends { name: string; actions: any[] },
+    Prefix extends string | undefined = undefined
+  > =
+    // First we get the root level action names
+    | (MachineState extends {
+        actions: Array<{ name: infer ActionName extends string }>;
+      }
+        ? Prefix extends undefined
+          ? `${ActionName}()`
+          : `${Prefix}.${ActionName}()`
+        : never)
+    // Then we add the children action names
+    | (MachineState extends {
+        name: infer ParentStateName extends string;
+        children: infer Children extends Record<string, any>;
+      }
+        ? keyof Children extends infer ChildName extends string
+          ? Children[ChildName] extends MachineInstance<infer ChildState>
+            ? ActionTarger<ChildState, `${ParentStateName}.${ChildName}`>
+            : never
+          : never
+        : never);
+
+  export type MatchTargetAction<
+    MachineState extends { name: string },
+    Target extends string
+  > =
+    // First we get the children states, so we don't match qwe.asd.zxc() as zxc
+    | (MachineState extends {
+        name: infer ParentStateName extends string;
+        children: infer Children extends Record<string, any>;
+      }
+        ? keyof Children extends infer ChildName extends string
+          ? Children[ChildName] extends MachineInstance<infer ChildState>
+            ? Target extends `${ParentStateName}.${ChildName}.${infer ChildTarget}`
+              ? MatchTargetAction<ChildState, ChildTarget>
+              : never
+            : never
+          : never
+        : never)
+    // Now we cam infer the root level actions
+    | (MachineState extends { actions: Array<infer Action> }
+        ? Action extends { name: infer ActionName extends string }
+          ? `${ActionName}()` extends Target
+            ? Action
+            : never
+          : never
+        : never);
+
+  export type DeepAllAction<MachineState> =
+    // First we get the root level actions
+    | (MachineState extends { actions: Array<infer Action> } ? Action : never)
+    // Then we add the children actions
+    | (MachineState extends { children: infer Children }
+        ? Children extends Record<string, any>
+          ? Children[keyof Children] extends MachineInstance<infer ChildState>
+            ? DeepAllAction<ChildState>
             : never
           : never
         : never);
@@ -451,8 +515,8 @@ export namespace QQ {
   >;
 
   export type MachineInstance<
-    MachineState extends State<any, any, any, any, any>
-  > = MachineAction<MachineState> extends infer Action extends AnyAction
+    MachineState extends State<any, any, any, any, any> // TODO: Cut it
+  > = MachineAction<MachineState> extends infer Action extends AnyAction // TODO: Cut it
     ? {
         send<ActionName extends ExtractConditionAction<Action>["name"]>(
           action: ActionName,
@@ -472,6 +536,10 @@ export namespace QQ {
           target: Target | Target[],
           listener: OnListener<MachineState, Action, Target>
         ): Off;
+
+        in<Target extends StateTarget<MachineState>>(
+          target: Target | Target[]
+        ): MatchTargetState<MachineState, Target> | undefined;
       }
     : never;
 
@@ -553,10 +621,11 @@ export namespace QQ {
     entry: Entry;
   }
 
-  type MachineAction<MachineState extends State<any, any, any, any, any>> =
-    MachineState extends State<any, any, infer Action, any, any>
-      ? Action
-      : never;
+  type MachineAction<MachineState> = MachineState extends {
+    actions: Array<infer Action>;
+  }
+    ? Action
+    : never;
 
   /**
    * Infers the entry state name from the machine state.
