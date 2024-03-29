@@ -559,19 +559,21 @@ export namespace QQ {
 
   export type ActionDef<
     MachineStateName extends string,
-    ActionName extends string,
+    EventName extends string,
     Condition extends string
   > =
-    | `${ActionName}(${Condition}) -> ${MachineStateName}`
-    | `${ActionName} -> ${MachineStateName}`
-    | `${ActionName}(${Condition}) ->`
-    | `${ActionName} ->`;
+    | `${EventName}() -> ${MachineStateName}`
+    | `${EventName}(${Condition}) -> ${MachineStateName}`
+    | `${EventName}() ->`
+    | `${EventName}(${Condition}) ->`;
 
   export type ActionFromDef<
     MachineStateName extends string,
     FromStateName extends MachineStateName,
     Def extends ActionDef<any, any, any>
-  > = Def extends `${infer ActionName}(${infer Condition}) -> ${infer ToState extends MachineStateName}`
+  > = Def extends `${infer ActionName}() -> ${infer ToState extends MachineStateName}`
+    ? ActionTransition<ActionName, MachineStateName, FromStateName, ToState>
+    : Def extends `${infer ActionName}(${infer Condition}) -> ${infer ToState extends MachineStateName}`
     ? ActionTransitionFork<
         ActionName,
         MachineStateName,
@@ -579,12 +581,10 @@ export namespace QQ {
         ToState,
         Condition
       >
-    : Def extends `${infer ActionName} -> ${infer ToState extends MachineStateName}`
-    ? ActionTransition<ActionName, MachineStateName, FromStateName, ToState>
+    : Def extends `${infer ActionName}() ->`
+    ? ActionExit<ActionName, MachineStateName, FromStateName>
     : Def extends `${infer ActionName}(${infer Condition}) ->`
     ? ActionExitFork<ActionName, MachineStateName, FromStateName, Condition>
-    : Def extends `${infer ActionName} ->`
-    ? ActionExit<ActionName, MachineStateName, FromStateName>
     : never;
 
   export type DefFromAction<Action extends AnyAction> =
@@ -602,7 +602,7 @@ export namespace QQ {
           infer FromStateName,
           infer ToStateName
         >
-      ? `${FromStateName} -> ${ActionName} -> ${ToStateName}`
+      ? `${FromStateName} -> ${ActionName}() -> ${ToStateName}`
       : Action extends ActionExitFork<
           infer ActionName,
           any,
@@ -611,7 +611,7 @@ export namespace QQ {
         >
       ? `${FromStateName} -> ${ActionName}(${Condition}) ->`
       : Action extends ActionExit<infer ActionName, any, infer FromStateName>
-      ? `${FromStateName} -> ${ActionName} ->`
+      ? `${FromStateName} -> ${ActionName}() ->`
       : never;
 
   export interface Builder2 {
@@ -686,9 +686,9 @@ export namespace QQ {
   export type ChildExitsDef<
     ChildStateName extends string,
     ChildAction extends AnyAction<any, ChildStateName>,
-    PartentStateName extends string
+    ParentStateName extends string
   > = {
-    [Def in DefFromAction<ExtractExitAction<ChildAction>>]: PartentStateName;
+    [Def in DefFromAction<ExtractExitAction<ChildAction>>]: ParentStateName;
   };
 
   export type AnyChildExitAction =
@@ -736,10 +736,10 @@ export namespace QQ {
   }
 
   export type ChildExitDefToAction<Def extends ChildExitsDef<any, any, any>> =
-    Def extends `${infer FromState} -> ${infer ActionName}(${infer Condition}) -> ${infer ToState}`
-      ? ChildExitActionForked<ActionName, FromState, ToState, Condition>
-      : Def extends `${infer FromState} -> ${infer ActionName} -> ${infer ToState}`
+    Def extends `${infer FromState} -> ${infer ActionName}() -> ${infer ToState}`
       ? ChildExitActionTransition<ActionName, FromState, ToState>
+      : Def extends `${infer FromState} -> ${infer ActionName}(${infer Condition}) -> ${infer ToState}`
+      ? ChildExitActionForked<ActionName, FromState, ToState, Condition>
       : never;
 
   export interface ChildrenBuilderChain<MachineStateName extends string> {
@@ -854,6 +854,7 @@ export namespace QQ {
       Children
     >;
 
+    // TODO: Limit to single entry
     entry<
       StateName extends ChainStateName,
       StateActionDef extends ActionDef<MachineStateName, any, any> = never
@@ -890,5 +891,78 @@ export namespace QQ {
   }
 }
 
+export namespace Superstate {
+  export namespace Machine {
+    export interface Action {
+      type: "enter" | "exit";
+    }
+
+    export interface Transition {}
+
+    export interface StateProps {
+      initial: boolean;
+      final: boolean;
+      parallel: boolean;
+    }
+
+    export interface State extends StateProps {
+      name: string;
+      actions: Action;
+      transitions: Transition;
+    }
+  }
+
+  export namespace Builder {
+    export interface Machine {
+      <StateName extends string>(name: string): Head<StateName>;
+    }
+
+    export interface Head<
+      MachineStateName extends string,
+      ChainStateName extends string = MachineStateName,
+      State extends Machine.State = never
+    > {
+      start: StateFn<MachineStateName, ChainStateName, State>;
+    }
+
+    export interface Tail<
+      MachineStateName extends string,
+      ChainStateName extends string = MachineStateName,
+      State extends Machine.State = never
+    > {
+      state: StateFn<MachineStateName, ChainStateName, State>;
+
+      final: StateFn<MachineStateName, ChainStateName, State>;
+    }
+
+    export interface StateFn<
+      StateName extends string,
+      RestStateName extends string = StateName,
+      State extends Machine.State = never
+    > {
+      <StateName extends RestStateName>(
+        name: StateName,
+        generator: (builder: any) => any
+      ): Tail<
+        StateName,
+        Exclude<RestStateName, StateName>,
+        | State
+        | {
+            name: StateName;
+            actions: any; // TODO:
+            transitions: any; // TODO:
+            initial: boolean;
+            final: boolean;
+            parallel: boolean;
+          }
+      >;
+    }
+  }
+}
+
 // @ts-expect-error: This is fine, it's just a placeholder
 export const q2: QQ.Builder2 = (() => {}) as QQ.Builder2;
+
+export const superstate: Superstate.Builder.Machine =
+  // @ts-expect-error: This is fine, it's just a placeholder
+  (() => {}) as Superstate.Builder.Machine;
