@@ -1,5 +1,5 @@
 {
-  "name": "qcraft",
+  "name": "superstate",
   "version": "0.1.0",
   "description": "",
   "main": "index.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kossnocorp/qcraft.git"
+    "url": "git+https://github.com/kossnocorp/superstate.git"
   },
   "keywords": [
     "state"
@@ -17,9 +17,9 @@
   "author": "Sasha Koss <koss@nocorp.me>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/kossnocorp/qcraft/issues"
+    "url": "https://github.com/kossnocorp/superstate/issues"
   },
-  "homepage": "https://github.com/kossnocorp/qcraft#readme",
+  "homepage": "https://github.com/kossnocorp/superstate#readme",
   "devDependencies": {
     "typescript": "^5.4.3",
     "vitest": "^1.4.0"

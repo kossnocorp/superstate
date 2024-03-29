@@ -1,5 +1,5 @@
 /**
- * QCraft type utils.
+ * Superstate type utils.
  */
 export namespace QUtils {
   /**

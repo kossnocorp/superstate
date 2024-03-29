@@ -1,7 +1,8 @@
 import { QUtils } from "./utils.js";
 
 /**
- * The root QCraft namespace. It contains all the QCraft types and functions.
+ * The root Superstate namespace. It contains all the Superstate types
+ * and functions.
  */
 export namespace Q {
   /**
@@ -231,8 +232,8 @@ export namespace Q {
 }
 
 /**
- * The root QCraft namespace. It contains all the QCraft types and functions.
- * It's a WIP API revamp.
+ * The root Superstate namespace. It contains all the Superstate types and
+ * functions. It's a WIP API revamp.
  */
 export namespace QQ {
   // TODO: Rename action -> event everywhere

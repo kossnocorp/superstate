@@ -1,8 +1,8 @@
 import { Q } from "../index.js";
 
 /**
- * The QCraft Mermaid namespace. It contains functions to generate Mermaid
- * diagrams from QCraft machines.
+ * The Superstate Mermaid namespace. It contains functions to generate Mermaid
+ * diagrams from Superstate machines.
  */
 export namespace QMermaid {
   /**
@@ -14,7 +14,7 @@ export namespace QMermaid {
    */
   export function generate(machine: Q.Machine<any, any>) {
     return [
-      "%% Generated with QCraft",
+      "%% Generated with Superstate",
       "stateDiagram-v2",
       ...indentLines(machineToState(machine)),
     ].join("\n");
