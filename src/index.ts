@@ -235,6 +235,7 @@ export namespace Q {
  * It's a WIP API revamp.
  */
 export namespace QQ {
+  // TODO: Rename action -> event everywhere
   export type AnyAction<
     ActionName extends string = string,
     MachineStateName extends string = string,
@@ -475,8 +476,8 @@ export namespace QQ {
   }
 
   export interface EventAction<MachineAction> {
-    type: "action";
-    action: MachineAction;
+    type: "event";
+    event: MachineAction;
     // TODO: from, to, condition
   }
 
