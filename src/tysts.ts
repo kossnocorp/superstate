@@ -4,19 +4,19 @@ import { QQ, q2 } from "./index.js";
 {
   type PlayerState = "stopped" | "playing" | "paused";
 
-  q2<PlayerState>("action")
+  q2<PlayerState>("player")
     .state("stopped", ["play -> playing"])
     //! The nope state is not defined
     // @ts-expect-error
     .state("nope", []);
 
-  q2<PlayerState>("action")
+  q2<PlayerState>("player")
     .state("stopped", ["play -> playing"])
     //! The stopped state is already defined
     // @ts-expect-error
     .state("stopped", ["play -> playing"]);
 
-  const playerMachine = q2<PlayerState>("action")
+  const playerMachine = q2<PlayerState>("player")
     .entry("stopped", "play -> playing")
     .state("playing", ["pause -> paused", "stop -> stopped"])
     .state("paused", ["play -> playing", "stop -> stopped"]);
@@ -40,22 +40,22 @@ import { QQ, q2 } from "./index.js";
 
   //! send
 
-  //! The machine accepts the actions
+  //! The machine accepts the events
   player.send("play");
   player.send("pause");
-  //! The action is not defined
+  //! The event is not defined
   // @ts-expect-error
   player.send();
-  //! The action is not defined
+  //! The event is not defined
   // @ts-expect-error
   player.send("nope");
 
   //! on
 
   //! The machine allows to subscribe to all states
-  const off = player.on("*", (event) => {
-    if (event.type === "state") {
-      switch (event.state.name) {
+  const off = player.on("*", (to) => {
+    if (to.type === "state") {
+      switch (to.state.name) {
         //! There's no such state
         // @ts-expect-error
         case "nope":
@@ -69,28 +69,28 @@ import { QQ, q2 } from "./index.js";
 
         //! We don't expect other states
         default:
-          event.state satisfies never;
+          to.state satisfies never;
       }
-    } else if (event.type === "action") {
-      switch (event.action.name) {
-        //! There's no such action
+    } else if (to.type === "event") {
+      switch (to.event.name) {
+        //! There's no such event
         // @ts-expect-error
         case "nope":
           break;
 
-        //! We expect all actions
+        //! We expect all events
         case "play":
         case "pause":
         case "stop":
           break;
 
-        //! We don't expect other actions
+        //! We don't expect other events
         default:
-          event.action satisfies never;
+          to.event satisfies never;
       }
     } else {
       //! No other type is expected
-      event satisfies never;
+      to satisfies never;
     }
   });
 
@@ -98,27 +98,27 @@ import { QQ, q2 } from "./index.js";
   off();
 
   //! The machine allows to subscribe to specific states
-  player.on("stopped", (event) => {
+  player.on("stopped", (to) => {
     //! It can only be stopped state
-    if (event.type === "state") {
-      if (event.state.name === "stopped") {
+    if (to.type === "state") {
+      if (to.state.name === "stopped") {
         return;
       }
 
       //! Can't be anything but stopped
-      event.state.name satisfies never;
+      to.state.name satisfies never;
       return;
     }
 
     //! Can only be only state event
-    event.type satisfies never;
+    to.type satisfies never;
   });
 
   //! The machine allows to subscribe to few states
-  player.on(["stopped", "playing"], (event) => {
+  player.on(["stopped", "playing"], (to) => {
     //! It can only be stopped or playing state
-    if (event.type === "state") {
-      switch (event.state.name) {
+    if (to.type === "state") {
+      switch (to.state.name) {
         //! Can't be invalid state
         // @ts-expect-error
         case "nope":
@@ -130,13 +130,13 @@ import { QQ, q2 } from "./index.js";
 
         default:
           //! Can't be anything but stopped or playing
-          event.state satisfies never;
+          to.state satisfies never;
       }
       return;
     }
 
     //! Can only be only state event
-    event.type satisfies never;
+    to.type satisfies never;
   });
 
   //! Can't subscribe to invalid states
@@ -189,7 +189,7 @@ import { QQ, q2 } from "./index.js";
   pendulumMachine.enter();
 }
 
-//! Exit actions
+//! Exit events
 {
   type CassetteState = "stopped" | "playing";
 
@@ -199,7 +199,7 @@ import { QQ, q2 } from "./index.js";
 
   const cassete = casseteMachine.enter();
 
-  //! Should be able to send exit actions
+  //! Should be able to send exit events
   cassete.send("eject");
 }
 
@@ -214,21 +214,21 @@ import { QQ, q2 } from "./index.js";
 
   const pc = pcMachine.enter();
 
-  //! Allows to send an action without the condition
+  //! Allows to send an event without the condition
   pc.send("press");
 
-  //! Allows to send an action with the condition
+  //! Allows to send an event with the condition
   pc.send("press", "long");
 
   //! The condition is undefined
   // @ts-expect-error
   pc.send("press", "nope");
 
-  //! Can't send conditions to wrong actions
+  //! Can't send conditions to wrong events
   // @ts-expect-error
   pc.send("restart", "long");
 
-  //! Can't send undefined actions
+  //! Can't send undefined events
   // @ts-expect-error
   pc.send();
   // @ts-expect-error
@@ -239,7 +239,7 @@ import { QQ, q2 } from "./index.js";
   pc.send("nope", "long");
 }
 
-//! Only-conditional actions
+//! Only-conditional events
 {
   type CatState = "boxed" | "alive" | "dead";
 
@@ -250,7 +250,7 @@ import { QQ, q2 } from "./index.js";
 
   const cat = catMachine.enter();
 
-  //! Allows to send conditional exit actions
+  //! Allows to send conditional exit events
   cat.send("reveal", "lucky");
   cat.send("reveal", "unlucky");
 
@@ -262,11 +262,11 @@ import { QQ, q2 } from "./index.js";
   // @ts-expect-error
   cat.send("reveal");
 
-  //! Can't send conditions to wrong actions
+  //! Can't send conditions to wrong events
   // @ts-expect-error
   cat.send("restart", "long");
 
-  //! Can't send undefined actions
+  //! Can't send undefined events
   // @ts-expect-error
   cat.send();
   // @ts-expect-error
@@ -287,7 +287,7 @@ import { QQ, q2 } from "./index.js";
 
   const cat = confirmMachine.enter();
 
-  //! Allows to send conditional exit actions
+  //! Allows to send conditional exit events
   cat.send("confirm", "confirm");
   cat.send("confirm", "cancel");
 
@@ -378,34 +378,34 @@ import { QQ, q2 } from "./index.js";
 
   //! Event listeners
 
-  mug.on("full", (event) => {
-    event.state.children.tea.on("ready", (childEvent) => {
-      if (childEvent.state.name === "ready") return;
+  mug.on("full", (to) => {
+    to.state.children.tea.on("ready", (to) => {
+      if (to.state.name === "ready") return;
 
       //! The state can only be ready
-      childEvent.state.name satisfies never;
+      to.state.name satisfies never;
     });
   });
 
-  mug.on("full.tea.ready", (event) => {
-    if (event.state.name === "ready") return;
+  mug.on("full.tea.ready", (to) => {
+    if (to.state.name === "ready") return;
 
     //! The state can only be ready
-    event.state.name satisfies never;
+    to.state.name satisfies never;
   });
 
-  mug.on("*", (event) => {
-    if (event.type === "state") {
+  mug.on("*", (to) => {
+    if (to.type === "state") {
       //! The nested events should be propogated
-      if (event.state.name === "ready") return;
+      if (to.state.name === "ready") return;
     }
   });
 
-  mug.on("*", (event) => {
-    if (event.type === "state") {
+  mug.on("*", (to) => {
+    if (to.type === "state") {
       //! The state is not defined
       // @ts-expect-error
-      if (event.state.name === "rady") return;
+      if (to.state.name === "rady") return;
     }
   });
 
