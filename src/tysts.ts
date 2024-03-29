@@ -1,25 +1,25 @@
-import { QQ, q2 } from "./index.js";
+import { QQ, q2, superstate } from "./index.js";
 
 //! Simple machine
 {
   type PlayerState = "stopped" | "playing" | "paused";
 
   q2<PlayerState>("player")
-    .state("stopped", ["play -> playing"])
+    .state("stopped", ["play() -> playing"])
     //! The nope state is not defined
     // @ts-expect-error
     .state("nope", []);
 
   q2<PlayerState>("player")
-    .state("stopped", ["play -> playing"])
+    .state("stopped", ["play() -> playing"])
     //! The stopped state is already defined
     // @ts-expect-error
-    .state("stopped", ["play -> playing"]);
+    .state("stopped", ["play() -> playing"]);
 
-  const playerMachine = q2<PlayerState>("player")
-    .entry("stopped", "play -> playing")
-    .state("playing", ["pause -> paused", "stop -> stopped"])
-    .state("paused", ["play -> playing", "stop -> stopped"]);
+  const playerMachine = superstate<PlayerState>("player")
+    .start("stopped", "play() -> playing")
+    .state("playing", ($) => $.on(["pause() -> paused", "stop() -> stopped"]))
+    .state("paused", ($) => $.on("play() -> playing").on("stop() -> stopped"));
 
   //! All the states are already defined
   // @ts-expect-error
@@ -37,6 +37,10 @@ import { QQ, q2 } from "./index.js";
   //! The state is undefined
   // @ts-expect-error
   playerMachine.enter("nope");
+
+  type Test = typeof player extends QQ.MachineInstance<infer State>
+    ? State["actions"]
+    : never;
 
   //! send
 
@@ -174,12 +178,13 @@ import { QQ, q2 } from "./index.js";
 }
 
 //! Multiple entries
+// TODO: Retire this behavior
 {
   type PendulumState = "left" | "right";
 
   const pendulumMachine = q2<PendulumState>("pendulum")
-    .entry("left", "swing -> right")
-    .entry("right", "swing -> left");
+    .entry("left", "swing() -> right")
+    .entry("right", "swing() -> left");
 
   //! Entry should be defined as there're multiple entry states
   pendulumMachine.enter("left");
@@ -189,13 +194,18 @@ import { QQ, q2 } from "./index.js";
   pendulumMachine.enter();
 }
 
+// TODO: Turn into final states
 //! Exit events
 {
   type CassetteState = "stopped" | "playing";
 
   const casseteMachine = q2<CassetteState>("cassette")
-    .entry("stopped", ["play -> playing", "eject ->"])
-    .state("playing", ["stop -> stopped", "eject ->"]);
+    .entry("stopped", ["play() -> playing", "eject() ->"])
+    .state("playing", ["stop() -> stopped", "eject() ->"]);
+
+  const casseteMachine2 = superstate<CassetteState>("cassette")
+    .entry("stopped", ($) => $.on(["play() -> playing", "eject() ->"]))
+    .state("playing", ($) => $.on("stop() -> stopped").on("eject() ->"));
 
   const cassete = casseteMachine.enter();
 
@@ -208,9 +218,18 @@ import { QQ, q2 } from "./index.js";
   type PCState = "on" | "sleep" | "off";
 
   const pcMachine = q2<PCState>("pc")
-    .entry("off", "press -> on")
-    .state("sleep", ["press -> on", "press(long) -> off", "restart -> on"])
-    .state("on", ["press -> sleep", "press(long) -> off", "restart -> on"]);
+    .entry("off", "press() -> on")
+    .state("sleep", ["press() -> on", "press(long) -> off", "restart() -> on"])
+    .state("on", ["press() -> sleep", "press(long) -> off", "restart() -> on"]);
+
+  const pcMachine2 = superstate<PCState>("pc")
+    .entry("off", "press() -> on")
+    .state("sleep", ($) =>
+      $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+    )
+    .state("on", ($) =>
+      $.if("press(long) -> off").else("press() -> sleep").on("restart() -> on")
+    );
 
   const pc = pcMachine.enter();
 
@@ -245,7 +264,14 @@ import { QQ, q2 } from "./index.js";
 
   const catMachine = q2<CatState>("cat")
     .entry("boxed", ["reveal(lucky) -> alive", "reveal(unlucky) -> dead"])
-    .state("alive", "pet -> alive")
+    .state("alive", "pet() -> alive")
+    .state("dead");
+
+  const catMachine2 = superstate<CatState>("cat")
+    .entry("boxed", ($) =>
+      $.on("reveal(lucky) -> alive").on("reveal(unlucky) -> dead")
+    )
+    .state("alive", ($) => $.on("pet() -> alive"))
     .state("dead");
 
   const cat = catMachine.enter();
@@ -285,6 +311,12 @@ import { QQ, q2 } from "./index.js";
     .entry("showing", ["confirm(confirm) -> confirmed", "confirm(cancel) ->"])
     .state("confirmed");
 
+  const confirmMachine2 = superstate<ConfirmState>("confirm")
+    .entry("showing", ($) =>
+      $.if("confirm", ["(confirm) -> confirmed", "confirm(cancel) ->"])
+    )
+    .state("confirmed");
+
   const cat = confirmMachine.enter();
 
   //! Allows to send conditional exit events
@@ -305,74 +337,78 @@ import { QQ, q2 } from "./index.js";
   type TeaState = "water" | "steeping" | "ready";
 
   const teaMachine = q2<TeaState>("tea")
-    .entry("water", ["infuse -> steeping", "drink ->"])
-    .state("steeping", ["done -> ready", "drink ->"])
-    .entry("ready", ["drink ->"]);
+    .entry("water", ["infuse() -> steeping", "drink() ->"])
+    .state("steeping", ["done() -> ready", "drink() ->"])
+    .entry("ready", ["drink() ->"]);
 
   type MugState = "clear" | "full" | "dirty";
 
   q2<MugState>("mug")
-    .entry("clear", "pour -> full")
-    .state("full", ["drink -> clear"], ($) =>
+    .entry("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
       //! The entry must be specified if there are multiple entries
       // @ts-expect-error
       $.child(teaMachine, {
-        "water -> drink ->": "clear",
-        "steeping -> drink ->": "dirty",
-        "ready -> drink ->": "dirty",
+        "water -> drink() ->": "clear",
+        "steeping -> drink() ->": "dirty",
+        "ready -> drink() ->": "dirty",
       })
     )
-    .state("dirty", ["clean -> clear"]);
+    .state("dirty", ["clean() -> clear"]);
 
   q2<MugState>("mug")
-    .entry("clear", "pour -> full")
-    .state("full", ["drink -> clear"], ($) =>
+    .entry("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
       //! The nested machine entry is invalid
       // @ts-expect-error
       $.child(teaMachine, "wter", {
-        "water -> drink ->": "clear",
-        "steeping -> drink ->": "dirty",
-        "ready -> drink ->": "dirty",
+        "water -> drink() ->": "clear",
+        "steeping -> drink() ->": "dirty",
+        "ready -> drink() ->": "dirty",
       })
     )
-    .state("dirty", ["clean -> clear"]);
+    .state("dirty", ["clean() -> clear"]);
 
   q2<MugState>("mug")
-    .entry("clear", "pour -> full")
-    .state("full", ["drink -> clear"], ($) =>
+    .entry("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
       $.child(teaMachine, "water", {
         //! The exit must be correct
         // @ts-expect-error
-        "ater -> drink ->": "clear",
-        "steeping -> drink ->": "dirty",
-        "ready -> drink ->": "dirty",
+        "ater -> drink() ->": "clear",
+        "steeping -> drink() ->": "dirty",
+        "ready -> drink() ->": "dirty",
       })
     )
-    .state("dirty", ["clean -> clear"]);
+    .state("dirty", ["clean() -> clear"]);
+
+  type Test = typeof teaMachine extends QQ.MachineFactory<infer State>
+    ? State["actions"]
+    : never;
 
   q2<MugState>("mug")
-    .entry("clear", "pour -> full")
-    .state("full", ["drink -> clear"], ($) =>
+    .entry("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
       $.child(teaMachine, "water", {
-        "after -> drink ->": "clear",
-        "steeping -> drink ->": "dirty",
+        "after -> drink() ->": "clear",
+        "steeping -> drink() ->": "dirty",
         //! The exiting state must be correct
         // @ts-expect-error
-        "ready -> drink ->": "dity",
+        "ready -> drink() ->": "dity",
       })
     )
-    .state("dirty", ["clean -> clear"]);
+    .state("dirty", ["clean() -> clear"]);
 
   const mugMachine = q2<MugState>("mug")
-    .entry("clear", "pour -> full")
-    .state("full", ["drink -> clear"], ($) => ({
+    .entry("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) => ({
       tea: $.child(teaMachine, "water", {
-        "water -> drink ->": "clear",
-        "steeping -> drink ->": "dirty",
-        "ready -> drink ->": "dirty",
+        "water -> drink() ->": "clear",
+        "steeping -> drink() ->": "dirty",
+        "ready -> drink() ->": "dirty",
       }),
     }))
-    .state("dirty", ["clean -> clear"]);
+    .state("dirty", ["clean() -> clear"]);
 
   const mug = mugMachine.enter();
 
@@ -442,32 +478,50 @@ import { QQ, q2 } from "./index.js";
   type ExpireState = "fresh" | "expired";
 
   const expireMachine = q2<ExpireState>("expire")
-    .entry("expired", ["expire -> expired"])
+    .entry("expired", ["expire() -> expired"])
     .state("fresh");
 
   type HeatState = "frozen" | "thawed" | "hot";
 
   const heatMachine = q2<HeatState>("heat")
-    .entry("frozen", "thaw -> thawed")
-    .state("thawed", "heat -> hot")
+    .entry("frozen", "thaw() -> thawed")
+    .state("thawed", "heat() -> hot")
     .state("hot");
 
   type MeatPieState = "unpacked" | "cooked";
 
   type EatState = "eating";
 
-  const eatMachine = q2<EatState>("eat").entry("eating", "eat -> eating");
+  const eatMachine = q2<EatState>("eat").entry("eating", "eat() -> eating");
 
   const meatPieMachine = q2<MeatPieState>("meatPie")
     .entry("unpacked", [], ($) => ({
       expire: $.child(expireMachine),
       heat: $.child(heatMachine),
       eat: $.child(eatMachine, {
-        "eating ->": "cooked",
+        "eating() ->": "cooked",
         //! The exit state is invalid
         // @ts-expect-error
-        "nope ->": "cooked",
+        "nope() ->": "cooked",
       }),
     }))
     .state("cooked");
+}
+
+//! State actions
+{
+  type SwitchState = "off" | "on";
+
+  superstate<SwitchState>("switch")
+    .start("off", ($) => $.enter("turnOff").on("toggle() -> on"))
+    .state("on", ($) => $.enter("turnOff").on("toggle() -> off"));
+
+  superstate<SwitchState>("switch")
+    .entry("off", "toggle() -> on")
+    .state("on", ($) =>
+      $.enter("turnOn")
+        .on("toggle", "(hello) -> off", "() -> off")
+        .on("whatever -> qwe")
+        .exit("turnOff")
+    );
 }
