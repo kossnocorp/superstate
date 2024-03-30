@@ -162,23 +162,6 @@ import { QQ, q2, superstate } from "./index.js";
   }
 }
 
-//! Multiple entries
-// TODO: Retire this behavior
-{
-  type PendulumState = "left" | "right";
-
-  const pendulumMachine = q2<PendulumState>("pendulum")
-    .entry("left", "swing() -> right")
-    .entry("right", "swing() -> left");
-
-  //! Entry should be defined as there're multiple entry states
-  pendulumMachine.enter("left");
-  pendulumMachine.enter("right");
-  //! The state is missing
-  // @ts-expect-error:
-  pendulumMachine.enter();
-}
-
 // TODO: Turn into final states
 //! Exit events
 {
