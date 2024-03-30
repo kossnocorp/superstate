@@ -21,10 +21,6 @@ import { QQ, q2, superstate } from "./index.js";
     .state("playing", ($) => $.on(["pause() -> paused", "stop() -> stopped"]))
     .state("paused", ($) => $.on("play() -> playing").on("stop() -> stopped"));
 
-  type Hello = typeof playerMachine extends QQ.MachineFactory<infer State>
-    ? State["actions"]
-    : never;
-
   //! All the states are already defined
   // @ts-expect-error
   playerMachine.state;
