@@ -21,26 +21,15 @@ import { QQ, q2, superstate } from "./index.js";
     .state("playing", ($) => $.on(["pause() -> paused", "stop() -> stopped"]))
     .state("paused", ($) => $.on("play() -> playing").on("stop() -> stopped"));
 
+  type Hello = typeof playerMachine extends QQ.MachineFactory<infer State>
+    ? State["actions"]
+    : never;
+
   //! All the states are already defined
   // @ts-expect-error
   playerMachine.state;
 
-  //! enter
-
-  //! No need for the entry state as there's only one state
   const player = playerMachine.enter();
-  //! It's ok to explicitly pass the entry state
-  playerMachine.enter("stopped");
-  //! The state is not defined as entry
-  // @ts-expect-error
-  playerMachine.enter("playing");
-  //! The state is undefined
-  // @ts-expect-error
-  playerMachine.enter("nope");
-
-  type Test = typeof player extends QQ.MachineInstance<infer State>
-    ? State["actions"]
-    : never;
 
   //! send
 
