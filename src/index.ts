@@ -249,16 +249,7 @@ export namespace QQ {
         FromStateName,
         any,
         string
-      >
-    | AnyExitAction<ActionName, MachineStateName, FromStateName>;
-
-  export type AnyExitAction<
-    ActionName extends string = string,
-    MachineStateName extends string = string,
-    FromStateName extends MachineStateName = MachineStateName
-  > =
-    | ActionExit<ActionName, MachineStateName, FromStateName>
-    | ActionExitFork<ActionName, MachineStateName, FromStateName, string>;
+      >;
 
   export type StateAction<
     MachineStateName extends string,
@@ -276,9 +267,7 @@ export namespace QQ {
         FromStateName,
         MachineStateName,
         string
-      >
-    | ActionExit<string, MachineStateName, FromStateName>
-    | ActionExitFork<string, MachineStateName, FromStateName, string>;
+      >;
 
   export interface ActionTransition<
     ActionName extends string,
@@ -305,37 +294,14 @@ export namespace QQ {
     to: ToStateName;
   }
 
-  export interface ActionExit<
-    ActionName extends string,
-    MachineStateName extends string,
-    FromStateName extends MachineStateName
-  > {
-    name: ActionName;
-    from: FromStateName;
-  }
-
-  // TODO: Add tysts
-  export interface ActionExitFork<
-    ActionName extends string,
-    MachineStateName extends string,
-    FromStateName extends MachineStateName,
-    ActionCondition extends string
-  > {
-    name: ActionName;
-    condition: ActionCondition;
-    from: FromStateName;
-  }
-
-  export interface ExitState<
-    StateName extends string,
-    MachineAction extends AnyAction,
-    ActionCondition extends string | null | never
-  > {}
-
   export interface MachineFactory<
-    MachineState extends BuilderChainState<any, any, any, any, any>
+    MachineState extends BuilderChainState<any, any, any, any, any, any>
   > {
-    enter(): MachineInstance<MachineState>;
+    enter(): MachineInstance<
+      MachineState,
+      MachineAction<MachineState>,
+      boolean
+    >;
   }
 
   export interface Off {
@@ -345,7 +311,7 @@ export namespace QQ {
   export type OnTarget<
     MachineState extends { name: string },
     MachineAction extends AnyAction
-  > = "*" | StateTarget<MachineState> | MachineAction["name"];
+  > = "*" | StateTarget<MachineState> | `${MachineAction["name"]}()`;
 
   export type StateTarget<
     MachineState extends { name: string },
@@ -361,7 +327,11 @@ export namespace QQ {
         children: infer Children extends Record<string, any>;
       }
         ? keyof Children extends infer ChildName extends string
-          ? Children[ChildName] extends MachineInstance<infer ChildState>
+          ? Children[ChildName] extends MachineInstance<
+              infer ChildState,
+              any,
+              any
+            >
             ? StateTarget<ChildState, `${ParentStateName}.${ChildName}`>
             : never
           : never
@@ -379,7 +349,11 @@ export namespace QQ {
         children: infer Children extends Record<string, any>;
       }
         ? keyof Children extends infer ChildName extends string
-          ? Children[ChildName] extends MachineInstance<infer ChildState>
+          ? Children[ChildName] extends MachineInstance<
+              infer ChildState,
+              any,
+              any
+            >
             ? Target extends `${ParentStateName}.${ChildName}.${infer ChildTarget}`
               ? MatchTargetState<ChildState, ChildTarget>
               : never
@@ -393,13 +367,17 @@ export namespace QQ {
     // Then we add the children states
     | (MachineState extends { children: infer Children }
         ? Children extends Record<string, any>
-          ? Children[keyof Children] extends MachineInstance<infer ChildState>
+          ? Children[keyof Children] extends MachineInstance<
+              infer ChildState,
+              any,
+              any
+            >
             ? DeepAllState<ChildState>
             : never
           : never
         : never);
 
-  export type ActionTarger<
+  export type EventTarger<
     MachineState extends { name: string; actions: any[] },
     Prefix extends string | undefined = undefined
   > =
@@ -417,8 +395,12 @@ export namespace QQ {
         children: infer Children extends Record<string, any>;
       }
         ? keyof Children extends infer ChildName extends string
-          ? Children[ChildName] extends MachineInstance<infer ChildState>
-            ? ActionTarger<ChildState, `${ParentStateName}.${ChildName}`>
+          ? Children[ChildName] extends MachineInstance<
+              infer ChildState,
+              any,
+              any
+            >
+            ? EventTarger<ChildState, `${ParentStateName}.${ChildName}`>
             : never
           : never
         : never);
@@ -433,7 +415,11 @@ export namespace QQ {
         children: infer Children extends Record<string, any>;
       }
         ? keyof Children extends infer ChildName extends string
-          ? Children[ChildName] extends MachineInstance<infer ChildState>
+          ? Children[ChildName] extends MachineInstance<
+              infer ChildState,
+              any,
+              any
+            >
             ? Target extends `${ParentStateName}.${ChildName}.${infer ChildTarget}`
               ? MatchTargetAction<ChildState, ChildTarget>
               : never
@@ -455,22 +441,26 @@ export namespace QQ {
     // Then we add the children actions
     | (MachineState extends { children: infer Children }
         ? Children extends Record<string, any>
-          ? Children[keyof Children] extends MachineInstance<infer ChildState>
+          ? Children[keyof Children] extends MachineInstance<
+              infer ChildState,
+              any,
+              any
+            >
             ? DeepAllAction<ChildState>
             : never
           : never
         : never);
 
   export type Event<_State extends { name: string }, MachineAction> =
-    | EventState<DeepAllState<_State>>
-    | EventAction<MachineAction>;
+    | TargetState<DeepAllState<_State>>
+    | TargetEvent<MachineAction>;
 
-  export interface EventState<_State extends { name: string }> {
+  export interface TargetState<_State extends { name: string }> {
     type: "state";
     state: _State;
   }
 
-  export interface EventAction<MachineAction> {
+  export interface TargetEvent<MachineAction> {
     type: "event";
     event: MachineAction;
     // TODO: from, to, condition
@@ -482,75 +472,119 @@ export namespace QQ {
     Target extends OnTarget<MachineState, any>
   > {
     (
-      event: Target extends "*"
+      // TODO: Add listening to events
+      target: Target extends "*"
         ? Event<MachineState, MachineAction>
         : Target extends
             | Array<infer TargetString extends string>
             | infer TargetString extends string
-        ? EventState<MatchTargetState<MachineState, TargetString>> // EventState<_State extends { name: StateTarget } ? _State : never>
+        ? MatchTargetState<
+            MachineState,
+            TargetString
+          > extends infer MatchedState
+          ? MatchTargetAction<
+              MachineState,
+              TargetString
+            > extends infer MatchedEvent
+            ?
+                | (MatchedState extends { name: string }
+                    ? TargetState<MatchedState>
+                    : never)
+                | (MatchedEvent extends never
+                    ? never
+                    : TargetEvent<MatchedEvent>)
+            : never
+          : never
         : never
     ): void;
   }
 
   export type ExtractConditionAction<MachineAction extends AnyAction> = Extract<
     MachineAction,
-    | ActionTransitionFork<any, any, any, any, any>
-    | ActionExitFork<any, any, any, any>
+    ActionTransitionFork<any, any, any, any, any>
   >;
 
   export type ExcludeConditionAction<MachineAction extends AnyAction> = Exclude<
     MachineAction,
-    | ActionTransitionFork<any, any, any, any, any>
-    | ActionExitFork<any, any, any, any>
+    ActionTransitionFork<any, any, any, any, any>
   >;
 
-  export type ExtractExitAction<MachineAction extends AnyAction> = Exclude<
-    MachineAction,
-    | ActionTransition<any, any, any, any>
-    | ActionTransitionFork<any, any, any, any, any>
-  >;
-
-  export type MachineInstance<
-    MachineState extends State<any, any, any, any, any> // TODO: Cut it
-  > = MachineAction<MachineState> extends infer Action extends AnyAction // TODO: Cut it
-    ? {
-        send<ActionName extends ExtractConditionAction<Action>["name"]>(
-          action: ActionName,
-          condition: Action extends {
-            name: ActionName;
-            condition: infer Condition;
-          }
-            ? Condition
-            : never
-        ): void;
-
-        send<ActionName extends ExcludeConditionAction<Action>["name"]>(
-          action: ActionName
-        ): void;
-
-        on<Target extends OnTarget<MachineState, Action>>(
-          target: Target | Target[],
-          listener: OnListener<MachineState, Action, Target>
-        ): Off;
-
-        in<Target extends StateTarget<MachineState>>(
-          target: Target | Target[]
-        ): MatchTargetState<MachineState, Target> | undefined;
+  export type MatchNextStateName<
+    MachineState extends AnyState, // TODO: Cut it
+    ActionName
+  > = MachineState extends { actions: Array<infer Action> }
+    ? Action extends {
+        name: ActionName;
+        to: infer ToStateName extends string;
       }
+      ? ToStateName
+      : never
     : never;
+
+  export interface MachineInstance<
+    MachineState extends AnyState, // TODO: Cut it
+    Action extends AnyAction,
+    Finalized extends boolean
+  > {
+    finalized: Finalized;
+
+    send<ActionName extends ExcludeConditionAction<Action>["name"]>(
+      action: ActionName
+    ): Finalized extends true
+      ? null
+      : MatchTargetState<
+          MachineState,
+          MatchNextStateName<MachineState, ActionName>
+        > | null;
+
+    send<ActionName extends ExtractConditionAction<Action>["name"]>(
+      action: ActionName,
+      condition: Action extends {
+        name: ActionName;
+        condition: infer Condition;
+      }
+        ? Condition
+        : never
+    ): Finalized extends true
+      ? null
+      : MatchTargetState<
+          MachineState,
+          MatchNextStateName<MachineState, ActionName>
+        > | null;
+
+    on<Target extends OnTarget<MachineState, Action>>(
+      target: Target | Target[],
+      listener: OnListener<MachineState, Action, Target>
+    ): Off;
+
+    in<Target extends StateTarget<MachineState>>(
+      target: Target | Target[]
+    ): MatchTargetState<MachineState, Target> | undefined;
+  }
 
   export interface State<
     MachineStateName extends string,
     StateName extends MachineStateName,
     Action, // extends StateAction<MachineStateName, StateName>, // optimization
     Props, // extends StateProps<boolean>, // optimization
-    Children // extends ChildrenInstancesMap<any> // optimization
+    Children, // extends ChildrenInstancesMap<any> // optimization
+    Final extends boolean
   > {
     name: StateName;
     actions: Action[];
     props: Props;
     children: Children;
+    final: Final;
   }
+
+  export type AnyState<
+    MachineStateName extends string = string,
+    StateName extends MachineStateName = MachineStateName,
+    Action = any,
+    Props = any,
+    Children = any,
+    Final extends boolean = boolean
+  > = State<MachineStateName, StateName, Action, Props, Children, Final>;
 
   export type ActionDef<
     MachineStateName extends string,
@@ -558,9 +592,7 @@ export namespace QQ {
     Condition extends string
   > =
     | `${EventName}() -> ${MachineStateName}`
-    | `${EventName}(${Condition}) -> ${MachineStateName}`
-    | `${EventName}() ->`
-    | `${EventName}(${Condition}) ->`;
+    | `${EventName}(${Condition}) -> ${MachineStateName}`;
 
   export type ActionFromDef<
     MachineStateName extends string,
@@ -576,10 +608,6 @@ export namespace QQ {
         ToState,
         Condition
       >
-    : Def extends `${infer ActionName}() ->`
-    ? ActionExit<ActionName, MachineStateName, FromStateName>
-    : Def extends `${infer ActionName}(${infer Condition}) ->`
-    ? ActionExitFork<ActionName, MachineStateName, FromStateName, Condition>
     : never;
 
   export type DefFromAction<Action extends AnyAction> =
@@ -598,15 +626,6 @@ export namespace QQ {
           infer ToStateName
         >
       ? `${FromStateName} -> ${ActionName}() -> ${ToStateName}`
-      : Action extends ActionExitFork<
-          infer ActionName,
-          any,
-          infer FromStateName,
-          infer Condition
-        >
-      ? `${FromStateName} -> ${ActionName}(${Condition}) ->`
-      : Action extends ActionExit<infer ActionName, any, infer FromStateName>
-      ? `${FromStateName} -> ${ActionName}() ->`
       : never;
 
   export interface Builder2 {
@@ -636,11 +655,12 @@ export namespace QQ {
   export type BuilderChainResult<
     MachineStateName extends string,
     ChainStateName extends MachineStateName,
-    MachineState extends State<MachineStateName, any, any, any, any>,
+    MachineState extends AnyState<MachineStateName>,
     StateName extends ChainStateName,
     StateActionDef extends ActionDef<MachineStateName, any, any>,
     _StateProps extends StateProps<any>,
-    Children extends ChildrenMap<MachineStateName, any>
+    Children extends ChildrenMap<MachineStateName, any>,
+    Final extends boolean
   > = Exclude<ChainStateName, StateName> extends never
     ? MachineFactory<
         | MachineState
@@ -649,7 +669,8 @@ export namespace QQ {
             StateName,
             StateActionDef,
             _StateProps,
-            Children
+            Children,
+            Final
           >
       >
     : BuilderChain<
@@ -661,7 +682,8 @@ export namespace QQ {
             StateName,
             StateActionDef,
             _StateProps,
-            Children
+            Children,
+            Final
           >
       >;
 
@@ -670,20 +692,14 @@ export namespace QQ {
     StateName extends MachineStateName,
     StateActionDef extends ActionDef<MachineStateName, any, any>,
     _StateProps extends StateProps<any>,
-    Children extends ChildrenMap<MachineStateName, any>
+    Children extends ChildrenMap<MachineStateName, any>,
+    Final extends boolean
   > = {
     name: StateName;
     actions: ActionFromDef<MachineStateName, StateName, StateActionDef>[];
     props: _StateProps;
     children: ToChildrenInstancesMap<Children>;
-  };
-
-  export type ChildExitsDef<
-    ChildStateName extends string,
-    ChildAction extends AnyAction<any, ChildStateName>,
-    ParentStateName extends string
-  > = {
-    [Def in DefFromAction<ExtractExitAction<ChildAction>>]: ParentStateName;
+    final: Final;
   };
 
   export type AnyChildExitAction =
@@ -766,7 +782,7 @@ export namespace QQ {
       name: ChildStateName;
     }
       ? _ChildState["factory"] extends MachineFactory<infer State>
-        ? MachineInstance<State>
+        ? MachineInstance<State, any>
         : never
       : never;
   };
@@ -777,7 +793,7 @@ export namespace QQ {
       any
     >
       ? ChildFactory extends MachineFactory<infer State>
-        ? MachineInstance<State>
+        ? MachineInstance<State, any>
         : never
       : never;
   };
@@ -801,7 +817,7 @@ export namespace QQ {
   export interface BuilderChain<
     MachineStateName extends string,
     ChainStateName extends MachineStateName,
-    MachineState extends State<MachineStateName, any, any, any, any> = never
+    MachineState extends AnyState<MachineStateName> = never
   > {
     state<StateName extends ChainStateName>(
       name: StateName
@@ -812,7 +828,8 @@ export namespace QQ {
       StateName,
       never,
       { entry: false },
-      never
+      never,
+      false
     >;
 
     state<
@@ -828,7 +845,8 @@ export namespace QQ {
       StateName,
       StateActionDef,
       { entry: false },
-      never
+      never,
+      false
     >;
 
     state<
@@ -846,7 +864,8 @@ export namespace QQ {
       StateName,
       StateActionDef,
       { entry: false },
-      Children
+      Children,
+      false
     >;
 
     // TODO: Limit to single entry
@@ -863,7 +882,8 @@ export namespace QQ {
       StateName,
       StateActionDef,
       { entry: true },
-      never
+      never,
+      false
     >;
 
     entry<
@@ -881,7 +901,8 @@ export namespace QQ {
       StateName,
       StateActionDef,
       { entry: true },
-      Children
+      Children,
+      false
     >;
   }
 }
@@ -916,31 +937,19 @@ export namespace Superstate {
     export interface Head<
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
-      MachineState extends QQ.State<
-        MachineStateName,
-        any,
-        any,
-        any,
-        any
-      > = never
+      MachineState extends QQ.AnyState<MachineStateName> = never
     > {
-      start: StateFn<MachineStateName, ChainStateName, MachineState>;
+      start: StateFn<false, MachineStateName, ChainStateName, MachineState>;
     }
 
     export interface Tail<
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
-      MachineState extends QQ.State<
-        MachineStateName,
-        any,
-        any,
-        any,
-        any
-      > = never
+      MachineState extends QQ.AnyState<MachineStateName> = never
     > {
-      state: StateFn<MachineStateName, ChainStateName, MachineState>;
+      state: StateFn<false, MachineStateName, ChainStateName, MachineState>;
 
-      final: StateFn<MachineStateName, ChainStateName, MachineState>;
+      final: StateFn<true, MachineStateName, ChainStateName, MachineState>;
     }
 
     export interface StateFnGeneratorBuilder<
@@ -973,11 +982,12 @@ export namespace Superstate {
     export type BuilderChainResult<
       MachineStateName extends string,
       ChainStateName extends MachineStateName,
-      MachineState extends QQ.State<MachineStateName, any, any, any, any>,
+      MachineState extends QQ.AnyState<MachineStateName>,
       StateName extends ChainStateName,
       StateActionDef extends QQ.ActionDef<MachineStateName, any, any>,
       _StateProps extends QQ.StateProps<any>,
-      Children extends QQ.ChildrenMap<MachineStateName, any>
+      Children extends QQ.ChildrenMap<MachineStateName, any>,
+      Final extends boolean
     > = Exclude<ChainStateName, StateName> extends never
       ? QQ.MachineFactory<
           | MachineState
@@ -986,7 +996,8 @@ export namespace Superstate {
               StateName,
               StateActionDef,
               _StateProps,
-              Children
+              Children,
+              Final
             >
         >
       : Tail<
@@ -998,21 +1009,28 @@ export namespace Superstate {
               StateName,
               StateActionDef,
               _StateProps,
-              Children
+              Children,
+              Final
             >
         >;
 
     export interface StateFn<
+      Final extends boolean,
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
-      MachineState extends QQ.State<
-        MachineStateName,
-        any,
-        any,
-        any,
-        any
-      > = never
+      MachineState extends QQ.AnyState<MachineStateName> = never
     > {
+      <StateName extends ChainStateName>(name: StateName): BuilderChainResult<
+        MachineStateName,
+        ChainStateName,
+        MachineState,
+        StateName,
+        never,
+        { entry: false },
+        never,
+        Final
+      >;
+
       <
         StateName extends ChainStateName,
         StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
@@ -1031,7 +1049,8 @@ export namespace Superstate {
         StateName,
         StateActionDef,
         { entry: false },
-        never
+        never,
+        Final
       >;
 
       <
@@ -1047,7 +1066,31 @@ export namespace Superstate {
         StateName,
         StateActionDef,
         { entry: false },
-        never
+        never,
+        Final
+      >;
+
+      <
+        StateName extends ChainStateName,
+        StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
+      >(
+        name: StateName,
+        actions: StateActionDef | StateActionDef[],
+        generator: StateFnGenerator<
+          MachineStateName,
+          // ChainStateName,
+          // StateName,
+          StateActionDef
+        >
+      ): BuilderChainResult<
+        MachineStateName,
+        ChainStateName,
+        MachineState,
+        StateName,
+        StateActionDef,
+        { entry: false },
+        never,
+        Final
       >;
     }
   }
