@@ -30,6 +30,7 @@ import { QQ, q2, superstate } from "./index.js";
   //! send
 
   //! The machine accepts the events
+
   player.send("play");
   player.send("pause");
   //! The event is not defined
@@ -39,12 +40,25 @@ import { QQ, q2, superstate } from "./index.js";
   // @ts-expect-error
   player.send("nope");
 
+  //! It returns the next state or null
+  {
+    const nextState = player.send("play");
+
+    //! The next state might be null
+    assertExtends<typeof nextState>(null);
+
+    if (nextState) {
+      //! The next state is playing
+      nextState.name satisfies "playing";
+    }
+  }
+
   //! on
 
   //! The machine allows to subscribe to all states
-  const off = player.on("*", (to) => {
-    if (to.type === "state") {
-      switch (to.state.name) {
+  const off = player.on("*", (target) => {
+    if (target.type === "state") {
+      switch (target.state.name) {
         //! There's no such state
         // @ts-expect-error
         case "nope":
@@ -58,10 +72,10 @@ import { QQ, q2, superstate } from "./index.js";
 
         //! We don't expect other states
         default:
-          to.state satisfies never;
+          target.state satisfies never;
       }
-    } else if (to.type === "event") {
-      switch (to.event.name) {
+    } else if (target.type === "event") {
+      switch (target.event.name) {
         //! There's no such event
         // @ts-expect-error
         case "nope":
@@ -75,11 +89,11 @@ import { QQ, q2, superstate } from "./index.js";
 
         //! We don't expect other events
         default:
-          to.event satisfies never;
+          target.event satisfies never;
       }
     } else {
       //! No other type is expected
-      to satisfies never;
+      target satisfies never;
     }
   });
 
@@ -87,27 +101,27 @@ import { QQ, q2, superstate } from "./index.js";
   off();
 
   //! The machine allows to subscribe to specific states
-  player.on("stopped", (to) => {
+  player.on("stopped", (target) => {
     //! It can only be stopped state
-    if (to.type === "state") {
-      if (to.state.name === "stopped") {
+    if (target.type === "state") {
+      if (target.state.name === "stopped") {
         return;
       }
 
       //! Can't be anything but stopped
-      to.state.name satisfies never;
+      target.state.name satisfies never;
       return;
     }
 
-    //! Can only be only state event
-    to.type satisfies never;
+    //! Can only be state
+    target.type satisfies never;
   });
 
   //! The machine allows to subscribe to few states
-  player.on(["stopped", "playing"], (to) => {
+  player.on(["stopped", "playing"], (target) => {
     //! It can only be stopped or playing state
-    if (to.type === "state") {
-      switch (to.state.name) {
+    if (target.type === "state") {
+      switch (target.state.name) {
         //! Can't be invalid state
         // @ts-expect-error
         case "nope":
@@ -119,13 +133,13 @@ import { QQ, q2, superstate } from "./index.js";
 
         default:
           //! Can't be anything but stopped or playing
-          to.state satisfies never;
+          target.state satisfies never;
       }
       return;
     }
 
-    //! Can only be only state event
-    to.type satisfies never;
+    //! Can only be only state
+    target.type satisfies never;
   });
 
   //! Can't subscribe to invalid states
@@ -133,6 +147,54 @@ import { QQ, q2, superstate } from "./index.js";
   player.on("nope", () => {});
   // @ts-expect-error
   player.on(["stopped", "nope"], () => {});
+
+  //! The machine allows to subscribe to specific events
+  player.on("stop()", (target) => {
+    //! It can only be stop event
+    if (target.type === "event") {
+      if (target.event.name === "stop") {
+        return;
+      }
+
+      //! Can't be anything but stop
+      target.event.name satisfies never;
+      return;
+    }
+
+    //! Can only be event
+    target.type satisfies never;
+  });
+
+  //! The machine allows to subscribe to few events
+  player.on(["stop()", "pause()"], (target) => {
+    //! It can only be stop or pause events
+    if (target.type === "event") {
+      switch (target.event.name) {
+        //! Can't be invalid state
+        // @ts-expect-error
+        case "nope":
+          break;
+
+        case "stop":
+        case "pause":
+          return;
+
+        default:
+          //! Can't be anything but stop or pause
+          target.event satisfies never;
+      }
+      return;
+    }
+
+    //! Can only be event
+    target.type satisfies never;
+  });
+
+  //! Can't subscribe to invalid events
+  // @ts-expect-error
+  player.on("nope()", () => {});
+  // @ts-expect-error
+  player.on(["stopped()", "nope()"], () => {});
 
   //! Matching states
 
@@ -162,23 +224,98 @@ import { QQ, q2, superstate } from "./index.js";
   }
 }
 
-// TODO: Turn into final states
-//! Exit events
+//! Multiple event targets
 {
-  type CassetteState = "stopped" | "playing";
+  type LightState = "off" | "on";
 
-  const casseteMachine = q2<CassetteState>("cassette")
-    .entry("stopped", ["play() -> playing", "eject() ->"])
-    .state("playing", ["stop() -> stopped", "eject() ->"]);
+  const lightMachine = superstate<LightState>("light")
+    .start("off", "toggle() -> on")
+    .state("on", "toggle() -> off");
 
-  const casseteMachine2 = superstate<CassetteState>("cassette")
-    .entry("stopped", ($) => $.on(["play() -> playing", "eject() ->"]))
-    .state("playing", ($) => $.on("stop() -> stopped").on("eject() ->"));
+  const light = lightMachine.enter();
+
+  //! Can send events to multiple targets
+  const nextState = light.send("toggle");
+  if (nextState) {
+    //! The next state is off
+    nextState.name satisfies "off" | "on";
+  }
+
+  //! Subscribing to the events gives you multiple targets
+  light.on("toggle()", (target) => {
+    target.event.to satisfies "off" | "on";
+  });
+}
+
+//! Final states
+{
+  type CassetteState = "stopped" | "playing" | "ejected";
+
+  const casseteMachine = superstate<CassetteState>("cassette")
+    .start("stopped", ($) => $.on(["play() -> playing", "eject() -> ejected"]))
+    //! Mixed events definition
+    .state("playing", "stop() -> stopped", ($) => $.on("eject() -> ejected"))
+    .final("ejected");
 
   const cassete = casseteMachine.enter();
 
   //! Should be able to send exit events
-  cassete.send("eject");
+  const nextState = cassete.send("eject");
+
+  //! The next step is final
+  if (nextState) {
+    nextState.final satisfies true;
+  }
+
+  //! The machine is not finalized
+  cassete.finalized satisfies boolean;
+
+  type Test1 = typeof cassete;
+
+  //! The machine is finalized
+  if (cassete.finalized) {
+    //! So the next state is always true
+    const nextState = cassete.send("play");
+    nextState satisfies null;
+  }
+}
+
+interface Wut1<Thing extends string, Huh extends boolean> {
+  wut: Huh;
+  ok: (name: Thing) => Huh extends true ? true : null;
+}
+
+type Wut2<Thing extends string, Huh extends boolean> = Huh extends true
+  ? {
+      wut: Huh;
+      ok: (name: Thing) => true;
+    }
+  : {
+      wut: Huh;
+      ok: (name: Thing) => null;
+    };
+
+type Wut3<Thing extends string, Huh extends boolean> = Huh extends Huh
+  ? {
+      wut: Huh;
+      ok: (name: Thing) => Huh extends true ? true : null;
+    }
+  : never;
+
+type Wut4<Thing extends string, Huh extends boolean> = Huh extends Huh
+  ? {
+      wut: Huh;
+      ok: Huh extends true ? (name: Thing) => true : (name: Thing) => null;
+    }
+  : never;
+
+const wut = {} as never as Wut1<"hello" | "world", boolean>;
+
+wut.ok("hello");
+
+if (wut.wut) {
+  const result = wut.ok("world");
+  result satisfies true;
 }
 
 //! Conditions
@@ -382,34 +519,34 @@ import { QQ, q2, superstate } from "./index.js";
 
   //! Event listeners
 
-  mug.on("full", (to) => {
-    to.state.children.tea.on("ready", (to) => {
-      if (to.state.name === "ready") return;
+  mug.on("full", (target) => {
+    target.state.children.tea.on("ready", (target) => {
+      if (target.state.name === "ready") return;
 
       //! The state can only be ready
-      to.state.name satisfies never;
+      target.state.name satisfies never;
     });
   });
 
-  mug.on("full.tea.ready", (to) => {
-    if (to.state.name === "ready") return;
+  mug.on("full.tea.ready", (target) => {
+    if (target.state.name === "ready") return;
 
     //! The state can only be ready
-    to.state.name satisfies never;
+    target.state.name satisfies never;
   });
 
-  mug.on("*", (to) => {
-    if (to.type === "state") {
+  mug.on("*", (target) => {
+    if (target.type === "state") {
       //! The nested events should be propogated
-      if (to.state.name === "ready") return;
+      if (target.state.name === "ready") return;
     }
   });
 
-  mug.on("*", (to) => {
-    if (to.type === "state") {
+  mug.on("*", (target) => {
+    if (target.type === "state") {
       //! The state is not defined
       // @ts-expect-error
-      if (to.state.name === "rady") return;
+      if (target.state.name === "rady") return;
     }
   });
 
@@ -493,3 +630,5 @@ import { QQ, q2, superstate } from "./index.js";
         .exit("turnOff")
     );
 }
+
+export function assertExtends<Type>(_value: Type) {}
