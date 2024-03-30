@@ -335,13 +335,7 @@ export namespace QQ {
   export interface MachineFactory<
     MachineState extends BuilderChainState<any, any, any, any, any>
   > {
-    enter(
-      ...args: EntryStateName<MachineState> extends infer EntryState
-        ? QUtils.IsUnion<EntryState> extends true
-          ? [EntryState]
-          : [] | [EntryState]
-        : never
-    ): MachineInstance<MachineState>;
+    enter(): MachineInstance<MachineState>;
   }
 
   export interface Off {
@@ -632,14 +626,14 @@ export namespace QQ {
   /**
    * Infers the entry state name from the machine state.
    */
-  type EntryStateName<State> = State extends {
+  export type EntryStateName<State> = State extends {
     name: infer Name;
     props: { entry: true };
   }
     ? Name
     : never;
 
-  type BuilderChainResult<
+  export type BuilderChainResult<
     MachineStateName extends string,
     ChainStateName extends MachineStateName,
     MachineState extends State<MachineStateName, any, any, any, any>,
@@ -893,69 +887,184 @@ export namespace QQ {
 }
 
 export namespace Superstate {
-  export namespace Machine {
-    export interface Action {
-      type: "enter" | "exit";
-    }
+  // TODO: Utilize these types
+  // export namespace Machine {
+  //   export interface Action {
+  //     type: "enter" | "exit";
+  //   }
 
-    export interface Transition {}
+  //   export interface Transition {}
 
-    export interface StateProps {
-      initial: boolean;
-      final: boolean;
-      parallel: boolean;
-    }
+  //   export interface StateProps {
+  //     initial: boolean;
+  //     final: boolean;
+  //     parallel: boolean;
+  //   }
 
-    export interface State extends StateProps {
-      name: string;
-      actions: Action;
-      transitions: Transition;
-    }
-  }
+  //   export interface State extends StateProps {
+  //     name: string;
+  //     actions: Action;
+  //     transitions: Transition;
+  //   }
+  // }
 
   export namespace Builder {
     export interface Machine {
-      <StateName extends string>(name: string): Head<StateName>;
+      <MachineStateName extends string>(name: string): Head<MachineStateName>;
     }
 
     export interface Head<
       MachineStateName extends string,
-      ChainStateName extends string = MachineStateName,
-      State extends Machine.State = never
+      ChainStateName extends MachineStateName = MachineStateName,
+      MachineState extends QQ.State<
+        MachineStateName,
+        any,
+        any,
+        any,
+        any
+      > = never
     > {
-      start: StateFn<MachineStateName, ChainStateName, State>;
+      start: StateFn<MachineStateName, ChainStateName, MachineState>;
     }
 
     export interface Tail<
       MachineStateName extends string,
-      ChainStateName extends string = MachineStateName,
-      State extends Machine.State = never
+      ChainStateName extends MachineStateName = MachineStateName,
+      MachineState extends QQ.State<
+        MachineStateName,
+        any,
+        any,
+        any,
+        any
+      > = never
     > {
-      state: StateFn<MachineStateName, ChainStateName, State>;
+      state: StateFn<MachineStateName, ChainStateName, MachineState>;
 
-      final: StateFn<MachineStateName, ChainStateName, State>;
+      final: StateFn<MachineStateName, ChainStateName, MachineState>;
     }
 
-    export interface StateFn<
-      StateName extends string,
-      RestStateName extends string = StateName,
-      State extends Machine.State = never
+    export interface StateFnGeneratorBuilder<
+      MachineStateName extends string,
+      // ChainStateName extends MachineStateName,
+      // StateName extends ChainStateName,
+      StateActionDef extends QQ.ActionDef<MachineStateName, any, any> = never
     > {
-      <StateName extends RestStateName>(
+      on<ActionDef extends QQ.ActionDef<MachineStateName, any, any>>(
+        events: ActionDef[] | ActionDef
+      ): StateFnGeneratorBuilder<
+        MachineStateName,
+        // ChainStateName,
+        // StateName,
+        StateActionDef | ActionDef
+      >;
+    }
+
+    export interface StateFnGenerator<
+      MachineStateName extends string,
+      // ChainStateName extends MachineStateName,
+      // StateName extends ChainStateName,
+      FinalBuilder extends StateFnGeneratorBuilder<
+        MachineStateName,
+        // ChainStateName,
+        // StateName,
+        any
+      >
+    > {
+      (
+        $: StateFnGeneratorBuilder<MachineStateName /*ChainStateName, StateName*/>
+      ): FinalBuilder;
+    }
+
+    export type BuilderChainResult<
+      MachineStateName extends string,
+      ChainStateName extends MachineStateName,
+      MachineState extends QQ.State<MachineStateName, any, any, any, any>,
+      StateName extends ChainStateName,
+      StateActionDef extends QQ.ActionDef<MachineStateName, any, any>,
+      _StateProps extends QQ.StateProps<any>,
+      Children extends QQ.ChildrenMap<MachineStateName, any>
+    > = Exclude<ChainStateName, StateName> extends never
+      ? QQ.MachineFactory<
+          | MachineState
+          | QQ.BuilderChainState<
+              MachineStateName,
+              StateName,
+              StateActionDef,
+              _StateProps,
+              Children
+            >
+        >
+      : Tail<
+          MachineStateName,
+          Exclude<ChainStateName, StateName>,
+          | MachineState
+          | QQ.BuilderChainState<
+              MachineStateName,
+              StateName,
+              StateActionDef,
+              _StateProps,
+              Children
+            >
+        >;
+
+    export interface StateFn<
+      MachineStateName extends string,
+      ChainStateName extends MachineStateName = MachineStateName,
+      MachineState extends QQ.State<
+        MachineStateName,
+        any,
+        any,
+        any,
+        any
+      > = never
+    > {
+      <
+        StateName extends ChainStateName,
+        FinalBuilder extends StateFnGeneratorBuilder<
+          MachineStateName,
+          // ChainStateName,
+          // StateName,
+          any
+        >
+      >(
         name: StateName,
-        generator: (builder: any) => any
-      ): Tail<
+        generator: StateFnGenerator<
+          MachineStateName,
+          // ChainStateName,
+          // StateName,
+          FinalBuilder
+        >
+      ): BuilderChainResult<
+        MachineStateName,
+        ChainStateName,
+        MachineState,
         StateName,
-        Exclude<RestStateName, StateName>,
-        | State
-        | {
-            name: StateName;
-            actions: any; // TODO:
-            transitions: any; // TODO:
-            initial: boolean;
-            final: boolean;
-            parallel: boolean;
-          }
+        FinalBuilder extends StateFnGeneratorBuilder<
+          MachineStateName,
+          // ChainStateName,
+          // StateName,
+          infer StateActionDef
+        >
+          ? StateActionDef
+          : never,
+        { entry: false },
+        never
+      >;
+
+      <
+        StateName extends ChainStateName,
+        StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
+      >(
+        name: StateName,
+        actions: StateActionDef | StateActionDef[]
+      ): BuilderChainResult<
+        MachineStateName,
+        ChainStateName,
+        MachineState,
+        StateName,
+        StateActionDef,
+        { entry: false },
+        never
       >;
     }
   }
