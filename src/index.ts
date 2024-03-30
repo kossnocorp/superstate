@@ -963,16 +963,11 @@ export namespace Superstate {
       MachineStateName extends string,
       // ChainStateName extends MachineStateName,
       // StateName extends ChainStateName,
-      FinalBuilder extends StateFnGeneratorBuilder<
-        MachineStateName,
-        // ChainStateName,
-        // StateName,
-        any
-      >
+      StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
     > {
       (
         $: StateFnGeneratorBuilder<MachineStateName /*ChainStateName, StateName*/>
-      ): FinalBuilder;
+      ): StateFnGeneratorBuilder<MachineStateName, StateActionDef>;
     }
 
     export type BuilderChainResult<
@@ -1020,33 +1015,21 @@ export namespace Superstate {
     > {
       <
         StateName extends ChainStateName,
-        FinalBuilder extends StateFnGeneratorBuilder<
-          MachineStateName,
-          // ChainStateName,
-          // StateName,
-          any
-        >
+        StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
       >(
         name: StateName,
         generator: StateFnGenerator<
           MachineStateName,
           // ChainStateName,
           // StateName,
-          FinalBuilder
+          StateActionDef
         >
       ): BuilderChainResult<
         MachineStateName,
         ChainStateName,
         MachineState,
         StateName,
-        FinalBuilder extends StateFnGeneratorBuilder<
-          MachineStateName,
-          // ChainStateName,
-          // StateName,
-          infer StateActionDef
-        >
-          ? StateActionDef
-          : never,
+        StateActionDef,
         { entry: false },
         never
       >;
