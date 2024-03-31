@@ -328,14 +328,9 @@ import { q2, superstate } from "./index.js";
 {
   type CatState = "boxed" | "alive" | "dead";
 
-  const catMachine = q2<CatState>("cat")
-    .entry("boxed", ["reveal(lucky) -> alive", "reveal(unlucky) -> dead"])
-    .state("alive", "pet() -> alive")
-    .state("dead");
-
-  const catMachine2 = superstate<CatState>("cat")
-    .entry("boxed", ($) =>
-      $.on("reveal(lucky) -> alive").on("reveal(unlucky) -> dead")
+  const catMachine = superstate<CatState>("cat")
+    .start("boxed", ($) =>
+      $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"])
     )
     .state("alive", ($) => $.on("pet() -> alive"))
     .state("dead");
@@ -369,76 +364,21 @@ import { q2, superstate } from "./index.js";
   cat.send("nope", "long");
 }
 
-//! Conditional exits
+//! Substates
 {
-  type ConfirmState = "showing" | "confirmed";
+  type TeaState = "water" | "steeping" | "ready" | "finished";
 
-  const confirmMachine = q2<ConfirmState>("confirm")
-    .entry("showing", ["confirm(confirm) -> confirmed", "confirm(cancel) ->"])
-    .state("confirmed");
-
-  const confirmMachine2 = superstate<ConfirmState>("confirm")
-    .entry("showing", ($) =>
-      $.if("confirm", ["(confirm) -> confirmed", "confirm(cancel) ->"])
-    )
-    .state("confirmed");
-
-  const cat = confirmMachine.enter();
-
-  //! Allows to send conditional exit events
-  cat.send("confirm", "confirm");
-  cat.send("confirm", "cancel");
-
-  //! The condition is undefined
-  // @ts-expect-error
-  cat.send("confirm", "nope");
-
-  //! Should always pass the condition
-  // @ts-expect-error
-  cat.send("confirm");
-}
-
-//! Children states
-{
-  type TeaState = "water" | "steeping" | "ready";
-
-  const teaMachine = q2<TeaState>("tea")
-    .entry("water", ["infuse() -> steeping", "drink() ->"])
-    .state("steeping", ["done() -> ready", "drink() ->"])
-    .entry("ready", ["drink() ->"]);
+  const teaMachine = superstate<TeaState>("tea")
+    .start("water", ["infuse() -> steeping", "drink() -> finished"])
+    .state("steeping", ["done() -> ready", "drink() -> finished"])
+    .state("ready", ["drink() -> finished"]);
 
   type MugState = "clear" | "full" | "dirty";
 
   q2<MugState>("mug")
     .entry("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      //! The entry must be specified if there are multiple entries
-      // @ts-expect-error
-      $.child(teaMachine, {
-        "water -> drink() ->": "clear",
-        "steeping -> drink() ->": "dirty",
-        "ready -> drink() ->": "dirty",
-      })
-    )
-    .state("dirty", ["clean() -> clear"]);
-
-  q2<MugState>("mug")
-    .entry("clear", "pour() -> full")
-    .state("full", ["drink() -> clear"], ($) =>
-      //! The nested machine entry is invalid
-      // @ts-expect-error
-      $.child(teaMachine, "wter", {
-        "water -> drink() ->": "clear",
-        "steeping -> drink() ->": "dirty",
-        "ready -> drink() ->": "dirty",
-      })
-    )
-    .state("dirty", ["clean() -> clear"]);
-
-  q2<MugState>("mug")
-    .entry("clear", "pour() -> full")
-    .state("full", ["drink() -> clear"], ($) =>
-      $.child(teaMachine, "water", {
+      $.sub(teaMachine, "water", {
         //! The exit must be correct
         // @ts-expect-error
         "ater -> drink() ->": "clear",
@@ -451,7 +391,7 @@ import { q2, superstate } from "./index.js";
   q2<MugState>("mug")
     .entry("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.child(teaMachine, "water", {
+      $.sub(teaMachine, "water", {
         "after -> drink() ->": "clear",
         "steeping -> drink() ->": "dirty",
         //! The exiting state must be correct
@@ -464,7 +404,7 @@ import { q2, superstate } from "./index.js";
   const mugMachine = q2<MugState>("mug")
     .entry("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) => ({
-      tea: $.child(teaMachine, "water", {
+      tea: $.sub(teaMachine, "water", {
         "water -> drink() ->": "clear",
         "steeping -> drink() ->": "dirty",
         "ready -> drink() ->": "dirty",
@@ -558,9 +498,9 @@ import { q2, superstate } from "./index.js";
 
   const meatPieMachine = q2<MeatPieState>("meatPie")
     .entry("unpacked", [], ($) => ({
-      expire: $.child(expireMachine),
-      heat: $.child(heatMachine),
-      eat: $.child(eatMachine, {
+      expire: $.sub(expireMachine),
+      heat: $.sub(heatMachine),
+      eat: $.sub(eatMachine, {
         "eating() ->": "cooked",
         //! The exit state is invalid
         // @ts-expect-error

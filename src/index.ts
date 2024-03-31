@@ -724,7 +724,7 @@ export namespace QQ {
       : never;
 
   export interface ChildrenBuilderChain<MachineStateName extends string> {
-    child<
+    sub<
       ChildMachine extends AnyMachineFactory,
       ChildExitDef extends ChildMachine extends AnyMachineFactory<infer State>
         ? ChildExitsDef<State["name"], MachineAction<State>, MachineStateName>
