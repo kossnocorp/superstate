@@ -1,4 +1,4 @@
-import { QQ, q2, superstate } from "./index.js";
+import { q2, superstate } from "./index.js";
 
 //! Simple machine
 {
@@ -264,45 +264,46 @@ import { QQ, q2, superstate } from "./index.js";
 
   //! The next step is final
   if (nextState) {
+    nextState.name satisfies "ejected";
     nextState.final satisfies true;
   }
 
-  //! The machine is not finalized
+  //! The machine finalized flag
   cassete.finalized satisfies boolean;
-
-  //! The machine is finalized
-  if (cassete.finalized) {
-    //! So the next state is always true
-    const nextState = cassete.send("play");
-    nextState satisfies null;
-  }
 }
 
 //! Conditions
 {
   type PCState = "on" | "sleep" | "off";
 
-  const pcMachine = q2<PCState>("pc")
-    .entry("off", "press() -> on")
-    .state("sleep", ["press() -> on", "press(long) -> off", "restart() -> on"])
-    .state("on", ["press() -> sleep", "press(long) -> off", "restart() -> on"]);
-
-  const pcMachine2 = superstate<PCState>("pc")
-    .entry("off", "press() -> on")
+  const pcMachine = superstate<PCState>("pc")
+    .start("off", "press() -> on")
     .state("sleep", ($) =>
       $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
     )
     .state("on", ($) =>
-      $.if("press(long) -> off").else("press() -> sleep").on("restart() -> on")
+      $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
     );
 
   const pc = pcMachine.enter();
 
   //! Allows to send an event without the condition
-  pc.send("press");
+  {
+    const nextState = pc.send("press");
+    //! It properly infers the next state
+    if (nextState) {
+      nextState.name satisfies "on" | "sleep";
+    }
+  }
 
   //! Allows to send an event with the condition
-  pc.send("press", "long");
+  {
+    const nextState = pc.send("press", "long");
+    //! It properly infers the next state
+    if (nextState) {
+      nextState.name satisfies "off";
+    }
+  }
 
   //! The condition is undefined
   // @ts-expect-error
@@ -446,10 +447,6 @@ import { QQ, q2, superstate } from "./index.js";
       })
     )
     .state("dirty", ["clean() -> clear"]);
-
-  type Test = typeof teaMachine extends QQ.MachineFactory<infer State>
-    ? State["actions"]
-    : never;
 
   q2<MugState>("mug")
     .entry("clear", "pour() -> full")
