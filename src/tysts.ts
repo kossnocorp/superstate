@@ -270,52 +270,12 @@ import { QQ, q2, superstate } from "./index.js";
   //! The machine is not finalized
   cassete.finalized satisfies boolean;
 
-  type Test1 = typeof cassete;
-
   //! The machine is finalized
   if (cassete.finalized) {
     //! So the next state is always true
     const nextState = cassete.send("play");
     nextState satisfies null;
   }
-}
-
-interface Wut1<Thing extends string, Huh extends boolean> {
-  wut: Huh;
-  ok: (name: Thing) => Huh extends true ? true : null;
-}
-
-type Wut2<Thing extends string, Huh extends boolean> = Huh extends true
-  ? {
-      wut: Huh;
-      ok: (name: Thing) => true;
-    }
-  : {
-      wut: Huh;
-      ok: (name: Thing) => null;
-    };
-
-type Wut3<Thing extends string, Huh extends boolean> = Huh extends Huh
-  ? {
-      wut: Huh;
-      ok: (name: Thing) => Huh extends true ? true : null;
-    }
-  : never;
-
-type Wut4<Thing extends string, Huh extends boolean> = Huh extends Huh
-  ? {
-      wut: Huh;
-      ok: Huh extends true ? (name: Thing) => true : (name: Thing) => null;
-    }
-  : never;
-
-const wut = {} as never as Wut1<"hello" | "world", boolean>;
-
-wut.ok("hello");
-
-if (wut.wut) {
-  const result = wut.ok("world");
-  result satisfies true;
 }
 
 //! Conditions

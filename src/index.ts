@@ -521,46 +521,53 @@ export namespace QQ {
       : never
     : never;
 
-  export interface MachineInstance<
+  export type MachineInstance<
     MachineState extends AnyState, // TODO: Cut it
     Action extends AnyAction,
     Finalized extends boolean
-  > {
-    finalized: Finalized;
+  > =
+    // This is needed to make infer send return properly
+    Finalized extends Finalized
+      ? {
+          finalized: Finalized;
 
-    send<ActionName extends ExcludeConditionAction<Action>["name"]>(
-      action: ActionName
-    ): Finalized extends true
-      ? null
-      : MatchTargetState<
-          MachineState,
-          MatchNextStateName<MachineState, ActionName>
-        > | null;
+          send<EventName extends Action["name"]>(
+            action: EventName,
+            // TODO: Optimize it, I can't have two send because it breaks
+            // thanks to finalized. Before, I used generics that filtered events
+            // and it worked.
+            ...args: Action extends infer SendAction
+              ? SendAction extends {
+                  name: EventName;
+                }
+                ? SendAction extends ActionTransitionFork<
+                    any,
+                    any,
+                    any,
+                    any,
+                    infer Condition
+                  >
+                  ? [Condition]
+                  : []
+                : []
+              : never
+          ): Finalized extends true
+            ? null
+            : MatchTargetState<
+                MachineState,
+                MatchNextStateName<MachineState, EventName>
+              > | null;
 
-    send<ActionName extends ExtractConditionAction<Action>["name"]>(
-      action: ActionName,
-      condition: Action extends {
-        name: ActionName;
-        condition: infer Condition;
-      }
-        ? Condition
-        : never
-    ): Finalized extends true
-      ? null
-      : MatchTargetState<
-          MachineState,
-          MatchNextStateName<MachineState, ActionName>
-        > | null;
+          on<Target extends OnTarget<MachineState, Action>>(
+            target: Target | Target[],
+            listener: OnListener<MachineState, Action, Target>
+          ): Off;
 
-    on<Target extends OnTarget<MachineState, Action>>(
-      target: Target | Target[],
-      listener: OnListener<MachineState, Action, Target>
-    ): Off;
-
-    in<Target extends StateTarget<MachineState>>(
-      target: Target | Target[]
-    ): MatchTargetState<MachineState, Target> | undefined;
-  }
+          in<Target extends StateTarget<MachineState>>(
+            target: Target | Target[]
+          ): MatchTargetState<MachineState, Target> | undefined;
+        }
+      : never;
 
   export interface State<
     MachineStateName extends string,
