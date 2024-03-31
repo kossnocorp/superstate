@@ -1,17 +1,17 @@
-import { q2, superstate } from "./index.js";
+import { QQ, superstate } from "./index.js";
 
 //! Simple machine
 {
   type PlayerState = "stopped" | "playing" | "paused";
 
-  q2<PlayerState>("player")
-    .state("stopped", ["play() -> playing"])
+  superstate<PlayerState>("player")
+    .start("stopped", ["play() -> playing"])
     //! The nope state is not defined
     // @ts-expect-error
     .state("nope", []);
 
-  q2<PlayerState>("player")
-    .state("stopped", ["play() -> playing"])
+  superstate<PlayerState>("player")
+    .start("stopped", ["play() -> playing"])
     //! The stopped state is already defined
     // @ts-expect-error
     .state("stopped", ["play() -> playing"]);
@@ -196,6 +196,21 @@ import { q2, superstate } from "./index.js";
   // @ts-expect-error
   player.on(["stopped()", "nope()"], () => {});
 
+  //! Current state
+
+  //! The machine allows to get the current state
+  const state = player.state;
+  state.name satisfies "stopped" | "playing" | "paused";
+
+  //! The state is readonly
+  // @ts-expect-error
+  player.state = {
+    name: "stopped",
+    actions: [],
+    sub: {},
+    final: false,
+  };
+
   //! Matching states
 
   {
@@ -269,7 +284,12 @@ import { q2, superstate } from "./index.js";
   }
 
   //! The machine finalized flag
+
   cassete.finalized satisfies boolean;
+
+  //! The finalized is readonly
+  // @ts-expect-error
+  player.finalized = false;
 }
 
 //! Conditions
@@ -371,45 +391,55 @@ import { q2, superstate } from "./index.js";
   const teaMachine = superstate<TeaState>("tea")
     .start("water", ["infuse() -> steeping", "drink() -> finished"])
     .state("steeping", ["done() -> ready", "drink() -> finished"])
-    .state("ready", ["drink() -> finished"]);
+    .state("ready", ["drink() -> finished"])
+    .final("finished");
 
   type MugState = "clear" | "full" | "dirty";
 
-  q2<MugState>("mug")
-    .entry("clear", "pour() -> full")
+  superstate<MugState>("mug")
+    .start("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub(teaMachine, "water", {
-        //! The exit must be correct
+      $.sub(
+        "tea",
+        teaMachine,
+        //! The exit must be a correct state
         // @ts-expect-error
-        "ater -> drink() ->": "clear",
-        "steeping -> drink() ->": "dirty",
-        "ready -> drink() ->": "dirty",
-      })
+        "finishe -> finish() -> dirty"
+      )
     )
     .state("dirty", ["clean() -> clear"]);
 
-  q2<MugState>("mug")
-    .entry("clear", "pour() -> full")
+  superstate<MugState>("mug")
+    .start("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub(teaMachine, "water", {
-        "after -> drink() ->": "clear",
-        "steeping -> drink() ->": "dirty",
+      $.sub(
+        "tea",
+        teaMachine,
+        //! The exit must be a final strate
+        // @ts-expect-error
+        "water -> finish() -> dirty"
+      )
+    )
+    .state("dirty", ["clean() -> clear"]);
+
+  superstate<MugState>("mug")
+    .start("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
+      $.sub(
+        "tea",
+        teaMachine,
         //! The exiting state must be correct
         // @ts-expect-error
-        "ready -> drink() ->": "dity",
-      })
+        "finished -> finish() -> dity"
+      )
     )
     .state("dirty", ["clean() -> clear"]);
 
-  const mugMachine = q2<MugState>("mug")
-    .entry("clear", "pour() -> full")
-    .state("full", ["drink() -> clear"], ($) => ({
-      tea: $.sub(teaMachine, "water", {
-        "water -> drink() ->": "clear",
-        "steeping -> drink() ->": "dirty",
-        "ready -> drink() ->": "dirty",
-      }),
-    }))
+  const mugMachine = superstate<MugState>("mug")
+    .start("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
+      $.sub("tea", teaMachine, "finished -> finish() -> dirty")
+    )
     .state("dirty", ["clean() -> clear"]);
 
   const mug = mugMachine.enter();
@@ -417,19 +447,25 @@ import { q2, superstate } from "./index.js";
   //! Event listeners
 
   mug.on("full", (target) => {
-    target.state.children.tea.on("ready", (target) => {
-      if (target.state.name === "ready") return;
+    //! Should be able to listen to substate states
+    target.state.sub.tea.on("ready", (target) => {
+      target.state.name satisfies "ready";
+    });
 
-      //! The state can only be ready
-      target.state.name satisfies never;
+    //! Should be able to listen to the substate events
+    target.state.sub.tea.on("infuse()", (target) => {
+      target.event.name satisfies "infuse";
     });
   });
 
+  //! Should be able to listen to the substate states using dot notation
   mug.on("full.tea.ready", (target) => {
-    if (target.state.name === "ready") return;
+    target.state.name satisfies "ready";
+  });
 
-    //! The state can only be ready
-    target.state.name satisfies never;
+  //! Should be able to listen to the substate events
+  mug.on("full.tea.infuse()", (target) => {
+    target.event.name satisfies "infuse";
   });
 
   mug.on("*", (target) => {
@@ -446,6 +482,12 @@ import { q2, superstate } from "./index.js";
       if (target.state.name === "rady") return;
     }
   });
+
+  // TODO: Should be able to listen to exit transition
+
+  //! Sending events
+
+  // TODO: Should not be able to send exit transition
 
   //! Matching states
 
