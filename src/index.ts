@@ -379,7 +379,7 @@ export namespace QQ {
   export type DeepFlatEvent<
     MachineState extends AnyState,
     AllState extends AnyState,
-    Prefix extends string | undefined = undefined
+    Prefix extends string | "" = ""
   > =
     // First we get the root level events
     | (MachineState extends {
@@ -392,7 +392,7 @@ export namespace QQ {
           ? {
               key: Prefix extends undefined
                 ? EventName
-                : `${Prefix}.${EventName}`;
+                : `${Prefix}${EventName}`;
               condition: Condition;
               event: Event;
               next: MatchNextState<AllState, AllState, EventName, Condition>;
@@ -406,20 +406,16 @@ export namespace QQ {
         sub: infer Substates extends Record<string, any>;
       }
         ? {
-            [SubstateName in keyof Substates]: Substates[SubstateName] extends AnyMachineInstance<
-              infer SubstateState,
-              any,
-              any,
-              infer AsSubstate
-            >
+            [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+              substate: infer AsSubstate;
+              state: infer SubstateState extends AnyState;
+            }
               ? SubstateName extends string
                 ?
                     | DeepFlatEvent<
                         SubstateState,
                         SubstateState,
-                        Prefix extends undefined
-                          ? `${StateName}.${SubstateName}`
-                          : `${Prefix}.${StateName}.${SubstateName}`
+                        `${Prefix}${StateName}.${SubstateName}.`
                       >
                     // Add final transitions
                     | (AsSubstate extends Substate<any, any, infer Transition>
@@ -429,9 +425,7 @@ export namespace QQ {
                             any
                           >
                           ? {
-                              key: Prefix extends undefined
-                                ? EventName
-                                : `${Prefix}.${EventName}`;
+                              key: `${Prefix}${EventName}`;
                               event: Transition;
                               condition: null;
                               next: MatchNextState<
@@ -451,14 +445,14 @@ export namespace QQ {
 
   export type DeepFlatState<
     MachineState extends AnyState,
-    Prefix extends string | undefined = undefined
+    Prefix extends string | "" = ""
   > =
     // First we get the root level states
     | (MachineState extends {
         name: infer Name extends string;
       }
         ? {
-            key: Prefix extends undefined ? Name : `${Prefix}.${Name}`;
+            key: `${Prefix}${Name}`;
             state: MachineState;
           }
         : never)
@@ -468,15 +462,13 @@ export namespace QQ {
         sub: infer Substates extends Record<string, any>;
       }
         ? {
-            [SubstateName in keyof Substates]: Substates[SubstateName] extends AnyMachineInstance<
-              infer SubstateState
-            >
+            [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+              state: infer SubstateState extends AnyState;
+            }
               ? SubstateName extends string
                 ? DeepFlatState<
                     SubstateState,
-                    Prefix extends undefined
-                      ? `${StateName}.${SubstateName}`
-                      : `${Prefix}.${StateName}.${SubstateName}`
+                    `${Prefix}${StateName}.${SubstateName}.`
                   >
                 : never
               : never;
