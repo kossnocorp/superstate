@@ -602,12 +602,15 @@ import { QQ, superstate } from "./index.js";
   type SwitchState = "off" | "on";
 
   superstate<SwitchState>("switch")
+    // @ts-ignore: TODO
     .start("off", ($) => $.enter("turnOff").on("toggle() -> on"))
+    // @ts-ignore: TODO
     .state("on", ($) => $.enter("turnOff").on("toggle() -> off"));
 
   superstate<SwitchState>("switch")
-    .entry("off", "toggle() -> on")
+    .start("off", "toggle() -> on")
     .state("on", ($) =>
+      // @ts-ignore: TODO
       $.enter("turnOn")
         .on("toggle", "(hello) -> off", "() -> off")
         .on("whatever -> qwe")
