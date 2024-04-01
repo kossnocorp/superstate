@@ -529,35 +529,72 @@ import { QQ, superstate } from "./index.js";
 {
   type ExpireState = "fresh" | "expired";
 
-  const expireMachine = q2<ExpireState>("expire")
-    .entry("expired", ["expire() -> expired"])
+  const expireMachine = superstate<ExpireState>("expire")
+    .start("expired", "expire() -> expired")
     .state("fresh");
 
   type HeatState = "frozen" | "thawed" | "hot";
 
-  const heatMachine = q2<HeatState>("heat")
-    .entry("frozen", "thaw() -> thawed")
+  const heatMachine = superstate<HeatState>("heat")
+    .start("frozen", "thaw() -> thawed")
     .state("thawed", "heat() -> hot")
     .state("hot");
 
-  type MeatPieState = "unpacked" | "cooked";
+  type MeatPieState = "unpacked" | "cooked" | "finished";
 
-  type EatState = "eating";
+  type EatState = "eating" | "finished";
 
-  const eatMachine = q2<EatState>("eat").entry("eating", "eat() -> eating");
+  const eatMachine = superstate<EatState>("eat")
+    .start("eating", "eat() -> finished")
+    .final("finished");
 
-  const meatPieMachine = q2<MeatPieState>("meatPie")
-    .entry("unpacked", [], ($) => ({
-      expire: $.sub(expireMachine),
-      heat: $.sub(heatMachine),
-      eat: $.sub(eatMachine, {
-        "eating() ->": "cooked",
-        //! The exit state is invalid
-        // @ts-expect-error
-        "nope() ->": "cooked",
-      }),
-    }))
-    .state("cooked");
+  const meatPieMachine = superstate<MeatPieState>("meatPie")
+    .start("unpacked", ($) =>
+      $.sub("expire", expireMachine)
+        .sub("heat", heatMachine)
+        .sub("eat", eatMachine, "finished -> finish() -> finished")
+    )
+    .state("cooked")
+    .final("finished");
+
+  const meatPie = meatPieMachine.enter();
+
+  //! on
+
+  //! Can subscribe to the parallel states
+  meatPie.on(["unpacked.eat.eating", "unpacked.expire.fresh"], (target) => {
+    target.state.name satisfies "eating" | "fresh";
+  });
+
+  //! Can't subscribe to invalid parallel states
+  // @ts-expect-error
+  meatPie.on("unpacked.heat.eating", () => {});
+
+  //! send
+
+  //! Can send events to the parallel states
+  {
+    const nextState = meatPie.send("unpacked.eat.eat");
+    //! The next state is finished
+    if (nextState) nextState.name satisfies "finished";
+  }
+
+  //! Can't send invalid events
+  // @ts-expect-error
+  meatPie.send("unpacked.eat.heat");
+
+  //! in
+
+  //! Can match the parallel states
+  {
+    const state = meatPie.in("unpacked.eat.eating");
+    //! The state is eating
+    if (state) state.name satisfies "eating";
+  }
+
+  //! Don't accept invalid parallel states
+  // @ts-expect-error
+  meatPie.in("unpacked.eat.thawed");
 }
 
 //! State actions
