@@ -405,42 +405,47 @@ export namespace QQ {
         name: infer StateName extends string;
         sub: infer Substates extends Record<string, any>;
       }
-        ? {
-            [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-              substate: infer AsSubstate;
-              state: infer SubstateState extends AnyState;
-            }
-              ? SubstateName extends string
-                ?
-                    | DeepFlatEvent<
-                        SubstateState,
-                        SubstateState,
-                        `${Prefix}${StateName}.${SubstateName}.`
-                      >
-                    // Add final transitions
-                    | (AsSubstate extends Substate<any, any, infer Transition>
-                        ? Transition extends SubstateFinalTransition<
-                            infer EventName,
-                            any,
-                            any
-                          >
-                          ? {
-                              key: `${Prefix}${EventName}`;
-                              event: Transition;
-                              condition: null;
-                              next: MatchNextState<
-                                AllState,
-                                AllState,
-                                EventName,
-                                null
-                              >;
-                              final: true;
-                            }
-                          : never
-                        : never)
-                : never
-              : never;
-          }[keyof Substates]
+        ? // Here we prevent the infinite recursion when Substates is uknown and
+          // keyof Substates resolves to `string | number | symbol`:
+          // > Type instantiation is excessively deep and possibly infinite.
+          keyof Substates extends string
+          ? {
+              [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+                substate: infer AsSubstate;
+                state: infer SubstateState extends AnyState;
+              }
+                ? SubstateName extends string
+                  ?
+                      | DeepFlatEvent<
+                          SubstateState,
+                          SubstateState,
+                          `${Prefix}${StateName}.${SubstateName}.`
+                        >
+                      // Add final transitions
+                      | (AsSubstate extends Substate<any, any, infer Transition>
+                          ? Transition extends SubstateFinalTransition<
+                              infer EventName,
+                              any,
+                              any
+                            >
+                            ? {
+                                key: `${Prefix}${EventName}`;
+                                event: Transition;
+                                condition: null;
+                                next: MatchNextState<
+                                  AllState,
+                                  AllState,
+                                  EventName,
+                                  null
+                                >;
+                                final: true;
+                              }
+                            : never
+                          : never)
+                  : never
+                : never;
+            }[keyof Substates]
+          : never
         : never);
 
   export type DeepFlatState<
@@ -461,18 +466,23 @@ export namespace QQ {
         name: infer StateName extends string;
         sub: infer Substates extends Record<string, any>;
       }
-        ? {
-            [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-              state: infer SubstateState extends AnyState;
-            }
-              ? SubstateName extends string
-                ? DeepFlatState<
-                    SubstateState,
-                    `${Prefix}${StateName}.${SubstateName}.`
-                  >
-                : never
-              : never;
-          }[keyof Substates]
+        ? // Here we prevent the infinite recursion when Substates is uknown and
+          // keyof Substates resolves to `string | number | symbol`:
+          // > Type instantiation is excessively deep and possibly infinite.
+          keyof Substates extends string
+          ? {
+              [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+                state: infer SubstateState extends AnyState;
+              }
+                ? SubstateName extends string
+                  ? DeepFlatState<
+                      SubstateState,
+                      `${Prefix}${StateName}.${SubstateName}.`
+                    >
+                  : never
+                : never;
+            }[keyof Substates]
+          : never
         : never);
 
   export type AnyMachineInstance<
