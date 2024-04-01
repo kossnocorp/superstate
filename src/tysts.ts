@@ -483,6 +483,12 @@ import { QQ, superstate } from "./index.js";
     }
   });
 
+  //! Should be able to listen to the exit transition
+  mug.on("finish()", (target) => {
+    target.event.name satisfies "finish";
+    target.event.to satisfies "dirty";
+  });
+
   // TODO: Should be able to listen to exit transition
 
   //! Sending events
@@ -490,30 +496,23 @@ import { QQ, superstate } from "./index.js";
   // TODO: Should not be able to send exit transition
 
   //! Matching states
-
   {
     const state = mug.in("full.tea.steeping");
-
     //! The state might be undefined
     // @ts-expect-error
     state.name;
-
     //! The state is steeping
     if (state) state.name satisfies "steeping";
   }
 
   //! Multiple matches
-
   {
     const state = mug.in(["clear", "full.tea.ready"]);
-
     //! The state might be undefined
     // @ts-expect-error
     state.name;
-
-    if (state)
-      //! The state is clear or ready
-      state.name satisfies "clear" | "ready";
+    //! The state is clear or ready
+    if (state) state.name satisfies "clear" | "ready";
   }
 }
 

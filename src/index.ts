@@ -249,17 +249,6 @@ export namespace QQ {
     string | null
   >;
 
-  export type StateAction<
-    MachineStateName extends string,
-    FromStateName extends MachineStateName
-  > = ActionTransition<
-    string,
-    MachineStateName,
-    FromStateName,
-    MachineStateName,
-    string | null
-  >;
-
   export interface ActionTransition<
     ActionName extends string,
     MachineStateName extends string,
