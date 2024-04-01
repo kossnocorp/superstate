@@ -262,19 +262,10 @@ export namespace QQ {
     to: ToStateName;
   }
 
-  export type AnyMachineFactory<
-    MachineState extends BuilderChainState<
-      any,
-      any,
-      any,
-      any,
-      any
-    > = BuilderChainState<any, any, any, any, any>
-  > = MachineFactory<MachineState>;
+  export type AnyMachineFactory<MachineState extends AnyState = any> =
+    MachineFactory<MachineState>;
 
-  export interface MachineFactory<
-    MachineState extends BuilderChainState<any, any, any, any, any>
-  > {
+  export interface MachineFactory<MachineState extends AnyState> {
     enter(): MachineInstance<
       MachineState,
       DeepFlatState<MachineState>,
@@ -414,50 +405,48 @@ export namespace QQ {
         name: infer StateName extends string;
         sub: infer Substates extends Record<string, any>;
       }
-        ? keyof Substates extends never
-          ? never
-          : {
-              [SubstateName in keyof Substates]: Substates[SubstateName] extends AnyMachineInstance<
-                infer SubstateState,
-                any,
-                any,
-                infer AsSubstate
-              >
-                ? SubstateName extends string
-                  ?
-                      | DeepFlatEvent<
-                          SubstateState,
-                          SubstateState,
-                          Prefix extends undefined
-                            ? `${StateName}.${SubstateName}`
-                            : `${Prefix}.${StateName}.${SubstateName}`
-                        >
-                      // Add final transitions
-                      | (AsSubstate extends Substate<any, any, infer Transition>
-                          ? Transition extends SubstateFinalTransition<
-                              infer EventName,
-                              any,
-                              any
-                            >
-                            ? {
-                                key: Prefix extends undefined
-                                  ? EventName
-                                  : `${Prefix}.${EventName}`;
-                                event: Transition;
-                                condition: null;
-                                next: MatchNextState<
-                                  AllState,
-                                  AllState,
-                                  EventName,
-                                  null
-                                >;
-                                final: true;
-                              }
-                            : never
-                          : never)
-                  : never
-                : never;
-            }[keyof Substates]
+        ? {
+            [SubstateName in keyof Substates]: Substates[SubstateName] extends AnyMachineInstance<
+              infer SubstateState,
+              any,
+              any,
+              infer AsSubstate
+            >
+              ? SubstateName extends string
+                ?
+                    | DeepFlatEvent<
+                        SubstateState,
+                        SubstateState,
+                        Prefix extends undefined
+                          ? `${StateName}.${SubstateName}`
+                          : `${Prefix}.${StateName}.${SubstateName}`
+                      >
+                    // Add final transitions
+                    | (AsSubstate extends Substate<any, any, infer Transition>
+                        ? Transition extends SubstateFinalTransition<
+                            infer EventName,
+                            any,
+                            any
+                          >
+                          ? {
+                              key: Prefix extends undefined
+                                ? EventName
+                                : `${Prefix}.${EventName}`;
+                              event: Transition;
+                              condition: null;
+                              next: MatchNextState<
+                                AllState,
+                                AllState,
+                                EventName,
+                                null
+                              >;
+                              final: true;
+                            }
+                          : never
+                        : never)
+                : never
+              : never;
+          }[keyof Substates]
         : never);
 
   export type DeepFlatState<
@@ -478,22 +467,20 @@ export namespace QQ {
         name: infer StateName extends string;
         sub: infer Substates extends Record<string, any>;
       }
-        ? keyof Substates extends never
-          ? never
-          : {
-              [SubstateName in keyof Substates]: Substates[SubstateName] extends AnyMachineInstance<
-                infer SubstateState
-              >
-                ? SubstateName extends string
-                  ? DeepFlatState<
-                      SubstateState,
-                      Prefix extends undefined
-                        ? `${StateName}.${SubstateName}`
-                        : `${Prefix}.${StateName}.${SubstateName}`
-                    >
-                  : never
-                : never;
-            }[keyof Substates]
+        ? {
+            [SubstateName in keyof Substates]: Substates[SubstateName] extends AnyMachineInstance<
+              infer SubstateState
+            >
+              ? SubstateName extends string
+                ? DeepFlatState<
+                    SubstateState,
+                    Prefix extends undefined
+                      ? `${StateName}.${SubstateName}`
+                      : `${Prefix}.${StateName}.${SubstateName}`
+                  >
+                : never
+              : never;
+          }[keyof Substates]
         : never);
 
   export type AnyMachineInstance<
