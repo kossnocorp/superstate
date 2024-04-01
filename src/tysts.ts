@@ -489,11 +489,20 @@ import { QQ, superstate } from "./index.js";
     target.event.to satisfies "dirty";
   });
 
-  // TODO: Should be able to listen to exit transition
-
   //! Sending events
 
-  // TODO: Should not be able to send exit transition
+  //! Should be able to send events to substates
+  {
+    const nextState = mug.send("full.tea.infuse");
+    if (nextState) {
+      //! The next state is steeping
+      nextState.name satisfies "steeping";
+    }
+  }
+
+  //! Should not be able to send final transition events
+  // @ts-expect-error
+  mug.send("finish");
 
   //! Matching states
   {

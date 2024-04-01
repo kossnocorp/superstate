@@ -275,17 +275,21 @@ export namespace QQ {
   export interface MachineFactory<
     MachineState extends BuilderChainState<any, any, any, any, any>
   > {
-    enter(): MachineInstance<MachineState, MachineAction<MachineState>>;
+    enter(): MachineInstance<
+      MachineState,
+      SendableEventsList<MachineState, MachineState>,
+      never
+    >;
   }
 
   export interface Off {
     (): void;
   }
 
-  export type OnTarget<MachineState extends { name: string; actions: any[] }> =
+  export type OnTarget<MachineState extends { name: string; events: any[] }> =
     | "*"
     | StateTarget<MachineState>
-    | EventTarger<MachineState>;
+    | EventTarget<MachineState>;
 
   export type StateTarget<
     MachineState extends { name: string },
@@ -345,13 +349,13 @@ export namespace QQ {
           : never
         : never);
 
-  export type EventTarger<
-    MachineState extends { name: string; actions: any[] },
+  export type EventTarget<
+    MachineState extends { name: string; events: any[] },
     Prefix extends string | undefined = undefined
   > =
     // First we get the root level action names
     | (MachineState extends {
-        actions: Array<{ name: infer ActionName extends string }>;
+        events: Array<{ name: infer ActionName extends string }>;
       }
         ? Prefix extends undefined
           ? `${ActionName}()`
@@ -362,16 +366,33 @@ export namespace QQ {
         name: infer ParentStateName extends string;
         sub: infer Substates extends Record<string, any>;
       }
-        ? keyof Substates extends infer SubstateName extends string
+        ? keyof Substates extends never
+          ? never
+          : keyof Substates extends infer SubstateName extends string
           ? Substates[SubstateName] extends AnyMachineInstance<
-              infer SubstateState
+              infer SubstateState,
+              any,
+              infer AsSubstate
             >
-            ? EventTarger<SubstateState, `${ParentStateName}.${SubstateName}`>
+            ?
+                | EventTarget<
+                    SubstateState,
+                    `${ParentStateName}.${SubstateName}`
+                  >
+                | (AsSubstate extends Substate<any, any, infer Transition>
+                    ? Transition extends {
+                        name: infer TransitionName extends string;
+                      }
+                      ? Prefix extends undefined
+                        ? `${TransitionName}()`
+                        : `${Prefix}.${TransitionName}()`
+                      : never
+                    : never)
             : never
           : never
         : never);
 
-  export type MatchTargetAction<
+  export type MatchTargetEvent<
     MachineState extends { name: string },
     Target extends string
   > =
@@ -380,18 +401,34 @@ export namespace QQ {
         name: infer ParentStateName extends string;
         sub: infer Substates extends Record<string, any>;
       }
-        ? keyof Substates extends infer SubstateName extends string
+        ? keyof Substates extends never
+          ? never
+          : keyof Substates extends infer SubstateName extends string
           ? Substates[SubstateName] extends AnyMachineInstance<
-              infer SubstateState
+              infer SubstateState,
+              any,
+              infer AsSubstate
             >
-            ? Target extends `${ParentStateName}.${SubstateName}.${infer SubstateTarget}`
-              ? MatchTargetAction<SubstateState, SubstateTarget>
-              : never
+            ?
+                | (Target extends `${ParentStateName}.${SubstateName}.${infer SubstateTarget}`
+                    ? MatchTargetEvent<SubstateState, SubstateTarget>
+                    : never)
+                | (AsSubstate extends Substate<any, any, infer Transition>
+                    ? Transition extends SubstateFinalTransition<
+                        infer EventName,
+                        infer FromName,
+                        infer ToName
+                      >
+                      ? Target extends `${EventName}()`
+                        ? Transition
+                        : never
+                      : never
+                    : never)
             : never
           : never
         : never)
     // Now we cam infer the root level actions
-    | (MachineState extends { actions: Array<infer Action> }
+    | (MachineState extends { events: Array<infer Action> }
         ? Action extends { name: infer ActionName extends string }
           ? `${ActionName}()` extends Target
             ? Action
@@ -401,7 +438,7 @@ export namespace QQ {
 
   export type DeepAllEvent<MachineState> =
     // First we get the root level actions
-    | (MachineState extends { actions: Array<infer Action> } ? Action : never)
+    | (MachineState extends { events: Array<infer Action> } ? Action : never)
     // Then we add the children actions
     | (MachineState extends { sub: infer Substates }
         ? keyof Substates extends never // Prevent going deep if there are no substates
@@ -431,7 +468,7 @@ export namespace QQ {
   }
 
   export interface OnListener<
-    MachineState extends { name: string; actions: any[] },
+    MachineState extends { name: string; events: any[] },
     Target extends OnTarget<MachineState>
   > {
     (
@@ -445,7 +482,7 @@ export namespace QQ {
             MachineState,
             TargetString
           > extends infer MatchedState
-          ? MatchTargetAction<
+          ? MatchTargetEvent<
               MachineState,
               TargetString
             > extends infer MatchedEvent
@@ -466,7 +503,7 @@ export namespace QQ {
     MachineState extends AnyState, // TODO: Cut it
     EventName,
     EventCondition extends string | null
-  > = MachineState extends { actions: Array<infer Action> }
+  > = MachineState extends { events: Array<infer Action> }
     ? Action extends {
         name: EventName;
         condition: EventCondition;
@@ -476,40 +513,112 @@ export namespace QQ {
       : never
     : never;
 
+  export interface SendableEventsListConstraint {
+    key: string;
+    condition: string | null;
+    // event: AnyAction;
+    next: AnyState;
+  }
+
+  export type SendableEventsList<
+    MachineState extends AnyState,
+    AllState extends AnyState,
+    Prefix extends string | undefined = undefined
+  > =
+    // First we get the root level event names
+    | (MachineState extends {
+        events: Array<infer Event>;
+      }
+        ? Event extends {
+            name: infer EventName extends string;
+            condition: infer Condition extends string | null;
+          }
+          ? {
+              key: Prefix extends undefined
+                ? EventName
+                : `${Prefix}.${EventName}`;
+              condition: Condition;
+              // event: Event;
+              next: MatchTargetState<
+                AllState,
+                MatchNextStateName<AllState, EventName, Condition>
+              >;
+            }
+          : never
+        : never)
+    // Now we add the substate event names
+    | (AllState extends {
+        name: infer StateName extends string;
+        sub: infer Substates extends Record<string, any>;
+      }
+        ? keyof Substates extends never
+          ? never
+          : keyof Substates extends infer SubstateName extends string
+          ? Substates[SubstateName] extends AnyMachineInstance<
+              infer SubstateState
+            >
+            ? SendableEventsList<
+                SubstateState,
+                SubstateState,
+                Prefix extends undefined
+                  ? `${StateName}.${SubstateName}`
+                  : `${Prefix}.${StateName}.${SubstateName}`
+              >
+            : never
+          : never
+        : never);
+
   export type AnyMachineInstance<
     MachineState extends AnyState = AnyState,
-    Action extends AnyAction = AnyAction
-  > = MachineInstance<MachineState, Action>;
+    EventsList extends SendableEventsListConstraint = any,
+    AsSubstate extends Substate<any, any, any> = Substate<any, any, any>
+  > = MachineInstance<MachineState, EventsList, AsSubstate>;
 
   export type MachineInstance<
     MachineState extends AnyState, // TODO: Cut it
-    Action extends AnyAction
+    EventsList extends SendableEventsListConstraint,
+    AsSubstate extends Substate<any, any, any>
   > = {
+    // TODO: Find a better name. This property is needed to infer the substate
+    // transitions for on method. It tells if the instance is a substate
+    readonly substate: AsSubstate;
+
     readonly state: MachineState;
 
     readonly finalized: boolean;
 
     send<
-      Name extends Action["name"],
-      Condition extends Action extends { name: Name }
-        ? Action["condition"]
+      Key extends EventsList["key"],
+      Condition extends EventsList extends {
+        key: Key;
+        condition: infer Condition extends null | string;
+      }
+        ? Condition
         : null
     >(
-      name: Name,
+      name: Key,
       condition: Condition
-    ): MatchTargetState<
-      MachineState,
-      MatchNextStateName<MachineState, Name, Condition>
-    > | null;
+    ): EventsList extends {
+      key: Key;
+      condition: Condition;
+      next: infer Next;
+    }
+      ? Next | null
+      : never;
 
     send<
-      Name extends Action extends { condition: null } ? Action["name"] : never
+      Key extends EventsList extends { condition: null }
+        ? EventsList["key"]
+        : never
     >(
-      name: Name
-    ): MatchTargetState<
-      MachineState,
-      MatchNextStateName<MachineState, Name, null>
-    > | null;
+      name: Key
+    ): EventsList extends {
+      key: Key;
+      condition: null;
+      next: infer Next;
+    }
+      ? Next | null
+      : never;
 
     on<Target extends OnTarget<MachineState>>(
       target: Target | Target[],
@@ -529,7 +638,7 @@ export namespace QQ {
     Final extends boolean
   > {
     name: StateName;
-    actions: Action[];
+    events: Action[];
     sub: Substates;
     final: Final;
   }
@@ -586,7 +695,7 @@ export namespace QQ {
       : never;
 
   type MachineAction<MachineState> = MachineState extends {
-    actions: Array<infer Action>;
+    events: Array<infer Action>;
   }
     ? Action
     : never;
@@ -609,18 +718,22 @@ export namespace QQ {
     Final extends boolean
   > = {
     name: StateName;
-    actions: ActionFromDef<MachineStateName, StateName, StateActionDef>[];
+    events: ActionFromDef<MachineStateName, StateName, StateActionDef>[];
     sub: SubstateMap<Substate>;
     final: Final;
   };
 
-  export type SubstateMap<State extends Substate<any, any, any>> = {
-    [Name in State["name"]]: State extends {
+  export type SubstateMap<_Substate extends Substate<any, any, any>> = {
+    [Name in _Substate["name"]]: _Substate extends {
       name: Name;
       factory: infer Factory;
     }
       ? Factory extends MachineFactory<infer SubstateState>
-        ? MachineInstance<SubstateState, MachineAction<SubstateState>>
+        ? MachineInstance<
+            SubstateState,
+            SendableEventsList<SubstateState, SubstateState>,
+            _Substate
+          >
         : never
       : never;
   };
@@ -837,7 +950,7 @@ export namespace Superstate {
         StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
       >(
         name: StateName,
-        actions: StateActionDef | StateActionDef[]
+        events: StateActionDef | StateActionDef[]
       ): BuilderChainResult<
         MachineStateName,
         ChainStateName,
@@ -854,7 +967,7 @@ export namespace Superstate {
         Substate extends QQ.Substate<any, any, any>
       >(
         name: StateName,
-        actions: StateActionDef | StateActionDef[],
+        events: StateActionDef | StateActionDef[],
         generator: StateFnGenerator<MachineStateName, StateActionDef, Substate>
       ): BuilderChainResult<
         MachineStateName,
