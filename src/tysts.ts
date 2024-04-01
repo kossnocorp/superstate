@@ -206,7 +206,7 @@ import { QQ, superstate } from "./index.js";
   // @ts-expect-error
   player.state = {
     name: "stopped",
-    actions: [],
+    events: [],
     sub: {},
     final: false,
   };

@@ -236,28 +236,28 @@ export namespace Q {
  * functions. It's a WIP API revamp.
  */
 export namespace QQ {
-  // TODO: Rename action -> event everywhere
-  export type AnyEvent<
-    ActionName extends string = string,
+  export type AnyTransition<
+    EventName extends string = string,
     MachineStateName extends string = string,
     FromStateName extends MachineStateName = MachineStateName
-  > = ActionTransition<
-    ActionName,
+  > = Transition<
+    EventName,
     MachineStateName,
     FromStateName,
     any,
     string | null
   >;
 
-  export interface ActionTransition<
-    ActionName extends string,
+  export interface Transition<
+    EventName extends string,
     MachineStateName extends string,
     FromStateName extends MachineStateName,
     ToStateName extends MachineStateName,
-    ActionCondition extends string | null
+    Condition extends string | null
   > {
-    name: ActionName;
-    condition: ActionCondition;
+    // TODO: Rename to event?
+    name: EventName;
+    condition: Condition;
     from: FromStateName;
     to: ToStateName;
   }
@@ -313,9 +313,9 @@ export namespace QQ {
     state: _State;
   }
 
-  export interface TargetEvent<MachineAction> {
+  export interface TargetEvent<MachineEvent> {
     type: "event";
-    event: MachineAction;
+    event: MachineEvent;
     // TODO: from, to, condition
   }
 
@@ -368,7 +368,7 @@ export namespace QQ {
     condition: string | null;
     final: boolean;
     next: AnyState;
-    event: AnyEvent;
+    event: AnyTransition;
   }
 
   export interface FlatStateConstraint {
@@ -558,12 +558,12 @@ export namespace QQ {
   export interface State<
     MachineStateName extends string,
     StateName extends MachineStateName,
-    Action, // extends StateAction<MachineStateName, StateName>, // optimization
-    Substates, // extends ChildrenInstancesMap<any> // optimization
+    Event,
+    Substates,
     Final extends boolean
   > {
     name: StateName;
-    events: Action[];
+    events: Event[];
     sub: Substates;
     final: Final;
   }
@@ -571,12 +571,12 @@ export namespace QQ {
   export type AnyState<
     MachineStateName extends string = string,
     StateName extends MachineStateName = MachineStateName,
-    Action = any,
+    Event = any,
     Substates = any,
     Final extends boolean = boolean
-  > = State<MachineStateName, StateName, Action, Substates, Final>;
+  > = State<MachineStateName, StateName, Event, Substates, Final>;
 
-  export type ActionDef<
+  export type EventDef<
     MachineStateName extends string,
     EventName extends string,
     Condition extends string
@@ -584,45 +584,14 @@ export namespace QQ {
     | `${EventName}() -> ${MachineStateName}`
     | `${EventName}(${Condition}) -> ${MachineStateName}`;
 
-  export type ActionFromDef<
+  export type EventFromDef<
     MachineStateName extends string,
     FromStateName extends MachineStateName,
-    Def extends ActionDef<any, any, any>
-  > = Def extends `${infer ActionName}() -> ${infer ToState extends MachineStateName}`
-    ? ActionTransition<
-        ActionName,
-        MachineStateName,
-        FromStateName,
-        ToState,
-        null
-      >
-    : Def extends `${infer ActionName}(${infer Condition}) -> ${infer ToState extends MachineStateName}`
-    ? ActionTransition<
-        ActionName,
-        MachineStateName,
-        FromStateName,
-        ToState,
-        Condition
-      >
-    : never;
-
-  export type DefFromAction<Action extends AnyEvent> =
-    Action extends ActionTransition<
-      infer ActionName,
-      any,
-      infer FromStateName,
-      infer ToStateName,
-      infer Condition
-    >
-      ? Condition extends string
-        ? `${FromStateName} -> ${ActionName}(${Condition}) -> ${ToStateName}`
-        : `${FromStateName} -> ${ActionName}() -> ${ToStateName}`
-      : never;
-
-  type MachineAction<MachineState> = MachineState extends {
-    events: Array<infer Action>;
-  }
-    ? Action
+    Def extends EventDef<any, any, any>
+  > = Def extends `${infer EventName}() -> ${infer ToState extends MachineStateName}`
+    ? Transition<EventName, MachineStateName, FromStateName, ToState, null>
+    : Def extends `${infer EventName}(${infer Condition}) -> ${infer ToState extends MachineStateName}`
+    ? Transition<EventName, MachineStateName, FromStateName, ToState, Condition>
     : never;
 
   /**
@@ -638,12 +607,12 @@ export namespace QQ {
   export type BuilderChainState<
     MachineStateName extends string,
     StateName extends MachineStateName,
-    StateActionDef extends ActionDef<MachineStateName, any, any>,
+    StateEventDef extends EventDef<MachineStateName, any, any>,
     Substate extends QQ.Substate<any, any, any>,
     Final extends boolean
   > = {
     name: StateName;
-    events: ActionFromDef<MachineStateName, StateName, StateActionDef>[];
+    events: EventFromDef<MachineStateName, StateName, StateEventDef>[];
     sub: SubstateMap<Substate>;
     final: Final;
   };
@@ -742,16 +711,14 @@ export namespace Superstate {
 
     export interface StateFnGeneratorBuilder<
       MachineStateName extends string,
-      // ChainStateName extends MachineStateName,
-      // StateName extends ChainStateName,
-      StateActionDef extends QQ.ActionDef<MachineStateName, any, any> = never,
+      StateEventDef extends QQ.EventDef<MachineStateName, any, any> = never,
       Substate extends QQ.Substate<any, any, any> = never
     > {
-      on<ActionDef extends QQ.ActionDef<MachineStateName, any, any>>(
-        events: ActionDef[] | ActionDef
+      on<EventDef extends QQ.EventDef<MachineStateName, any, any>>(
+        events: EventDef[] | EventDef
       ): StateFnGeneratorBuilder<
         MachineStateName,
-        StateActionDef | ActionDef,
+        StateEventDef | EventDef,
         Substate
       >;
 
@@ -763,7 +730,7 @@ export namespace Superstate {
         cases: CaseDef[] | CaseDef
       ): StateFnGeneratorBuilder<
         MachineStateName,
-        | StateActionDef
+        | StateEventDef
         | EventCaseDefToEventDef<MachineStateName, EventName, CaseDef>,
         Substate
       >;
@@ -784,7 +751,7 @@ export namespace Superstate {
         defs?: TrasitionDef | TrasitionDef[]
       ): StateFnGeneratorBuilder<
         MachineStateName,
-        StateActionDef,
+        StateEventDef,
         | Substate
         | QQ.Substate<
             SubstateName,
@@ -796,12 +763,12 @@ export namespace Superstate {
 
     export interface StateFnGenerator<
       MachineStateName extends string,
-      StateActionDef extends QQ.ActionDef<MachineStateName, any, any>,
+      StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
       Substate extends QQ.Substate<any, any, any> = never
     > {
       ($: StateFnGeneratorBuilder<MachineStateName>): StateFnGeneratorBuilder<
         MachineStateName,
-        StateActionDef,
+        StateEventDef,
         Substate
       >;
     }
@@ -811,7 +778,7 @@ export namespace Superstate {
       ChainStateName extends MachineStateName,
       MachineState extends QQ.AnyState<MachineStateName>,
       StateName extends ChainStateName,
-      StateActionDef extends QQ.ActionDef<MachineStateName, any, any>,
+      StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
       Substate extends QQ.Substate<any, any, any>,
       Final extends boolean
     > = Exclude<ChainStateName, StateName> extends never
@@ -820,7 +787,7 @@ export namespace Superstate {
           | QQ.BuilderChainState<
               MachineStateName,
               StateName,
-              StateActionDef,
+              StateEventDef,
               Substate,
               Final
             >
@@ -832,7 +799,7 @@ export namespace Superstate {
           | QQ.BuilderChainState<
               MachineStateName,
               StateName,
-              StateActionDef,
+              StateEventDef,
               Substate,
               Final
             >
@@ -856,51 +823,51 @@ export namespace Superstate {
 
       <
         StateName extends ChainStateName,
-        StateActionDef extends QQ.ActionDef<MachineStateName, any, any>,
+        StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
         Substate extends QQ.Substate<any, any, any>
       >(
         name: StateName,
-        generator: StateFnGenerator<MachineStateName, StateActionDef, Substate>
+        generator: StateFnGenerator<MachineStateName, StateEventDef, Substate>
       ): BuilderChainResult<
         MachineStateName,
         ChainStateName,
         MachineState,
         StateName,
-        StateActionDef,
+        StateEventDef,
         Substate,
         Final
       >;
 
       <
         StateName extends ChainStateName,
-        StateActionDef extends QQ.ActionDef<MachineStateName, any, any>
+        StateEventDef extends QQ.EventDef<MachineStateName, any, any>
       >(
         name: StateName,
-        events: StateActionDef | StateActionDef[]
+        events: StateEventDef | StateEventDef[]
       ): BuilderChainResult<
         MachineStateName,
         ChainStateName,
         MachineState,
         StateName,
-        StateActionDef,
+        StateEventDef,
         never,
         Final
       >;
 
       <
         StateName extends ChainStateName,
-        StateActionDef extends QQ.ActionDef<MachineStateName, any, any>,
+        StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
         Substate extends QQ.Substate<any, any, any>
       >(
         name: StateName,
-        events: StateActionDef | StateActionDef[],
-        generator: StateFnGenerator<MachineStateName, StateActionDef, Substate>
+        events: StateEventDef | StateEventDef[],
+        generator: StateFnGenerator<MachineStateName, StateEventDef, Substate>
       ): BuilderChainResult<
         MachineStateName,
         ChainStateName,
         MachineState,
         StateName,
-        StateActionDef,
+        StateEventDef,
         Substate,
         Final
       >;
