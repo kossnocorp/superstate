@@ -5,19 +5,19 @@ import { superstate } from "./index.js";
   type PlayerState = "stopped" | "playing" | "paused";
 
   superstate<PlayerState>("player")
-    .start("stopped", ["play() -> playing"])
+    .state("stopped", ["play() -> playing"])
     //! The nope state is not defined
     // @ts-expect-error
     .state("nope", []);
 
   superstate<PlayerState>("player")
-    .start("stopped", ["play() -> playing"])
+    .state("stopped", ["play() -> playing"])
     //! The stopped state is already defined
     // @ts-expect-error
     .state("stopped", ["play() -> playing"]);
 
   const playerMachine = superstate<PlayerState>("player")
-    .start("stopped", "play() -> playing")
+    .state("stopped", "play() -> playing")
     .state("playing", ($) => $.on(["pause() -> paused", "stop() -> stopped"]))
     .state("paused", ($) => $.on("play() -> playing").on("stop() -> stopped"));
 
@@ -244,7 +244,7 @@ import { superstate } from "./index.js";
   type LightState = "off" | "on";
 
   const lightMachine = superstate<LightState>("light")
-    .start("off", "toggle() -> on")
+    .state("off", "toggle() -> on")
     .state("on", "toggle() -> off");
 
   const light = lightMachine.host();
@@ -267,7 +267,7 @@ import { superstate } from "./index.js";
   type CassetteState = "stopped" | "playing" | "ejected";
 
   const casseteMachine = superstate<CassetteState>("cassette")
-    .start("stopped", ($) => $.on(["play() -> playing", "eject() -> ejected"]))
+    .state("stopped", ($) => $.on(["play() -> playing", "eject() -> ejected"]))
     //! Mixed events definition
     .state("playing", "stop() -> stopped", ($) => $.on("eject() -> ejected"))
     .final("ejected");
@@ -297,7 +297,7 @@ import { superstate } from "./index.js";
   type PCState = "on" | "sleep" | "off";
 
   const pcMachine = superstate<PCState>("pc")
-    .start("off", "press() -> on")
+    .state("off", "press() -> on")
     .state("sleep", ($) =>
       $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
     )
@@ -358,7 +358,7 @@ import { superstate } from "./index.js";
   type CatState = "boxed" | "alive" | "dead";
 
   const catMachine = superstate<CatState>("cat")
-    .start("boxed", ($) =>
+    .state("boxed", ($) =>
       $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"])
     )
     .state("alive", ($) => $.on("pet() -> alive"))
@@ -398,7 +398,7 @@ import { superstate } from "./index.js";
   type TeaState = "water" | "steeping" | "ready" | "finished";
 
   const teaMachine = superstate<TeaState>("tea")
-    .start("water", ["infuse() -> steeping", "drink() -> finished"])
+    .state("water", ["infuse() -> steeping", "drink() -> finished"])
     .state("steeping", ["done() -> ready", "drink() -> finished"])
     .state("ready", ["drink() -> finished"])
     .final("finished");
@@ -406,7 +406,7 @@ import { superstate } from "./index.js";
   type MugState = "clear" | "full" | "dirty";
 
   superstate<MugState>("mug")
-    .start("clear", "pour() -> full")
+    .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
       $.sub(
         "tea",
@@ -419,7 +419,7 @@ import { superstate } from "./index.js";
     .state("dirty", ["clean() -> clear"]);
 
   superstate<MugState>("mug")
-    .start("clear", "pour() -> full")
+    .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
       $.sub(
         "tea",
@@ -432,7 +432,7 @@ import { superstate } from "./index.js";
     .state("dirty", ["clean() -> clear"]);
 
   superstate<MugState>("mug")
-    .start("clear", "pour() -> full")
+    .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
       $.sub(
         "tea",
@@ -445,7 +445,7 @@ import { superstate } from "./index.js";
     .state("dirty", ["clean() -> clear"]);
 
   const mugMachine = superstate<MugState>("mug")
-    .start("clear", "pour() -> full")
+    .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
       $.sub("tea", teaMachine, "finished -> finish() -> dirty")
     )
@@ -539,13 +539,13 @@ import { superstate } from "./index.js";
   type ExpireState = "fresh" | "expired";
 
   const expireMachine = superstate<ExpireState>("expire")
-    .start("expired", "expire() -> expired")
+    .state("expired", "expire() -> expired")
     .state("fresh");
 
   type HeatState = "frozen" | "thawed" | "hot";
 
   const heatMachine = superstate<HeatState>("heat")
-    .start("frozen", "thaw() -> thawed")
+    .state("frozen", "thaw() -> thawed")
     .state("thawed", "heat() -> hot")
     .state("hot");
 
@@ -554,11 +554,11 @@ import { superstate } from "./index.js";
   type EatState = "eating" | "finished";
 
   const eatMachine = superstate<EatState>("eat")
-    .start("eating", "eat() -> finished")
+    .state("eating", "eat() -> finished")
     .final("finished");
 
   const meatPieMachine = superstate<MeatPieState>("meatPie")
-    .start("unpacked", ($) =>
+    .state("unpacked", ($) =>
       $.sub("expire", expireMachine)
         .sub("heat", heatMachine)
         .sub("eat", eatMachine, "finished -> finish() -> finished")
@@ -612,29 +612,29 @@ import { superstate } from "./index.js";
 
   //! Enter actions
   const switchMachineDouble = superstate<SwitchState>("switch")
-    .start("off", ($) => $.enter("turnOff!").on("toggle() -> on"))
+    .state("off", ($) => $.enter("turnOff!").on("toggle() -> on"))
     .state("on", ($) => $.enter("turnOn!").on("toggle() -> off"));
 
   //! Exit actions
   const switchMachineSingle = superstate<SwitchState>("switch")
-    .start("off", "toggle() -> on")
+    .state("off", "toggle() -> on")
     .state("on", ($) =>
       $.enter("turnOn!").exit("turnOff!").on("toggle() -> off")
     );
 
   //! Shortcut definition
   const switchMachineShortcut = superstate<SwitchState>("switch")
-    .start("off", "toggle() -> on")
+    .state("off", "toggle() -> on")
     .state("on", ["-> turnOn!", "turnOff! ->", "toggle() -> off"]);
 
   //! Mixed shortcut definition
   const switchMachineMixedShortcut = superstate<SwitchState>("switch")
-    .start("off", "toggle() -> on")
+    .state("off", "toggle() -> on")
     .state("on", ["-> turnOn!", "toggle() -> off"], ($) => $.exit("turnOff!"));
 
   //! The actions must be correctly named
   superstate<SwitchState>("switch")
-    .start("off", "toggle() -> on")
+    .state("off", "toggle() -> on")
     .state(
       "on",
       // @ts-expect-error
@@ -647,7 +647,7 @@ import { superstate } from "./index.js";
           .on("toggle() -> off")
     );
   superstate<SwitchState>("switch")
-    .start("off", "toggle() -> on")
+    .state("off", "toggle() -> on")
     .state(
       "on",
       // @ts-expect-error
