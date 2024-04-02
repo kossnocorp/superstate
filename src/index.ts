@@ -501,13 +501,31 @@ export namespace Superstate {
       send<
         Key extends FlatEvent extends {
           key: infer Key extends string;
+          condition: null;
+          final: false;
+        }
+          ? Key
+          : never
+      >(
+        name: `${Key}()`
+      ): FlatEvent extends {
+        key: Key;
+        condition: null;
+        next: infer Next;
+      }
+        ? Next | null
+        : never;
+
+      send<
+        Key extends FlatEvent extends {
+          key: infer Key extends string;
           final: false;
         }
           ? Key
           : never,
         Condition extends FlatEvent extends {
           key: Key;
-          condition: infer Condition extends null | string;
+          condition: infer Condition extends string;
         }
           ? Condition
           : null
@@ -531,33 +549,15 @@ export namespace Superstate {
           : never,
         Condition extends FlatEvent extends {
           key: Key;
-          condition: infer Condition extends null | string;
+          condition: infer Condition;
         }
           ? Condition
           : null
       >(
-        name: `${Key}(${Condition extends null ? "" : Condition})`
+        name: Condition extends string ? `${Key}(${Condition})` : never
       ): FlatEvent extends {
         key: Key;
         condition: Condition;
-        next: infer Next;
-      }
-        ? Next | null
-        : never;
-
-      send<
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          condition: null;
-          final: false;
-        }
-          ? Key
-          : never
-      >(
-        name: `${Key}()`
-      ): FlatEvent extends {
-        key: Key;
-        condition: null;
         next: infer Next;
       }
         ? Next | null
