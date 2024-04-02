@@ -31,18 +31,18 @@ import { superstate } from "./index.js";
 
   //! The machine accepts the events
 
-  player.send("play");
-  player.send("pause");
+  player.send("play()");
+  player.send("pause()");
   //! The event is not defined
   // @ts-expect-error
   player.send();
   //! The event is not defined
   // @ts-expect-error
-  player.send("nope");
+  player.send("nope()");
 
   //! It returns the next state or null
   {
-    const nextState = player.send("play");
+    const nextState = player.send("play()");
 
     //! The next state might be null
     assertExtends<typeof nextState>(null);
@@ -250,7 +250,7 @@ import { superstate } from "./index.js";
   const light = lightMachine.enter();
 
   //! Can send events to multiple targets
-  const nextState = light.send("toggle");
+  const nextState = light.send("toggle()");
   if (nextState) {
     //! The next state is off
     nextState.name satisfies "off" | "on";
@@ -275,7 +275,7 @@ import { superstate } from "./index.js";
   const cassete = casseteMachine.enter();
 
   //! Should be able to send exit events
-  const nextState = cassete.send("eject");
+  const nextState = cassete.send("eject()");
 
   //! The next step is final
   if (nextState) {
@@ -309,7 +309,7 @@ import { superstate } from "./index.js";
 
   //! Allows to send an event without the condition
   {
-    const nextState = pc.send("press");
+    const nextState = pc.send("press()");
     //! It properly infers the next state
     if (nextState) {
       nextState.name satisfies "on" | "sleep";
@@ -318,7 +318,16 @@ import { superstate } from "./index.js";
 
   //! Allows to send an event with the condition
   {
-    const nextState = pc.send("press", "long");
+    const nextState = pc.send("press()", "long");
+    //! It properly infers the next state
+    if (nextState) {
+      nextState.name satisfies "off";
+    }
+  }
+
+  //! Allows to send short condition
+  {
+    const nextState = pc.send("press(long)");
     //! It properly infers the next state
     if (nextState) {
       nextState.name satisfies "off";
@@ -327,21 +336,21 @@ import { superstate } from "./index.js";
 
   //! The condition is undefined
   // @ts-expect-error
-  pc.send("press", "nope");
+  pc.send("press()", "nope");
 
   //! Can't send conditions to wrong events
   // @ts-expect-error
-  pc.send("restart", "long");
+  pc.send("restart()", "long");
 
   //! Can't send undefined events
   // @ts-expect-error
   pc.send();
   // @ts-expect-error
-  pc.send("nope");
+  pc.send("nope()");
   // @ts-expect-error
-  pc.send("nope", "nope");
+  pc.send("nope()", "nope");
   // @ts-expect-error
-  pc.send("nope", "long");
+  pc.send("nope()", "long");
 }
 
 //! Only-conditional events
@@ -358,30 +367,30 @@ import { superstate } from "./index.js";
   const cat = catMachine.enter();
 
   //! Allows to send conditional exit events
-  cat.send("reveal", "lucky");
-  cat.send("reveal", "unlucky");
+  cat.send("reveal()", "lucky");
+  cat.send("reveal()", "unlucky");
 
   //! The condition is undefined
   // @ts-expect-error
-  cat.send("reveal", "nope");
+  cat.send("reveal()", "nope");
 
   //! Should always pass the condition
   // @ts-expect-error
-  cat.send("reveal");
+  cat.send("reveal()");
 
   //! Can't send conditions to wrong events
   // @ts-expect-error
-  cat.send("restart", "long");
+  cat.send("restart()", "long");
 
   //! Can't send undefined events
   // @ts-expect-error
   cat.send();
   // @ts-expect-error
-  cat.send("nope");
+  cat.send("nope()");
   // @ts-expect-error
-  cat.send("nope", "nope");
+  cat.send("nope()", "nope");
   // @ts-expect-error
-  cat.send("nope", "long");
+  cat.send("nope()", "long");
 }
 
 //! Substates
@@ -493,7 +502,7 @@ import { superstate } from "./index.js";
 
   //! Should be able to send events to substates
   {
-    const nextState = mug.send("full.tea.infuse");
+    const nextState = mug.send("full.tea.infuse()");
     if (nextState) {
       //! The next state is steeping
       nextState.name satisfies "steeping";
@@ -502,7 +511,7 @@ import { superstate } from "./index.js";
 
   //! Should not be able to send final transition events
   // @ts-expect-error
-  mug.send("finish");
+  mug.send("finish()");
 
   //! Matching states
   {
@@ -574,14 +583,14 @@ import { superstate } from "./index.js";
 
   //! Can send events to the parallel states
   {
-    const nextState = meatPie.send("unpacked.eat.eat");
+    const nextState = meatPie.send("unpacked.eat.eat()");
     //! The next state is finished
     if (nextState) nextState.name satisfies "finished";
   }
 
   //! Can't send invalid events
   // @ts-expect-error
-  meatPie.send("unpacked.eat.heat");
+  meatPie.send("unpacked.eat.heat()");
 
   //! in
 
