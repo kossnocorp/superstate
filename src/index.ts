@@ -266,7 +266,7 @@ export namespace QQ {
     MachineFactory<MachineState>;
 
   export interface MachineFactory<State extends AnyState> {
-    enter(
+    host(
       ...args: Superstate.Actions.BindingArgs<State>
     ): MachineInstance<
       State,
