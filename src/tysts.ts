@@ -209,7 +209,17 @@ import { superstate } from "./index.js";
     events: [],
     sub: {},
     final: false,
+    initial: false,
   };
+
+  //! The initial state is marked as initial
+  {
+    const initialState = player.in("stopped");
+    if (initialState) initialState.initial satisfies true;
+
+    const playingState = player.in("playing");
+    if (playingState) playingState.initial satisfies false;
+  }
 
   //! Matching states
 
