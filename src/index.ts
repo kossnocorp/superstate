@@ -613,13 +613,22 @@ export namespace QQ {
     MachineStateName extends string,
     StateName extends MachineStateName,
     StateAction extends Superstate.Actions.Action,
-    StateEventDef extends EventDef<MachineStateName, any, any>,
+    StateDef_ extends Superstate.Builder.StateDef<MachineStateName>,
     Substate extends QQ.Substate<any, any, any>,
     Final extends boolean
   > = {
     name: StateName;
-    actions: StateAction[];
-    events: EventFromDef<MachineStateName, StateName, StateEventDef>[];
+    actions: Array<
+      | (StateDef_ extends Superstate.Actions.Def
+          ? Superstate.Actions.FromDef<StateDef_>
+          : never)
+      | StateAction
+    >;
+    events: EventFromDef<
+      MachineStateName,
+      StateName,
+      StateDef_ extends EventDef<any, any, any> ? StateDef_ : never
+    >[];
     sub: SubstateMap<Substate>;
     final: Final;
   };
@@ -862,13 +871,17 @@ export namespace Superstate {
       >;
     }
 
+    export type StateDef<MachineStateName extends string> =
+      | QQ.EventDef<MachineStateName, any, any>
+      | Actions.Def;
+
     export type BuilderChainResult<
       MachineStateName extends string,
       ChainStateName extends MachineStateName,
       MachineState extends QQ.AnyState<MachineStateName>,
       StateName extends ChainStateName,
       StateAction extends Actions.Action,
-      StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
+      StateDef_ extends StateDef<MachineStateName>,
       Substate extends QQ.Substate<any, any, any>,
       Final extends boolean
     > = Exclude<ChainStateName, StateName> extends never
@@ -878,7 +891,7 @@ export namespace Superstate {
               MachineStateName,
               StateName,
               StateAction,
-              StateEventDef,
+              StateDef_,
               Substate,
               Final
             >
@@ -891,7 +904,7 @@ export namespace Superstate {
               MachineStateName,
               StateName,
               StateAction,
-              StateEventDef,
+              StateDef_,
               Substate,
               Final
             >
@@ -940,17 +953,17 @@ export namespace Superstate {
 
       <
         StateName extends ChainStateName,
-        StateEventDef extends QQ.EventDef<MachineStateName, any, any>
+        StateDef_ extends StateDef<MachineStateName>
       >(
         name: StateName,
-        events: StateEventDef | StateEventDef[]
+        events: StateDef_ | StateDef_[]
       ): BuilderChainResult<
         MachineStateName,
         ChainStateName,
         MachineState,
         StateName,
-        never, // TODO:
-        StateEventDef,
+        never,
+        StateDef_,
         never,
         Final
       >;
@@ -958,11 +971,12 @@ export namespace Superstate {
       <
         StateName extends ChainStateName,
         StateAction extends Actions.Action,
+        StateDef_ extends StateDef<MachineStateName>,
         StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
         Substate extends QQ.Substate<any, any, any>
       >(
         name: StateName,
-        events: StateEventDef | StateEventDef[],
+        events: StateDef_ | StateDef_[],
         generator: StateFnGenerator<
           MachineStateName,
           StateAction,
@@ -975,7 +989,7 @@ export namespace Superstate {
         MachineState,
         StateName,
         StateAction,
-        StateEventDef,
+        StateDef_ | StateEventDef,
         Substate,
         Final
       >;
