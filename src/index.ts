@@ -641,6 +641,7 @@ export namespace QQ {
     StateAction extends Superstate.Actions.Action,
     StateDef_ extends Superstate.Builder.StateDef<MachineStateName>,
     Substate extends QQ.Substate<any, any, any>,
+    Initial extends boolean,
     Final extends boolean
   > = {
     name: StateName;
@@ -656,6 +657,7 @@ export namespace QQ {
       StateDef_ extends EventDef<any, any, any> ? StateDef_ : never
     >[];
     sub: SubstateMap<Substate>;
+    initial: Initial;
     final: Final;
   };
 
@@ -778,7 +780,13 @@ export namespace Superstate {
       ChainStateName extends MachineStateName = MachineStateName,
       MachineState extends QQ.AnyState<MachineStateName> = never
     > {
-      state: StateFn<false, MachineStateName, ChainStateName, MachineState>;
+      state: StateFn<
+        true,
+        false,
+        MachineStateName,
+        ChainStateName,
+        MachineState
+      >;
     }
 
     export interface Tail<
@@ -786,9 +794,21 @@ export namespace Superstate {
       ChainStateName extends MachineStateName = MachineStateName,
       MachineState extends QQ.AnyState<MachineStateName> = never
     > {
-      state: StateFn<false, MachineStateName, ChainStateName, MachineState>;
+      state: StateFn<
+        false,
+        false,
+        MachineStateName,
+        ChainStateName,
+        MachineState
+      >;
 
-      final: StateFn<true, MachineStateName, ChainStateName, MachineState>;
+      final: StateFn<
+        false,
+        true,
+        MachineStateName,
+        ChainStateName,
+        MachineState
+      >;
     }
 
     export type EventCaseDef<
@@ -909,6 +929,7 @@ export namespace Superstate {
       StateAction extends Actions.Action,
       StateDef_ extends StateDef<MachineStateName>,
       Substate extends QQ.Substate<any, any, any>,
+      Initial extends boolean,
       Final extends boolean
     > = Exclude<ChainStateName, StateName> extends never
       ? QQ.MachineFactory<
@@ -919,6 +940,7 @@ export namespace Superstate {
               StateAction,
               StateDef_,
               Substate,
+              Initial,
               Final
             >
         >
@@ -932,11 +954,13 @@ export namespace Superstate {
               StateAction,
               StateDef_,
               Substate,
+              Initial,
               Final
             >
         >;
 
     export interface StateFn<
+      Initial extends boolean,
       Final extends boolean,
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
@@ -950,6 +974,7 @@ export namespace Superstate {
         never,
         never,
         never,
+        Initial,
         Final
       >;
 
@@ -974,6 +999,7 @@ export namespace Superstate {
         StateAction,
         StateEventDef,
         Substate,
+        Initial,
         Final
       >;
 
@@ -991,6 +1017,7 @@ export namespace Superstate {
         never,
         StateDef_,
         never,
+        Initial,
         Final
       >;
 
@@ -1017,6 +1044,7 @@ export namespace Superstate {
         StateAction,
         StateDef_ | StateEventDef,
         Substate,
+        Initial,
         Final
       >;
     }
