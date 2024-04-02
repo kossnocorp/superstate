@@ -509,7 +509,10 @@ export namespace QQ {
     readonly finalized: boolean;
 
     send<
-      Key extends FlatEvent extends { key: infer Key; final: false }
+      Key extends FlatEvent extends {
+        key: infer Key extends string;
+        final: false;
+      }
         ? Key
         : never,
       Condition extends FlatEvent extends {
@@ -519,7 +522,7 @@ export namespace QQ {
         ? Condition
         : null
     >(
-      name: Key,
+      name: `${Key}()`,
       condition: Condition
     ): FlatEvent extends {
       key: Key;
@@ -531,14 +534,37 @@ export namespace QQ {
 
     send<
       Key extends FlatEvent extends {
-        key: infer Key;
+        key: infer Key extends string;
+        final: false;
+      }
+        ? Key
+        : never,
+      Condition extends FlatEvent extends {
+        key: Key;
+        condition: infer Condition extends null | string;
+      }
+        ? Condition
+        : null
+    >(
+      name: `${Key}(${Condition})`
+    ): FlatEvent extends {
+      key: Key;
+      condition: Condition;
+      next: infer Next;
+    }
+      ? Next | null
+      : never;
+
+    send<
+      Key extends FlatEvent extends {
+        key: infer Key extends string;
         condition: null;
         final: false;
       }
         ? Key
         : never
     >(
-      name: Key
+      name: `${Key}()`
     ): FlatEvent extends {
       key: Key;
       condition: null;
