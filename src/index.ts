@@ -413,7 +413,7 @@ export namespace QQ {
           keyof Substates extends string
           ? {
               [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-                substate: infer AsSubstate;
+                sub: infer AsSubstate;
                 state: infer SubstateState extends AnyState;
               }
                 ? SubstateName extends string
@@ -494,15 +494,13 @@ export namespace QQ {
     AsSubstate extends Substate<any, any, any> = Substate<any, any, any>
   > = MachineInstance<MachineState, FlatState, FlatEvent, AsSubstate>;
 
-  export type MachineInstance<
+  export interface MachineInstance<
     MachineState extends AnyState, // TODO: Cut it
     FlatState extends FlatStateConstraint,
     FlatEvent extends FlatEventConstraint,
     AsSubstate extends Substate<any, any, any>
-  > = {
-    // TODO: Find a better name. This property is needed to infer the substate
-    // transitions for on method. It tells if the instance is a substate
-    readonly substate: AsSubstate;
+  > {
+    readonly sub: AsSubstate;
 
     readonly state: MachineState;
 
@@ -581,7 +579,7 @@ export namespace QQ {
     in<Target extends StateTarget<FlatState>>(
       target: Target | Target[]
     ): MatchTargetState<FlatState, Target> | undefined;
-  };
+  }
 
   export interface State<
     MachineStateName extends string,
