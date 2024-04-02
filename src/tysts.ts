@@ -730,4 +730,32 @@ import { superstate } from "./index.js";
   });
 }
 
+//! Transition actions
+{
+  type ButtonState = "off" | "on";
+
+  //! Allows to define the transition actions
+  const buttonMachine = superstate<ButtonState>("button")
+    .state("off", ($) => $.on("press() -> turnOn! -> on"))
+    .state("on", ($) => $.on("press() -> turnOff! -> off"));
+
+  type PushableButtonState = ButtonState | "pushed";
+
+  //! Allows to define actions on conditional transitions
+  const buttonMachineWithCondition = superstate<PushableButtonState>("button")
+    .state("off", ($) => $.on("press() -> turnOn! -> on"))
+    .state("on", ($) =>
+      $.if("press", ["(long) -> blink! -> pushed", "() -> turnOff! -> off"])
+    )
+    .state("pushed", "press() -> turnOff! -> off");
+
+  //! Allows to use shortcuts
+  const buttonMachineMixed = superstate<PushableButtonState>("button")
+    .state("off", "press() -> turnOn! -> on")
+    .state("on", "press(long) -> blink! -> pushed", ($) =>
+      $.on("press() -> turnOff! -> off")
+    )
+    .state("pushed", "press() -> turnOff! -> off");
+}
+
 export function assertExtends<Type>(_value: Type) {}
