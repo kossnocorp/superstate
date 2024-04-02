@@ -1,4 +1,4 @@
-import { QQ, superstate } from "./index.js";
+import { superstate } from "./index.js";
 
 //! Simple machine
 {
@@ -601,21 +601,74 @@ import { QQ, superstate } from "./index.js";
 {
   type SwitchState = "off" | "on";
 
-  superstate<SwitchState>("switch")
-    // @ts-ignore: TODO
-    .start("off", ($) => $.enter("turnOff").on("toggle() -> on"))
-    // @ts-ignore: TODO
-    .state("on", ($) => $.enter("turnOff").on("toggle() -> off"));
+  //! Enter actions
+  const switchMachineDouble = superstate<SwitchState>("switch")
+    .start("off", ($) => $.enter("turnOff!").on("toggle() -> on"))
+    .state("on", ($) => $.enter("turnOn!").on("toggle() -> off"));
 
-  superstate<SwitchState>("switch")
+  //! Exit actions
+  const switchMachineSingle = superstate<SwitchState>("switch")
     .start("off", "toggle() -> on")
     .state("on", ($) =>
-      // @ts-ignore: TODO
-      $.enter("turnOn")
-        .on("toggle", "(hello) -> off", "() -> off")
-        .on("whatever -> qwe")
-        .exit("turnOff")
+      $.enter("turnOn!").exit("turnOff!").on("toggle() -> off")
     );
+
+  //! Shortcut definition
+  superstate<SwitchState>("switch")
+    .start("off", "toggle() -> on")
+    .state("on", ["-> turnOn!", "turnOff! ->", "toggle() -> off"]);
+
+  //! The actions must be correctly named
+  superstate<SwitchState>("switch")
+    .start("off", "toggle() -> on")
+    .state(
+      "on",
+      // @ts-expect-error
+      [`-> turnOn()`, "turnOff? ->", "toggle() -> off"],
+      ($) =>
+        // @ts-expect-error
+        $.enter("turnOn?")
+          // @ts-expect-error
+          .exit("turnOff()")
+          .on("toggle() -> off")
+    );
+
+  //! Binding
+
+  //! It allows to bind the actions
+  const switch_ = switchMachineSingle.enter({
+    on: {
+      "-> turnOn!": () => console.log("Turning on"),
+      "turnOff! ->": () => console.log("Turning off"),
+    },
+  });
+
+  //! It allows to bind multiple states
+  switchMachineDouble.enter({
+    on: {
+      "-> turnOn!": () => console.log("Turning on"),
+    },
+    off: {
+      "-> turnOff!": () => console.log("Turning off"),
+    },
+  });
+
+  //! It forces to bind all actions
+  switchMachineSingle.enter({
+    // @ts-expect-error
+    on: {
+      "-> turnOn!": () => console.log("Turning on"),
+    },
+  });
+
+  //! The defitions must be correct
+  switchMachineSingle.enter({
+    // @ts-expect-error
+    on: {
+      "-> turnOn?": () => console.log("Turning on"),
+      "turnOff! ->": () => console.log("Turning off"),
+    },
+  });
 }
 
 export function assertExtends<Type>(_value: Type) {}
