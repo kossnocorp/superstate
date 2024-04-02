@@ -25,7 +25,7 @@ import { superstate } from "./index.js";
   // @ts-expect-error
   playerMachine.state;
 
-  const player = playerMachine.enter();
+  const player = playerMachine.host();
 
   //! send
 
@@ -247,7 +247,7 @@ import { superstate } from "./index.js";
     .start("off", "toggle() -> on")
     .state("on", "toggle() -> off");
 
-  const light = lightMachine.enter();
+  const light = lightMachine.host();
 
   //! Can send events to multiple targets
   const nextState = light.send("toggle()");
@@ -272,7 +272,7 @@ import { superstate } from "./index.js";
     .state("playing", "stop() -> stopped", ($) => $.on("eject() -> ejected"))
     .final("ejected");
 
-  const cassete = casseteMachine.enter();
+  const cassete = casseteMachine.host();
 
   //! Should be able to send exit events
   const nextState = cassete.send("eject()");
@@ -305,7 +305,7 @@ import { superstate } from "./index.js";
       $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
     );
 
-  const pc = pcMachine.enter();
+  const pc = pcMachine.host();
 
   //! Allows to send an event without the condition
   {
@@ -364,7 +364,7 @@ import { superstate } from "./index.js";
     .state("alive", ($) => $.on("pet() -> alive"))
     .state("dead");
 
-  const cat = catMachine.enter();
+  const cat = catMachine.host();
 
   //! Allows to send conditional exit events
   cat.send("reveal()", "lucky");
@@ -451,7 +451,7 @@ import { superstate } from "./index.js";
     )
     .state("dirty", ["clean() -> clear"]);
 
-  const mug = mugMachine.enter();
+  const mug = mugMachine.host();
 
   //! Event listeners
 
@@ -566,7 +566,7 @@ import { superstate } from "./index.js";
     .state("cooked")
     .final("finished");
 
-  const meatPie = meatPieMachine.enter();
+  const meatPie = meatPieMachine.host();
 
   //! on
 
@@ -659,7 +659,7 @@ import { superstate } from "./index.js";
   //! Binding
 
   //! It allows to bind the actions
-  const switch_ = switchMachineSingle.enter({
+  const switch_ = switchMachineSingle.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
@@ -667,7 +667,7 @@ import { superstate } from "./index.js";
   });
 
   //! It allows to bind multiple states
-  switchMachineDouble.enter({
+  switchMachineDouble.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
     },
@@ -677,13 +677,13 @@ import { superstate } from "./index.js";
   });
 
   //! Allows to bind shortcut actions
-  switchMachineShortcut.enter({
+  switchMachineShortcut.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
     },
   });
-  switchMachineMixedShortcut.enter({
+  switchMachineMixedShortcut.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
@@ -691,7 +691,7 @@ import { superstate } from "./index.js";
   });
 
   //! It forces to bind all actions
-  switchMachineSingle.enter({
+  switchMachineSingle.host({
     // @ts-expect-error
     on: {
       "-> turnOn!": () => console.log("Turning on"),
@@ -699,7 +699,7 @@ import { superstate } from "./index.js";
   });
 
   //! The defitions must be correct
-  switchMachineSingle.enter({
+  switchMachineSingle.host({
     on: {
       // @ts-expect-error
       "-> turnOn?": () => console.log("Turning on"),
@@ -708,7 +708,7 @@ import { superstate } from "./index.js";
   });
 
   //! Can't bind unknown events
-  switchMachineSingle.enter({
+  switchMachineSingle.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
