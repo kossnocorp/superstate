@@ -536,7 +536,7 @@ export namespace Superstate {
           ? Condition
           : null
       >(
-        name: `${Key}(${Condition})`
+        name: `${Key}(${Condition extends null ? "" : Condition})`
       ): FlatEvent extends {
         key: Key;
         condition: Condition;

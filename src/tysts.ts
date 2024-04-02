@@ -344,6 +344,10 @@ import { superstate } from "./index.js";
     }
   }
 
+  //! null should not leak
+  // @ts-expect-error
+  pc.send("press(null)");
+
   //! The condition is undefined
   // @ts-expect-error
   pc.send("press()", "nope");
@@ -848,6 +852,85 @@ import { superstate } from "./index.js";
       "nope() -> turnOn": () => console.log("Turning off"),
     },
   });
+}
+
+//! Documentation examples:
+{
+  //! README.md:
+
+  const sound = {} as any;
+
+  type PlayerState = "stopped" | "playing" | "paused";
+
+  const playerState = superstate<PlayerState>("mediaPlayer")
+    .state("stopped", "play() -> playing")
+    .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+      $.sub("volume", volumeState)
+    )
+    .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+  type VolumeState = "low" | "medium" | "high";
+
+  const volumeState = superstate<VolumeState>("volume")
+    .state("low", "up() -> medium")
+    .state("medium", ["up() -> high", "down() -> low"])
+    .state("high", "down() -> medium");
+
+  //! Basics:
+
+  const volume = volumeState.host();
+
+  // Subscribe to the state changes:
+  volume.on(["low", "medium", "high"], (target) =>
+    sound.setVolume(target.state.name)
+  );
+
+  // Trigger the events:
+  volume.send("up()");
+
+  // Check the current state:
+  if (volume.in("high")) console.log("The volume is at maximum.");
+
+  // Listen to everything:
+  volume.on("*", (target) => {
+    if (target.type === "state")
+      console.log("State changed to", target.state.name);
+    else console.log("Event triggered", target.event.name);
+  });
+
+  // Will trigger when the state is `low` or when `down()` is sent:
+  volume.on(["low", "down()"], () => {});
+
+  //! Guards:
+
+  type PCState = "on" | "sleep" | "off";
+
+  const pcState = superstate<PCState>("pc")
+    .state("off", "press() -> on")
+    .state("on", ($) =>
+      $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+    )
+    .state("sleep", ($) =>
+      $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+    );
+
+  const pc = pcState.host();
+
+  {
+    // Send the long press event:
+    const nextState = pc.send("press()", "long");
+
+    // The next state is "off":
+    if (nextState) nextState.name satisfies "off";
+  }
+
+  {
+    // Send the press event:
+    const nextState = pc.send("press()");
+
+    // The next state is "sleep":
+    if (nextState) nextState.name satisfies "sleep" | "on";
+  }
 }
 
 export function assertExtends<Type>(_value: Type) {}
