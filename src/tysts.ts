@@ -756,6 +756,98 @@ import { superstate } from "./index.js";
       $.on("press() -> turnOff! -> off")
     )
     .state("pushed", "press() -> turnOff! -> off");
+
+  //! The actions must be correctly named
+  superstate<PushableButtonState>("button")
+    .state("off", "press() -> turnOn! -> on")
+    .state(
+      "on",
+      // @ts-expect-error
+      ["(long) -> blink -> pushed", "() -> turnOff! -> off"],
+      ($) =>
+        // @ts-expect-error
+        $.on("press() -> turnOff -> off")
+    )
+    .state("pushed", "press() -> turnOff! -> off");
+
+  //! Binding
+
+  //! It allows to bind the actions
+  buttonMachine.host({
+    on: {
+      "press() -> turnOff!": () => console.log("Turning on"),
+    },
+    off: {
+      "press() -> turnOn!": () => console.log("Turning off"),
+    },
+  });
+
+  //! It allows to bind conditional transitions
+  buttonMachineWithCondition.host({
+    off: {
+      "press() -> turnOn!": () => console.log("Turning on"),
+    },
+    on: {
+      "press() -> turnOff!": () => console.log("Turning off"),
+      "press(long) -> blink!": () => console.log("Blinking"),
+    },
+    pushed: {
+      "press() -> turnOff!": () => console.log("Turning off"),
+    },
+  });
+
+  //! It allows to bind mixed actions
+  buttonMachineMixed.host({
+    off: {
+      "press() -> turnOn!": () => console.log("Turning on"),
+    },
+    on: {
+      "press() -> turnOff!": () => console.log("Turning off"),
+      "press(long) -> blink!": () => console.log("Blinking"),
+    },
+    pushed: {
+      "press() -> turnOff!": () => console.log("Turning off"),
+    },
+  });
+
+  //! It forces to bind all actions
+  buttonMachineWithCondition.host({
+    off: {
+      "press() -> turnOn!": () => console.log("Turning on"),
+    },
+    // @ts-expect-error
+    on: {
+      "press() -> turnOff!": () => console.log("Turning off"),
+    },
+    pushed: {
+      "press() -> turnOff!": () => console.log("Turning off"),
+    },
+  });
+
+  //! The defitions must be correct
+  buttonMachine.host({
+    on: {
+      // @ts-expect-error
+      "press() -> turnOff?": () => console.log("Turning on"),
+    },
+    off: {
+      // @ts-expect-error
+      "press() -> turnOn": () => console.log("Turning off"),
+    },
+  });
+
+  //! Can't bind unknown events
+  buttonMachine.host({
+    on: {
+      // @ts-expect-error
+      "press() -> turnOff?": () => console.log("Turning on"),
+    },
+    off: {
+      // @ts-expect-error
+      "press() -> turnOn": () => console.log("Turning off"),
+      "nope() -> turnOn": () => console.log("Turning off"),
+    },
+  });
 }
 
 export function assertExtends<Type>(_value: Type) {}

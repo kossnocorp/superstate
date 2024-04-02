@@ -1,5 +1,3 @@
-import { type SuperstateUtils } from "./utils.js";
-
 /**
  * The root Superstate namespace. It contains all the Superstate types
  * and functions.
@@ -240,27 +238,14 @@ export namespace Superstate {
       EventName extends string = string,
       MachineStateName extends string = string,
       FromStateName extends MachineStateName = MachineStateName
-    > = Transition<
+    > = Transitions.Transition<
       EventName,
       MachineStateName,
       FromStateName,
       any,
-      string | null
+      string | null,
+      Transitions.Action | null
     >;
-
-    export interface Transition<
-      EventName extends string,
-      MachineStateName extends string,
-      FromStateName extends MachineStateName,
-      ToStateName extends MachineStateName,
-      Condition extends string | null
-    > {
-      // TODO: Rename to event?
-      name: EventName;
-      condition: Condition;
-      from: FromStateName;
-      to: ToStateName;
-    }
 
     export type AnyMachineFactory<MachineState extends AnyState = any> =
       MachineFactory<MachineState>;
@@ -356,7 +341,7 @@ export namespace Superstate {
       AllState extends AnyState, // TODO: Cut it
       EventName,
       EventCondition extends string | null
-    > = MachineState extends { events: Array<infer Event> }
+    > = MachineState extends { transitions: Array<infer Event> }
       ? Event extends {
           name: EventName;
           condition: EventCondition;
@@ -388,7 +373,7 @@ export namespace Superstate {
     > =
       // First we get the root level events
       | (MachineState extends {
-          events: Array<infer Event>;
+          transitions: Array<infer Event>;
         }
           ? Event extends {
               name: infer EventName extends string;
@@ -592,13 +577,13 @@ export namespace Superstate {
       MachineStateName extends string,
       StateName extends MachineStateName,
       Action,
-      Event,
+      Transition,
       Substates,
       Final extends boolean
     > {
       name: StateName;
       actions: Action[];
-      events: Event[];
+      transitions: Transition[];
       sub: Substates;
       final: Final;
     }
@@ -619,22 +604,6 @@ export namespace Superstate {
     > =
       | `${EventName}() -> ${MachineStateName}`
       | `${EventName}(${Condition}) -> ${MachineStateName}`;
-
-    export type EventFromDef<
-      MachineStateName extends string,
-      FromStateName extends MachineStateName,
-      Def extends EventDef<any, any, any>
-    > = Def extends `${infer EventName}() -> ${infer ToState extends MachineStateName}`
-      ? Transition<EventName, MachineStateName, FromStateName, ToState, null>
-      : Def extends `${infer EventName}(${infer Condition}) -> ${infer ToState extends MachineStateName}`
-      ? Transition<
-          EventName,
-          MachineStateName,
-          FromStateName,
-          ToState,
-          Condition
-        >
-      : never;
 
     /**
      * Infers the entry state name from the machine state.
@@ -662,7 +631,7 @@ export namespace Superstate {
             : never)
         | StateAction
       >;
-      events: EventFromDef<
+      transitions: Transitions.FromDef<
         MachineStateName,
         StateName,
         StateDef_ extends EventDef<any, any, any> ? StateDef_ : never
@@ -780,41 +749,93 @@ export namespace Superstate {
     }
 
     /**
+     * The binding function type.
+     */
+    export type BindingFn = () => void;
+
+    /**
      * The type resolves arguments for the binding functions to actions. It's
      * used to create a host.
      */
     export type BindingArgs<State extends { name: string }> =
       true extends IsActionable<State>
         ? [
-            SuperstateUtils.OmitEmptyObjects<{
-              [StateName in State["name"]]: State extends {
-                name: StateName;
-                actions: Array<infer StateAction extends { name: string }>;
-              }
-                ? {
-                    [ActionName in StateAction["name"] as StateAction extends {
-                      name: ActionName;
-                      type: infer Type;
-                    }
-                      ? Type extends "enter"
-                        ? `-> ${ActionName}!`
-                        : `${ActionName}! ->`
-                      : never]: () => void;
-                  }
-                : never;
-            }>
+            Binding<State> extends infer Binding_ extends BindingConstraint
+              ? {
+                  [StateName in Binding_["state"]]: {
+                    [Key in Binding_ extends { state: StateName }
+                      ? Binding_["key"]
+                      : never]: BindingFn;
+                  };
+                }
+              : never
           ]
         : [];
+
+    /**
+     * The binding constrain type.
+     */
+    export interface BindingConstraint {
+      key: string;
+      state: string;
+    }
+
+    /**
+     * Resolves action bindings.
+     */
+    export type Binding<State extends { name: string }> = State extends {
+      name: infer StateName;
+      actions: Array<infer Action>;
+      transitions: Array<infer Transition>;
+    }
+      ? // Get all state actions
+        | (Action extends {
+              name: infer ActionName extends string;
+              type: infer Type;
+            }
+              ? {
+                  state: StateName;
+                  key: Type extends "enter"
+                    ? `-> ${ActionName}!`
+                    : `${ActionName}! ->`;
+                }
+              : never)
+          // Get all state transitions actions
+          | (Transition extends {
+              name: infer EventName extends string;
+              action: { name: infer ActionName extends string };
+              condition: infer Condition;
+            }
+              ? {
+                  state: StateName;
+                  key: `${EventName}(${Condition extends string
+                    ? Condition
+                    : ""}) -> ${ActionName}!`;
+                }
+              : never)
+      : never;
 
     /**
      * The type resolves true if any state has at least one action.
      * It will resolve `boolean` when some states have no actions.
      */
     export type IsActionable<State> = State extends {
+      transitions: Array<
+        infer Transition extends Superstate.Transitions.Transition<
+          any,
+          any,
+          any,
+          any,
+          any,
+          any
+        >
+      >;
       actions: Array<infer Action extends Superstate.Actions.Action>;
     }
       ? Action["name"] extends never
-        ? false
+        ? Transition["action"] extends null
+          ? false
+          : true
         : true
       : never;
   }
@@ -831,8 +852,24 @@ export namespace Superstate {
    * by events.
    */
   export namespace Transitions {
+    export interface Transition<
+      EventName extends string,
+      MachineStateName extends string,
+      FromStateName extends MachineStateName,
+      ToStateName extends MachineStateName,
+      Condition extends string | null,
+      Action extends Superstate.Transitions.Action | null
+    > {
+      // TODO: Rename to event?
+      name: EventName;
+      condition: Condition;
+      from: FromStateName;
+      to: ToStateName;
+      action: Action;
+    }
+
     /**
-     * The transition def.
+     * Any transition def.
      */
     export type Def<MachineStateName extends string> =
       | EventDef<MachineStateName>
@@ -841,37 +878,110 @@ export namespace Superstate {
     /**
      * The transition def.
      */
-    export type EventDef<MachineStateName extends string> = `${string}(${
-      | string
-      | ""}) -> ${MachineStateName}`;
+    export type EventDef<
+      MachineStateName extends string,
+      EventName extends string = string,
+      Condition extends string | "" = string | ""
+    > = `${EventName}(${Condition}) -> ${MachineStateName}`;
 
     /**
      * The transition def with action.
      */
-    export type EventDefWithAction<MachineStateName extends string> =
-      `${string}(${string | ""}) -> ${string}! -> ${MachineStateName}`;
+    export type EventDefWithAction<
+      MachineStateName extends string,
+      EventName extends string = string,
+      Condition extends string | "" = string | "",
+      Action extends string = string
+    > = `${EventName}(${Condition}) -> ${Action}! -> ${MachineStateName}`;
+
+    /**
+     * Ant transition case def.
+     */
+    export type CaseDef<MachineStateName extends string> =
+      | EventCaseDef<MachineStateName>
+      | EventCaseDefWithAction<MachineStateName>;
 
     /**
      * The transition case def.
      */
-    export type EventCaseDef<MachineStateName extends string> =
-      | `(${string | ""}) -> ${MachineStateName}`
-      | `(${string | ""}) -> ${string}! -> ${MachineStateName}`;
+    export type EventCaseDef<
+      MachineStateName extends string,
+      Condition extends string | "" = string | ""
+    > = `(${Condition}) -> ${MachineStateName}`;
+
+    /**
+     * The transition case def.
+     */
+    export type EventCaseDefWithAction<
+      MachineStateName extends string,
+      Condition extends string | "" = string | "",
+      Action extends string = string
+    > = `(${Condition}) -> ${Action}! -> ${MachineStateName}`;
 
     /**
      * Resolves the event case def to the event def.
      */
-    export type EventCaseDefToEventDef<
+    export type CaseDefToDef<
       MachineStateName extends string,
       EventName extends string,
-      Def extends EventCaseDef<any>
-    > = Def extends Def
+      Def_ extends CaseDef<MachineStateName>
+    > = Def_ extends Def_
       ? // TODO: Try to optimize it to `${EventName}${Def}`
-        Def extends `() -> ${infer ToState extends MachineStateName}`
-        ? `${EventName}() -> ${ToState}`
-        : Def extends `(${infer Condition}) -> ${infer ToState extends MachineStateName}`
+        Def_ extends EventCaseDef<
+          infer ToState extends MachineStateName,
+          infer Condition
+        >
         ? `${EventName}(${Condition}) -> ${ToState}`
+        : Def_ extends EventCaseDefWithAction<
+            infer ToState extends MachineStateName,
+            infer Condition,
+            infer Action
+          >
+        ? `${EventName}(${Condition}) -> ${Action}! -> ${ToState}`
         : never
+      : never;
+
+    /**
+     * The transition action.
+     */
+    export interface Action {
+      /** The action type. */
+      type: "transition";
+      /** The action name. */
+      name: string;
+    }
+
+    export type FromDef<
+      MachineStateName extends string,
+      FromStateName extends MachineStateName,
+      Def_ extends Def<MachineStateName>
+    > = Def_ extends Transitions.EventDef<
+      infer ToStateName extends MachineStateName,
+      infer EventName,
+      infer Condition
+    >
+      ? Transition<
+          EventName,
+          MachineStateName,
+          FromStateName,
+          ToStateName,
+          Condition extends "" ? null : Condition,
+          null
+        >
+      : Def_ extends Transitions.EventDefWithAction<
+          infer ToStateName extends MachineStateName,
+          infer EventName,
+          infer Condition,
+          infer Action
+        >
+      ? Transition<
+          EventName,
+          MachineStateName,
+          FromStateName,
+          ToStateName,
+          Condition extends "" ? null : Condition,
+          { type: "transition"; name: Action }
+        >
       : never;
   }
 
@@ -928,7 +1038,7 @@ export namespace Superstate {
     export interface StateFnGeneratorBuilder<
       MachineStateName extends string,
       StateAction extends Actions.Action = never,
-      StateTransitionsDef extends Transitions.Def<MachineStateName> = never,
+      StateTransitionDef extends Transitions.Def<MachineStateName> = never,
       Substate extends QQ.Substate<any, any, any> = never
     > {
       enter<ActionNameDef extends Actions.NameDef>(
@@ -936,7 +1046,7 @@ export namespace Superstate {
       ): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction | Actions.FromNameDef<"enter", ActionNameDef>,
-        StateTransitionsDef,
+        StateTransitionDef,
         Substate
       >;
 
@@ -945,30 +1055,30 @@ export namespace Superstate {
       ): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction | Actions.FromNameDef<"exit", NameDef>,
-        StateTransitionsDef,
+        StateTransitionDef,
         Substate
       >;
 
       on<Def extends Transitions.Def<MachineStateName>>(
-        events: Def[] | Def
+        transitions: Def[] | Def
       ): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction,
-        StateTransitionsDef | Def,
+        StateTransitionDef | Def,
         Substate
       >;
 
       if<
         EventName extends string,
-        Def extends Transitions.EventCaseDef<MachineStateName>
+        Def extends Transitions.CaseDef<MachineStateName>
       >(
         name: EventName,
         cases: Def[] | Def
       ): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction,
-        | StateTransitionsDef
-        | Transitions.EventCaseDefToEventDef<MachineStateName, EventName, Def>,
+        | StateTransitionDef
+        | Transitions.CaseDefToDef<MachineStateName, EventName, Def>,
         Substate
       >;
 
@@ -989,7 +1099,7 @@ export namespace Superstate {
       ): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction,
-        StateTransitionsDef,
+        StateTransitionDef,
         | Substate
         | QQ.Substate<
             SubstateName,
@@ -1002,13 +1112,13 @@ export namespace Superstate {
     export interface StateFnGenerator<
       MachineStateName extends string,
       StateAction extends Actions.Action,
-      StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
+      StateTransitionDef extends Transitions.Def<MachineStateName> = never,
       Substate extends QQ.Substate<any, any, any> = never
     > {
       ($: StateFnGeneratorBuilder<MachineStateName>): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction,
-        StateEventDef,
+        StateTransitionDef,
         Substate
       >;
     }
@@ -1073,14 +1183,14 @@ export namespace Superstate {
       <
         StateName extends ChainStateName,
         StateAction extends Actions.Action,
-        StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
+        StateTransitionDef extends Transitions.Def<MachineStateName>,
         Substate extends QQ.Substate<any, any, any>
       >(
         name: StateName,
         generator: StateFnGenerator<
           MachineStateName,
           StateAction,
-          StateEventDef,
+          StateTransitionDef,
           Substate
         >
       ): BuilderChainResult<
@@ -1089,7 +1199,7 @@ export namespace Superstate {
         MachineState,
         StateName,
         StateAction,
-        StateEventDef,
+        StateTransitionDef,
         Substate,
         Initial,
         Final
@@ -1116,16 +1226,16 @@ export namespace Superstate {
       <
         StateName extends ChainStateName,
         StateAction extends Actions.Action,
-        StateDef_ extends State.Def<MachineStateName>,
-        StateEventDef extends QQ.EventDef<MachineStateName, any, any>,
+        StateDef extends State.Def<MachineStateName>,
+        StateTransitionDef extends Transitions.Def<MachineStateName>,
         Substate extends QQ.Substate<any, any, any>
       >(
         name: StateName,
-        transitions: StateDef_ | StateDef_[],
+        transitions: StateDef | StateDef[],
         generator: StateFnGenerator<
           MachineStateName,
           StateAction,
-          StateEventDef,
+          StateTransitionDef,
           Substate
         >
       ): BuilderChainResult<
@@ -1134,7 +1244,7 @@ export namespace Superstate {
         MachineState,
         StateName,
         StateAction,
-        StateDef_ | StateEventDef,
+        StateDef | StateTransitionDef,
         Substate,
         Initial,
         Final
