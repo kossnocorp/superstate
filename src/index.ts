@@ -778,7 +778,7 @@ export namespace Superstate {
       ChainStateName extends MachineStateName = MachineStateName,
       MachineState extends QQ.AnyState<MachineStateName> = never
     > {
-      start: StateFn<false, MachineStateName, ChainStateName, MachineState>;
+      state: StateFn<false, MachineStateName, ChainStateName, MachineState>;
     }
 
     export interface Tail<
