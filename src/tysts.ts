@@ -614,9 +614,14 @@ import { superstate } from "./index.js";
     );
 
   //! Shortcut definition
-  superstate<SwitchState>("switch")
+  const switchMachineShortcut = superstate<SwitchState>("switch")
     .start("off", "toggle() -> on")
     .state("on", ["-> turnOn!", "turnOff! ->", "toggle() -> off"]);
+
+  //! Mixed shortcut definition
+  const switchMachineMixedShortcut = superstate<SwitchState>("switch")
+    .start("off", "toggle() -> on")
+    .state("on", ["-> turnOn!", "toggle() -> off"], ($) => $.exit("turnOff!"));
 
   //! The actions must be correctly named
   superstate<SwitchState>("switch")
@@ -631,6 +636,15 @@ import { superstate } from "./index.js";
           // @ts-expect-error
           .exit("turnOff()")
           .on("toggle() -> off")
+    );
+  superstate<SwitchState>("switch")
+    .start("off", "toggle() -> on")
+    .state(
+      "on",
+      // @ts-expect-error
+      ["-> turnOn", "toggle() -> off"],
+      // @ts-expect-error
+      ($) => $.exit("turnOff?")
     );
 
   //! Binding
@@ -653,6 +667,20 @@ import { superstate } from "./index.js";
     },
   });
 
+  //! Allows to bind shortcut actions
+  switchMachineShortcut.enter({
+    on: {
+      "-> turnOn!": () => console.log("Turning on"),
+      "turnOff! ->": () => console.log("Turning off"),
+    },
+  });
+  switchMachineMixedShortcut.enter({
+    on: {
+      "-> turnOn!": () => console.log("Turning on"),
+      "turnOff! ->": () => console.log("Turning off"),
+    },
+  });
+
   //! It forces to bind all actions
   switchMachineSingle.enter({
     // @ts-expect-error
@@ -663,10 +691,22 @@ import { superstate } from "./index.js";
 
   //! The defitions must be correct
   switchMachineSingle.enter({
-    // @ts-expect-error
     on: {
+      // @ts-expect-error
       "-> turnOn?": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
+    },
+  });
+
+  //! Can't bind unknown events
+  switchMachineSingle.enter({
+    on: {
+      "-> turnOn!": () => console.log("Turning on"),
+      "turnOff! ->": () => console.log("Turning off"),
+    },
+    // @ts-expect-error
+    nope: {
+      "-> turnOn!": () => console.log("Turning on"),
     },
   });
 }
