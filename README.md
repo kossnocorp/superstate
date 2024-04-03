@@ -1,11 +1,23 @@
-# Superstate
+<h1 style="display: none">Superstate</h1>
 
-A JavaScript statecharts library that is:
+<div align="center">
+  <img alt="Superstate logo" height="256" src="./logo.png" />
 
-- End-to-end type-safe
-- Easy to read without visualization
-- Highly composable
-- Lightweight and fast
+  <h2 style="font-size: 1.5rem; font-weight: 500; border: none;">
+    Type-safe JavaScript statecharts
+  </h2>
+
+  <div>
+    🔒 End-to-end type-safe
+    🎯 Easy to read without visualization
+    <br/>
+    🧩 Highly composable
+    ⚡ Lightweight and fast
+  </div>
+
+  <br/>
+  <hr />
+</div>
 
 Take a look:
 
