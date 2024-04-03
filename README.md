@@ -1,5 +1,7 @@
 <div align="center">
-  <img alt="Superstate logo" height="256" src="./logo.png" />
+  <img alt="Superstate logo" height="256" src="./logo.svg" />
+
+  <h1>Superstate</h1>
 
   <h3>Type-safe JavaScript statecharts library</h3>
 
