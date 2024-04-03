@@ -1,11 +1,7 @@
-<h1 style="display: none">Superstate</h1>
-
 <div align="center">
   <img alt="Superstate logo" height="256" src="./logo.png" />
 
-  <h2 style="font-size: 1.5rem; font-weight: 500; border: none;">
-    Type-safe JavaScript statecharts
-  </h2>
+  <h3>Type-safe JavaScript statecharts library</h3>
 
   <div>
     🔒 End-to-end type-safe
