@@ -854,6 +854,11 @@ import { superstate } from "./index.js";
   });
 }
 
+//! Substate actions
+{
+  // TODO: Force to bind the substate actions
+}
+
 //! Documentation examples:
 {
   //! README.md:
@@ -862,7 +867,7 @@ import { superstate } from "./index.js";
 
   type PlayerState = "stopped" | "playing" | "paused";
 
-  const playerState = superstate<PlayerState>("mediaPlayer")
+  const playerState = superstate<PlayerState>("player")
     .state("stopped", "play() -> playing")
     .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
       $.sub("volume", volumeState)
@@ -889,17 +894,25 @@ import { superstate } from "./index.js";
   volume.send("up()");
 
   // Check the current state:
-  if (volume.in("high")) console.log("The volume is at maximum.");
+  if (volume.in("high")) console.log("The volume is at maximum");
 
   // Listen to everything:
   volume.on("*", (target) => {
-    if (target.type === "state")
+    if (target.type === "state") {
       console.log("State changed to", target.state.name);
-    else console.log("Event triggered", target.event.name);
+    } else {
+      console.log("Event triggered", target.event.name);
+    }
   });
 
   // Will trigger when the state is `low` or when `down()` is sent:
-  volume.on(["low", "down()"], () => {});
+  volume.on(["low", "down()"], (target) => {
+    if (target.type === "state") {
+      console.log("The volume is low");
+    } else {
+      console.log("The volume is going down");
+    }
+  });
 
   //! Guards:
 
@@ -930,6 +943,107 @@ import { superstate } from "./index.js";
 
     // The next state is "sleep":
     if (nextState) nextState.name satisfies "sleep" | "on";
+  }
+
+  //! Actions
+
+  type ButtonState = "off" | "on";
+
+  {
+    const buttonState = superstate<ButtonState>("button")
+      .state("off", ["-> turnOff!", "press() -> on"])
+      .state("on", ["-> turnOn!", "press() -> off"]);
+
+    // Bind the actions to code:
+    const button = buttonState.host({
+      on: {
+        "-> turnOn!": () => console.log("Turning on"),
+      },
+      off: {
+        "-> turnOff!": () => console.log("Turning on"),
+      },
+    });
+  }
+  {
+    // The on state invokes the enter and exit actions:
+    const buttonState = superstate<ButtonState>("button")
+      .state("off", "press() -> on")
+      .state("on", ["-> turnOn!", "press() -> off", "turnOff! ->"]);
+
+    const button = buttonState.host({
+      on: {
+        "-> turnOn!": () => console.log("Turning on"),
+        "turnOff! ->": () => console.log("Turning off"),
+      },
+    });
+  }
+
+  {
+    // Use the builder function to define the states:
+    const buttonState = superstate<ButtonState>("button")
+      .state("on", ($) =>
+        $.enter("turnOn!").on("press() -> off").exit("turnOff!")
+      )
+      .state("off", ($) => $.on("press() -> on"));
+  }
+
+  //! Substates
+
+  {
+    type PlayerState = "stopped" | "playing" | "paused";
+
+    const playerState = superstate<PlayerState>("player")
+      .state("stopped", "play() -> playing")
+      .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+        // Nest the volume state as `volume`
+        $.sub("volume", volumeState)
+      )
+      .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+    type VolumeState = "low" | "medium" | "high";
+
+    const volumeState = superstate<VolumeState>("volume")
+      .state("low", "up() -> medium")
+      .state("medium", ["up() -> high", "down() -> low"])
+      .state("high", "down() -> medium");
+
+    const player = playerState.host();
+
+    // Send events to the substate:
+    player.send("playing.volume.up()");
+
+    // Subscribe to the substate changes:
+    player.on("playing.volume.low", (target) =>
+      console.log("The volume is low")
+    );
+
+    // The parent state will have the substate as a property on `sub`:
+    const playingState = player.in("playing");
+    if (playingState) {
+      // Access the substate:
+      playingState.sub.volume.in("high");
+    }
+  }
+
+  type OSState = "running" | "sleeping" | "terminated";
+
+  const osState = superstate<OSState>("running")
+    .state("running", "terminate() -> terminated")
+    .state("sleeping", ["wake() -> running", "terminate() -> terminated"])
+    // Mark the terminated state as final
+    .final("terminated");
+
+  {
+    type PCState = "on" | "off";
+
+    const pcState = superstate<PCState>("pc")
+      .state("off", "power() -> on")
+      .state("on", ($) =>
+        $.on("power() -> off")
+          // Nest the OS state as `os` and connect the `terminated` state
+          // through `shutdown()` event to `off` state of the parent.
+          .sub("os", osState, "terminated -> shutdown() -> off")
+      );
   }
 }
 
