@@ -761,23 +761,45 @@ export namespace Superstate {
       true extends IsActionable<State>
         ? [
             Binding<State> extends infer Binding_ extends BindingConstraint
-              ? {
-                  [StateName in Binding_["state"]]: {
-                    [Key in Binding_ extends { state: StateName }
-                      ? Binding_["key"]
-                      : never]: BindingFn;
-                  };
-                }
+              ? BindingMap<Binding_>
               : never
           ]
         : [];
 
+    export type BindingMap<Binding_ extends BindingConstraint> = {
+      [StateName in Binding_["state"]]: {
+        [Key in Binding_ extends { state: StateName }
+          ? Binding_["key"]
+          : never]: Binding_ extends {
+          sub: infer SubstateBinding extends BindingConstraint;
+        }
+          ? BindingMap<SubstateBinding>
+          : BindingFn;
+      };
+    };
+
     /**
      * The binding constrain type.
      */
-    export interface BindingConstraint {
+    export type BindingConstraint =
+      | BindingConstraintAction
+      | BindingConstraintSubstate;
+
+    /**
+     * The binding constrain action type.
+     */
+    export interface BindingConstraintAction {
       key: string;
       state: string;
+    }
+
+    /**
+     * The binding constrain substate type.
+     */
+    export interface BindingConstraintSubstate {
+      key: string;
+      state: string;
+      sub: BindingConstraint[];
     }
 
     /**
@@ -787,8 +809,10 @@ export namespace Superstate {
       name: infer StateName;
       actions: Array<infer Action>;
       transitions: Array<infer Transition>;
+      sub: Record<string, infer Substate>;
     }
       ? // Get all state actions
+
         | (Action extends {
               name: infer ActionName extends string;
               type: infer Type;
@@ -813,6 +837,19 @@ export namespace Superstate {
                     : ""}) -> ${ActionName}!`;
                 }
               : never)
+          // Get all substates
+          | (Substate extends {
+              sub: { name: infer SubstateName };
+              state: infer SubstateState extends QQ.AnyState;
+            }
+              ? true extends IsActionable<SubstateState>
+                ? {
+                    key: SubstateName;
+                    state: StateName;
+                    sub: Binding<SubstateState>;
+                  }
+                : never
+              : never)
       : never;
 
     /**
@@ -821,22 +858,27 @@ export namespace Superstate {
      */
     export type IsActionable<State> = State extends {
       transitions: Array<
-        infer Transition extends Superstate.Transitions.Transition<
-          any,
-          any,
-          any,
-          any,
-          any,
-          any
-        >
+        infer Transition extends {
+          action: Superstate.Transitions.Action | null;
+        }
       >;
-      actions: Array<infer Action extends Superstate.Actions.Action>;
+      actions: Array<infer Action extends { name: string }>;
+      sub: infer Substates;
     }
-      ? Action["name"] extends never
-        ? Transition["action"] extends null
-          ? false
-          : true
-        : true
+      ? // Are there any state or transition actions?
+        | (Action["name"] extends never
+              ? Transition["action"] extends null
+                ? false
+                : true
+              : true)
+          // Any there substate actions?
+          | (keyof Substates extends never
+              ? false
+              : Substates[keyof Substates] extends {
+                  state: infer SubstateState;
+                }
+              ? IsActionable<SubstateState>
+              : never)
       : never;
   }
 

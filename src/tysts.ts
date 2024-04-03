@@ -1,4 +1,4 @@
-import { superstate } from "./index.js";
+import { superstate, Superstate } from "./index.js";
 
 //! Simple machine
 {
@@ -856,7 +856,108 @@ import { superstate } from "./index.js";
 
 //! Substate actions
 {
-  // TODO: Force to bind the substate actions
+  type OSState = "running" | "sleeping" | "terminated";
+
+  const osState = superstate<OSState>("running")
+    .state("running", [
+      "terminate() -> terminated",
+      "sleep() -> sleep! -> sleeping",
+    ])
+    .state("sleeping", [
+      "wake() -> wake! -> running",
+      "terminate() -> terminated",
+    ])
+    .final("terminated", "-> terminate!");
+
+  type PCState = "on" | "off";
+
+  const pcState = superstate<PCState>("pc")
+    .state("off", "power() -> turnOn! -> on")
+    .state("on", ($) =>
+      $.on("power() -> turnOff! -> off").sub(
+        "os",
+        osState,
+        "terminated -> shutdown() -> off"
+      )
+    );
+
+  const pcStateNoActions = superstate<PCState>("pc")
+    .state("off", "power() -> on")
+    .state("on", ($) =>
+      $.on("power() -> off").sub(
+        "os",
+        osState,
+        "terminated -> shutdown() -> off"
+      )
+    );
+
+  const os = osState.host({
+    running: {
+      "sleep() -> sleep!": () => {},
+    },
+    sleeping: {
+      "wake() -> wake!": () => {},
+    },
+    terminated: {
+      "-> terminate!": () => {},
+    },
+  });
+
+  //! Forces to bind all substate actions
+  const pc = pcState.host({
+    on: {
+      "power() -> turnOff!": () => {},
+      os: {
+        running: {
+          "sleep() -> sleep!": () => {},
+        },
+        sleeping: {
+          "wake() -> wake!": () => {},
+        },
+        terminated: {
+          "-> terminate!": () => {},
+        },
+      },
+    },
+    off: {
+      "power() -> turnOn!": () => {},
+    },
+  });
+
+  //! It forces to bind even if the parent has no actions
+  const pcNoActions = pcStateNoActions.host({
+    on: {
+      os: {
+        running: {
+          "sleep() -> sleep!": () => {},
+        },
+        sleeping: {
+          "wake() -> wake!": () => {},
+        },
+        terminated: {
+          "-> terminate!": () => {},
+        },
+      },
+    },
+  });
+
+  //! It prevents binding invalid actions
+  pcStateNoActions.host({
+    on: {
+      os: {
+        running: {
+          // @ts-expect-error
+          "sleep() -> slep!": () => {},
+        },
+        sleeping: {
+          "wake() -> wake!": () => {},
+        },
+        terminated: {
+          "-> terminate!": () => {},
+        },
+      },
+    },
+  });
 }
 
 //! Documentation examples:
