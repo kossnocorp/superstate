@@ -31,7 +31,23 @@ const volumeState = superstate<VolumeState>("volume")
 
 Even without rendering a chart, it is easy to see the logic.
 
-## Installation
+## Why?
+
+There are many state machine and statechart libraries, including the industry leader [XState](https://stately.ai/docs/xstate). Why bother?
+
+Superstate was [born out of my frustration with TypeScript](https://twitter.com/kossnocorp/status/1771855573304390085). It turned out that typing a graph-based API was an extremely tough challenge, which I bravely accepted.
+
+As statecharts play a central role in any system, set to untangle what is tangled, having complete type-safety is crucial for the task. A typo or unintended usage might ultimately break the app, so the type system must always warn you about the problem.
+
+One reason typing such an API is problematic is the inherent composability of statecharts. This contributes to another problem — readability. That was another reason why I wanted to try my hand at it.
+
+So, when I managed to design an API that is completely type-safe, easy to grasp without visualization, and composable, I thought it would be a crime not to give it a chance and ship it as a library.
+
+So here we go.
+
+## Getting started
+
+### Installation
 
 Start by installing the package:
 
@@ -39,7 +55,7 @@ Start by installing the package:
 npm i superstate
 ```
 
-## Getting started
+### Core concepts
 
 Superstate is an implementation of the statecharts formalism [introduced by David Harel in 1987](https://www.sciencedirect.com/science/article/pii/0167642387900359). It adds hierarchy to state machines, making it possible to express complex logic without losing readability.
 
@@ -51,6 +67,8 @@ To get started, you only need to understand a few concepts:
 - **Action**: What happens during _transitions_, upon entering or exiting a _state_ (e.g. `playMusic!`). _Actions_ call your code.
 
 Everything else is built on top of these concepts.
+
+All the concepts have consistent naming, enabling you to quickly distinguish them. For instance, _events_ have `()` at the end, and _actions_ have `!`. Flow of the system are defined with `->`.
 
 ### Basics
 
@@ -110,6 +128,17 @@ volume.on(["low", "down()"], (target) => {
 });
 ```
 
+The `on` method returns `off` function that unsubscribes the listener:
+
+```ts
+const off = volume.on("low", () => {});
+
+setTimeout(() => {
+  // Unsubscribe the listener:
+  off();
+}, 1000);
+```
+
 ### Guards
 
 Transitions can be guarded, allowing to have conditional transitions:
@@ -130,6 +159,8 @@ const pcState = superstate<PCState>("pc")
 In this example, we used the `if` method to guard the transitions. The `press` event might trigger one of the two transitions: a long press and another for a short press (else).
 
 There are several ways to define state traits, and passing a function as the last argument is one of them. It allows for defining more complex logic.
+
+---
 
 To send an event with a condition, use the `send` method:
 
@@ -303,11 +334,78 @@ const pcState = superstate<PCState>("pc")
 
 When the OS is terminated, the PC will automatically power off.
 
+---
+
+If a substate has actions, they must be binded when hosting the root statechart.
+
+Look at this fairly complex statechart:
+
+```ts
+type OSState = "running" | "sleeping" | "terminated";
+
+const osState = superstate<OSState>("running")
+  .state("running", [
+    "terminate() -> terminated",
+    // Note sleep! action
+    "sleep() -> sleep! -> sleeping",
+  ])
+  .state("sleeping", [
+    // Note wake! action
+    "wake() -> wake! -> running",
+    "terminate() -> terminated",
+  ])
+  .final("terminated", "-> terminate!");
+
+type PCState = "on" | "off";
+
+const pcState = superstate<PCState>("pc")
+  .state("off", "power() -> turnOn! -> on")
+  .state("on", ($) =>
+    // Here we add OS state as a substate
+    $.on("power() -> turnOff! -> off").sub(
+      "os",
+      osState,
+      "terminated -> shutdown() -> off"
+    )
+  );
+```
+
+The PC (personal computer) statechart nests OS (operating system). The OS has `sleep!` and `wake!` actions, so when we host the PC statechart, we must bind the `OS` actions as well:
+
+```ts
+const pc = pcState.host({
+  on: {
+    // Here we bind the
+    os: {
+      running: {
+        "sleep() -> sleep!": () => console.log("Sleeping"),
+      },
+      sleeping: {
+        "wake() -> wake!": () => console.log("Waking up"),
+      },
+      terminated: {
+        "-> terminate!": () => console.log("Terminating"),
+      },
+    },
+    "power() -> turnOff!": () => console.log("Turning off"),
+  },
+  off: {
+    "power() -> turnOn!": () => console.log("Turning on"),
+  },
+});
+```
+
 ## API
 
 **🚧 Work in progress, [follow for updates](https://twitter.com/kossnocorp)**
 
 TODO: Describe each method
+
+## Acknowledgments
+
+Special thanks to [Eric Vicenti](https://github.com/ericvicenti) for donatime the npm package name `superstate` to this project.
+
+The project wouldn't exist without the [XState](https://stately.ai/docs/xstate) library, a great source of inspiration and knowledge.
 
 ## Changelog
 

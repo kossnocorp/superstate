@@ -1146,6 +1146,58 @@ import { superstate, Superstate } from "./index.js";
           .sub("os", osState, "terminated -> shutdown() -> off")
       );
   }
+
+  {
+    type OSState = "running" | "sleeping" | "terminated";
+
+    const osState = superstate<OSState>("running")
+      .state("running", [
+        "terminate() -> terminated",
+        // Note sleep! action
+        "sleep() -> sleep! -> sleeping",
+      ])
+      .state("sleeping", [
+        // Note wake! action
+        "wake() -> wake! -> running",
+        "terminate() -> terminated",
+      ])
+      // Note terminate! action
+      .final("terminated", "-> terminate!");
+
+    type PCState = "on" | "off";
+
+    const pcState = superstate<PCState>("pc")
+      .state("off", "power() -> turnOn! -> on")
+      .state("on", ($) =>
+        // Here we add OS state as a substate
+        $.on("power() -> turnOff! -> off").sub(
+          "os",
+          osState,
+          "terminated -> shutdown() -> off"
+        )
+      );
+
+    const pc = pcState.host({
+      on: {
+        // Here we bind the
+        os: {
+          running: {
+            "sleep() -> sleep!": () => console.log("Sleeping"),
+          },
+          sleeping: {
+            "wake() -> wake!": () => console.log("Waking up"),
+          },
+          terminated: {
+            "-> terminate!": () => console.log("Terminating"),
+          },
+        },
+        "power() -> turnOff!": () => console.log("Turning off"),
+      },
+      off: {
+        "power() -> turnOn!": () => console.log("Turning on"),
+      },
+    });
+  }
 }
 
 export function assertExtends<Type>(_value: Type) {}
