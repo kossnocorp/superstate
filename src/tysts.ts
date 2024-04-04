@@ -74,6 +74,7 @@ import { superstate, Superstate } from "./index.js";
         default:
           target.state satisfies never;
       }
+      // ------------ TODO: Implementation ------------
     } else if (target.type === "event") {
       switch (target.event.name) {
         //! There's no such event
