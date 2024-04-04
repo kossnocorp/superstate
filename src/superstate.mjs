@@ -138,7 +138,7 @@ export function superstate(statechartName) {
       for (const state of states) {
         for (const transition of state.transitions) {
           if (
-            transition.name === eventName &&
+            transition.event === eventName &&
             currentState.name === transition.from
           ) {
             return transition;
@@ -157,9 +157,9 @@ export function superstate(statechartName) {
 
 function transitionFromDef(from, def) {
   const captures = def.match(/^(\w+)\(\) -> (\w+)$/);
-  const [_, name, to] = captures;
+  const [_, event, to] = captures;
   return {
-    name,
+    event,
     condition: null,
     from,
     to,

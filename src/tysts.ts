@@ -76,7 +76,14 @@ import { superstate, Superstate } from "./index.js";
       }
       // ------------ TODO: Implementation ------------
     } else if (update.type === "event") {
-      switch (update.transition.name) {
+      // TODO:
+      //! The update contains the from state
+      update.from.name satisfies "stopped" | "playing" | "paused";
+
+      //! The update contains the to state
+      update.to.name satisfies "stopped" | "playing" | "paused";
+
+      switch (update.transition.event) {
         //! There's no such event
         // @ts-expect-error
         case "nope":
@@ -153,12 +160,12 @@ import { superstate, Superstate } from "./index.js";
   player.on("stop()", (update) => {
     //! It can only be stop event
     if (update.type === "event") {
-      if (update.transition.name === "stop") {
+      if (update.transition.event === "stop") {
         return;
       }
 
       //! Can't be anything but stop
-      update.transition.name satisfies never;
+      update.transition.event satisfies never;
       return;
     }
 
@@ -170,7 +177,7 @@ import { superstate, Superstate } from "./index.js";
   player.on(["stop()", "pause()"], (update) => {
     //! It can only be stop or pause events
     if (update.type === "event") {
-      switch (update.transition.name) {
+      switch (update.transition.event) {
         //! Can't be invalid state
         // @ts-expect-error
         case "nope":
@@ -478,7 +485,7 @@ import { superstate, Superstate } from "./index.js";
 
     //! Should be able to listen to the substate events
     update.state.sub.tea.on("infuse()", (update) => {
-      update.transition.name satisfies "infuse";
+      update.transition.event satisfies "infuse";
     });
   });
 
@@ -489,7 +496,7 @@ import { superstate, Superstate } from "./index.js";
 
   //! Should be able to listen to the substate transitions
   mug.on("full.tea.infuse()", (update) => {
-    update.transition.name satisfies "infuse";
+    update.transition.event satisfies "infuse";
   });
 
   mug.on("*", (update) => {
@@ -509,7 +516,7 @@ import { superstate, Superstate } from "./index.js";
 
   //! Should be able to listen to the exit transition
   mug.on("finish()", (update) => {
-    update.transition.name satisfies "finish";
+    update.transition.event satisfies "finish";
     update.transition.to satisfies "dirty";
   });
 
@@ -1003,7 +1010,7 @@ import { superstate, Superstate } from "./index.js";
     if (update.type === "state") {
       console.log("State changed to", update.state.name);
     } else {
-      console.log("Event triggered", update.transition.name);
+      console.log("Event triggered", update.transition.event);
     }
   });
 
