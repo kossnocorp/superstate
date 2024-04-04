@@ -102,7 +102,7 @@ To use the machine, run the `host` method:
 ```ts
 const volume = volumeState.host();
 
-// Subscribe to the state changes:
+// Subscribe to the state updates:
 volume.on(["low", "medium", "high"], (target) =>
   sound.setVolume(target.state.name)
 );
@@ -296,7 +296,7 @@ const volumeState = superstate<VolumeState>("volume")
 
 In this example, we nest the `volumeState` inside the `playing` state. The `volumeState` will be initialized when the `playing` state is entered and will be destroyed when the `playing` state is exited.
 
-You can send events, subscribe to changes, and access the substate from the parent state:
+You can send events, subscribe to updates, and access the substate from the parent state:
 
 ```ts
 const player = playerState.host();
@@ -304,7 +304,7 @@ const player = playerState.host();
 // Send events to the substate:
 player.send("playing.volume.up()");
 
-// Subscribe to the substate changes:
+// Subscribe to the substate state updates:
 player.on("playing.volume.low", (target) => console.log("The volume is low"));
 
 // The parent state will have the substate as a property on `sub`:

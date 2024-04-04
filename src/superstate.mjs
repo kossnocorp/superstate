@@ -87,22 +87,41 @@ export function superstate(statechartName) {
             case "send":
               return (eventSignature, condition) => {
                 const eventName = eventNameFromSignature(eventSignature);
-                const nextState = findTransitionTarget(eventName);
 
+                const transition = findTransition(eventName);
+                if (!transition) return null;
+
+                const nextState = findTransitionTarget(transition);
                 if (!nextState) return null;
+
+                const matchingListeners = subscriptions.reduce(
+                  (acc, subscription) => {
+                    const matching = subscription.targets.some(
+                      (target) => target.type === "*"
+                    );
+                    return matching ? acc.concat(subscription.listener) : acc;
+                  },
+                  []
+                );
+
+                const eventChange = {
+                  type: "event",
+                  transition,
+                };
+
+                matchingListeners.forEach((listener) => {
+                  listener(eventChange);
+                });
 
                 currentState = nextState;
 
-                const change = {
+                const stateChange = {
                   type: "state",
                   state: currentState,
                 };
 
-                subscriptions.forEach((subscription) => {
-                  const matching = subscription.targets.some(
-                    (target) => target.type === "*"
-                  );
-                  if (matching) subscription.listener(change);
+                matchingListeners.forEach((listener) => {
+                  listener(stateChange);
                 });
 
                 return nextState;
@@ -115,17 +134,21 @@ export function superstate(statechartName) {
       }
     );
 
-    function findTransitionTarget(eventName) {
+    function findTransition(eventName) {
       for (const state of states) {
         for (const transition of state.transitions) {
           if (
             transition.name === eventName &&
             currentState.name === transition.from
           ) {
-            return states.find((state) => state.name === transition.to);
+            return transition;
           }
         }
       }
+    }
+
+    function findTransitionTarget(transition) {
+      return states.find((state) => state.name === transition.to);
     }
   }
 

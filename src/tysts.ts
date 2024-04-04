@@ -56,9 +56,9 @@ import { superstate, Superstate } from "./index.js";
   //! on
 
   //! The machine allows to subscribe to all states
-  const off = player.on("*", (target) => {
-    if (target.type === "state") {
-      switch (target.state.name) {
+  const off = player.on("*", (update) => {
+    if (update.type === "state") {
+      switch (update.state.name) {
         //! There's no such state
         // @ts-expect-error
         case "nope":
@@ -72,11 +72,11 @@ import { superstate, Superstate } from "./index.js";
 
         //! We don't expect other states
         default:
-          target.state satisfies never;
+          update.state satisfies never;
       }
       // ------------ TODO: Implementation ------------
-    } else if (target.type === "event") {
-      switch (target.event.name) {
+    } else if (update.type === "event") {
+      switch (update.transition.name) {
         //! There's no such event
         // @ts-expect-error
         case "nope":
@@ -90,11 +90,11 @@ import { superstate, Superstate } from "./index.js";
 
         //! We don't expect other events
         default:
-          target.event satisfies never;
+          update.transition satisfies never;
       }
     } else {
       //! No other type is expected
-      target satisfies never;
+      update satisfies never;
     }
   });
 
@@ -102,27 +102,27 @@ import { superstate, Superstate } from "./index.js";
   off();
 
   //! The machine allows to subscribe to specific states
-  player.on("stopped", (target) => {
+  player.on("stopped", (update) => {
     //! It can only be stopped state
-    if (target.type === "state") {
-      if (target.state.name === "stopped") {
+    if (update.type === "state") {
+      if (update.state.name === "stopped") {
         return;
       }
 
       //! Can't be anything but stopped
-      target.state.name satisfies never;
+      update.state.name satisfies never;
       return;
     }
 
     //! Can only be state
-    target.type satisfies never;
+    update.type satisfies never;
   });
 
   //! The machine allows to subscribe to few states
-  player.on(["stopped", "playing"], (target) => {
+  player.on(["stopped", "playing"], (update) => {
     //! It can only be stopped or playing state
-    if (target.type === "state") {
-      switch (target.state.name) {
+    if (update.type === "state") {
+      switch (update.state.name) {
         //! Can't be invalid state
         // @ts-expect-error
         case "nope":
@@ -134,13 +134,13 @@ import { superstate, Superstate } from "./index.js";
 
         default:
           //! Can't be anything but stopped or playing
-          target.state satisfies never;
+          update.state satisfies never;
       }
       return;
     }
 
     //! Can only be only state
-    target.type satisfies never;
+    update.type satisfies never;
   });
 
   //! Can't subscribe to invalid states
@@ -150,27 +150,27 @@ import { superstate, Superstate } from "./index.js";
   player.on(["stopped", "nope"], () => {});
 
   //! The machine allows to subscribe to specific events
-  player.on("stop()", (target) => {
+  player.on("stop()", (update) => {
     //! It can only be stop event
-    if (target.type === "event") {
-      if (target.event.name === "stop") {
+    if (update.type === "event") {
+      if (update.transition.name === "stop") {
         return;
       }
 
       //! Can't be anything but stop
-      target.event.name satisfies never;
+      update.transition.name satisfies never;
       return;
     }
 
     //! Can only be event
-    target.type satisfies never;
+    update.type satisfies never;
   });
 
   //! The machine allows to subscribe to few events
-  player.on(["stop()", "pause()"], (target) => {
+  player.on(["stop()", "pause()"], (update) => {
     //! It can only be stop or pause events
-    if (target.type === "event") {
-      switch (target.event.name) {
+    if (update.type === "event") {
+      switch (update.transition.name) {
         //! Can't be invalid state
         // @ts-expect-error
         case "nope":
@@ -182,13 +182,13 @@ import { superstate, Superstate } from "./index.js";
 
         default:
           //! Can't be anything but stop or pause
-          target.event satisfies never;
+          update.transition satisfies never;
       }
       return;
     }
 
     //! Can only be event
-    target.type satisfies never;
+    update.type satisfies never;
   });
 
   //! Can't subscribe to invalid events
@@ -268,8 +268,8 @@ import { superstate, Superstate } from "./index.js";
   }
 
   //! Subscribing to the events gives you multiple targets
-  light.on("toggle()", (target) => {
-    target.event.to satisfies "off" | "on";
+  light.on("toggle()", (update) => {
+    update.transition.to satisfies "off" | "on";
   });
 }
 
@@ -470,47 +470,47 @@ import { superstate, Superstate } from "./index.js";
 
   //! Event listeners
 
-  mug.on("full", (target) => {
+  mug.on("full", (update) => {
     //! Should be able to listen to substate states
-    target.state.sub.tea.on("ready", (target) => {
-      target.state.name satisfies "ready";
+    update.state.sub.tea.on("ready", (update) => {
+      update.state.name satisfies "ready";
     });
 
     //! Should be able to listen to the substate events
-    target.state.sub.tea.on("infuse()", (target) => {
-      target.event.name satisfies "infuse";
+    update.state.sub.tea.on("infuse()", (update) => {
+      update.transition.name satisfies "infuse";
     });
   });
 
   //! Should be able to listen to the substate states using dot notation
-  mug.on("full.tea.ready", (target) => {
-    target.state.name satisfies "ready";
+  mug.on("full.tea.ready", (update) => {
+    update.state.name satisfies "ready";
   });
 
-  //! Should be able to listen to the substate events
-  mug.on("full.tea.infuse()", (target) => {
-    target.event.name satisfies "infuse";
+  //! Should be able to listen to the substate transitions
+  mug.on("full.tea.infuse()", (update) => {
+    update.transition.name satisfies "infuse";
   });
 
-  mug.on("*", (target) => {
-    if (target.type === "state") {
+  mug.on("*", (update) => {
+    if (update.type === "state") {
       //! The nested events should be propogated
-      if (target.state.name === "ready") return;
+      if (update.state.name === "ready") return;
     }
   });
 
-  mug.on("*", (target) => {
-    if (target.type === "state") {
+  mug.on("*", (update) => {
+    if (update.type === "state") {
       //! The state is not defined
       // @ts-expect-error
-      if (target.state.name === "rady") return;
+      if (update.state.name === "rady") return;
     }
   });
 
   //! Should be able to listen to the exit transition
-  mug.on("finish()", (target) => {
-    target.event.name satisfies "finish";
-    target.event.to satisfies "dirty";
+  mug.on("finish()", (update) => {
+    update.transition.name satisfies "finish";
+    update.transition.to satisfies "dirty";
   });
 
   //! Sending events
@@ -586,8 +586,8 @@ import { superstate, Superstate } from "./index.js";
   //! on
 
   //! Can subscribe to the parallel states
-  meatPie.on(["unpacked.eat.eating", "unpacked.expire.fresh"], (target) => {
-    target.state.name satisfies "eating" | "fresh";
+  meatPie.on(["unpacked.eat.eating", "unpacked.expire.fresh"], (update) => {
+    update.state.name satisfies "eating" | "fresh";
   });
 
   //! Can't subscribe to invalid parallel states
@@ -987,9 +987,9 @@ import { superstate, Superstate } from "./index.js";
 
   const volume = volumeState.host();
 
-  // Subscribe to the state changes:
-  volume.on(["low", "medium", "high"], (target) =>
-    sound.setVolume(target.state.name)
+  // Subscribe to the state updates:
+  volume.on(["low", "medium", "high"], (update) =>
+    sound.setVolume(update.state.name)
   );
 
   // Trigger the events:
@@ -999,17 +999,17 @@ import { superstate, Superstate } from "./index.js";
   if (volume.in("high")) console.log("The volume is at maximum");
 
   // Listen to everything:
-  volume.on("*", (target) => {
-    if (target.type === "state") {
-      console.log("State changed to", target.state.name);
+  volume.on("*", (update) => {
+    if (update.type === "state") {
+      console.log("State changed to", update.state.name);
     } else {
-      console.log("Event triggered", target.event.name);
+      console.log("Event triggered", update.transition.name);
     }
   });
 
   // Will trigger when the state is `low` or when `down()` is sent:
-  volume.on(["low", "down()"], (target) => {
-    if (target.type === "state") {
+  volume.on(["low", "down()"], (update) => {
+    if (update.type === "state") {
       console.log("The volume is low");
     } else {
       console.log("The volume is going down");
@@ -1114,8 +1114,8 @@ import { superstate, Superstate } from "./index.js";
     // Send events to the substate:
     player.send("playing.volume.up()");
 
-    // Subscribe to the substate changes:
-    player.on("playing.volume.low", (target) =>
+    // Subscribe to the substate updates:
+    player.on("playing.volume.low", (update) =>
       console.log("The volume is low")
     );
 
