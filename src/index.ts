@@ -2,6 +2,9 @@
  * The root Superstate namespace. It contains all the Superstate types.
  */
 export namespace Superstate {
+  /**
+   * Temp namespace.
+   */
   export namespace QQ {
     export type AnyTransition<
       EventName extends string = string,
@@ -1064,6 +1067,5 @@ export namespace Superstate {
   }
 }
 
-export const superstate: Superstate.Builder.Machine =
-  // @ts-expect-error: This is fine, it's just a placeholder
-  (() => {}) as Superstate.Builder.Machine;
+import { superstate } from "./superstate.mjs";
+export { superstate };
