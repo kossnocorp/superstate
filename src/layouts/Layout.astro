@@ -1,0 +1,27 @@
+---
+import "@fontsource-variable/martian-mono";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="description"
+      content="Type-safe JavaScript statecharts library"
+    />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body class="bg-black text-neutral-50 p-3 md:p-10">
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,94 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Card from "../components/HomeCard.astro";
+---
+
+<Layout title="Superstate">
+  <div class="space-y-6 md:space-y-12">
+    <div class="py-4 space-y-6 md:space-y-12 md:py-12">
+      <div class="max-w-5xl mx-auto space-y-3 text-center">
+        <div class="space-y-4 md:space-y-8">
+          <img
+            src="/logo.svg"
+            alt="Superstate logo"
+            class="max-w-32 md:max-w-64 mx-auto"
+          />
+
+          <h2 class="text-3xl">Superstate</h2>
+        </div>
+
+        <h1 class="text-lg text-neutral-400">
+          Type-safe JavaScript statecharts library
+        </h1>
+      </div>
+
+      <div class="max-w-5xl mx-auto text-center">
+        <a
+          href="https://github.com/kossnocorp/superstate?tab=readme-ov-file#getting-started"
+          0
+          class="inline-block bg-neutral-900 hover:bg-neutral-600 hover:border-neutral-600 border border-neutral-800 rounded-lg py-3 px-5 md:py-4 md:px-8"
+        >
+          Get started ›
+        </a>
+      </div>
+    </div>
+
+    <hr class="max-w-5xl mx-auto border-neutral-900" />
+
+    <div
+      class="max-w-5xl mx-auto flex flex-col md:flex-row gap-5 md:items-stretch py-4 md:py-12"
+    >
+      <Card title="Type-safe ">
+        <p>
+          Everything is typed, from defining a statechart to sending events and
+          listening to changes.
+        </p>
+
+        <p>No more typos ruining your day!</p>
+      </Card>
+
+      <Card title="Easy to read">
+        <p>The API is designed to be dense and easy to read.</p>
+
+        <p>
+          Literal string syntax helps to grasp relations between states without
+          visualization.
+        </p>
+      </Card>
+
+      <Card title="Composable">
+        <p>
+          Defining substrates separately, makes the statechart hierarchy easy to
+          read and promotes reusability.
+        </p>
+
+        <p>And it's all fully type-safe!</p>
+      </Card>
+
+      <Card title="Lightweight">
+        Superstate is lightweight and fast, so you can use it even in smaller
+        projects without worrying about the bundle size.
+      </Card>
+    </div>
+
+    <hr class="max-w-5xl mx-auto border-neutral-900" />
+
+    <div
+      class="py-4 max-w-5xl mx-auto text-sm text-center text-neutral-500 flex space-x-2 justify-center"
+    >
+      <a
+        href="https://github.com/kossnocorp/superstate"
+        class="hover:text-neutral-300">GitHub</a
+      >
+      <span class="text-neutral-700">♦</span>
+      <a
+        href="https://www.npmjs.com/package/superstate"
+        class="hover:text-neutral-300">npm</a
+      >
+      <span class="text-neutral-700">♦</span>
+      <a href="https://github.com/kossnocorp" class="hover:text-neutral-300">
+        @kossnocorp</a
+      >
+    </div>
+  </div>
+</Layout>
