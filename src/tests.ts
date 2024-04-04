@@ -207,5 +207,62 @@ describe("Superstate", () => {
         state: expect.objectContaining({ name: "playing" }),
       });
     });
+
+    it("returns function to unsubscribe", () => {
+      const listener = vi.fn();
+      const playerState = createPlayerState();
+      const player = playerState.host();
+      const off = player.on("*", listener);
+      off();
+      player.send("play()");
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it("allows to subscribe to specific state updates", () => {
+      const listener = vi.fn();
+      const playerState = createPlayerState();
+      const player = playerState.host();
+      player.on("paused", listener);
+      player.send("play()");
+      player.send("pause()");
+      expect(listener).not.toHaveBeenCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "playing" }),
+      });
+      expect(listener).not.toHaveBeenCalledWith({
+        type: "event",
+        transition: expect.objectContaining({ event: "play" }),
+      });
+      expect(listener).toHaveBeenCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "paused" }),
+      });
+    });
+
+    it("allows to subscribe to few state updates", () => {
+      const listener = vi.fn();
+      const playerState = createPlayerState();
+      const player = playerState.host();
+      player.on(["paused", "stopped"], listener);
+      player.send("play()");
+      player.send("pause()");
+      player.send("stop()");
+      expect(listener).not.toHaveBeenCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "playing" }),
+      });
+      expect(listener).not.toHaveBeenCalledWith({
+        type: "event",
+        transition: expect.objectContaining({ event: "play" }),
+      });
+      expect(listener).toHaveBeenCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "paused" }),
+      });
+      expect(listener).toHaveBeenCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "stopped" }),
+      });
+    });
   });
 });
