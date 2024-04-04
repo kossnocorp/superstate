@@ -195,5 +195,17 @@ describe("Superstate", () => {
         transition: expect.objectContaining({ event: "play" }),
       });
     });
+
+    it("sends event update before state update", () => {
+      const listener = vi.fn();
+      const playerState = createPlayerState();
+      const player = playerState.host();
+      player.on("*", listener);
+      player.send("play()");
+      expect(listener).toHaveBeenLastCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "playing" }),
+      });
+    });
   });
 });
