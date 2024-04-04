@@ -65,14 +65,14 @@ export namespace Superstate {
     export type GlobEvent<
       FlatState extends FlatStateConstraint,
       FlatEvent extends FlatEventConstraint
-    > = TargetState<FlatState["state"]> | TargetEvent<FlatEvent["event"]>;
+    > = StateUpdate<FlatState["state"]> | EventUpdate<FlatEvent["event"]>;
 
-    export interface TargetState<_State extends { name: string }> {
+    export interface StateUpdate<_State extends { name: string }> {
       type: "state";
       state: _State;
     }
 
-    export interface TargetEvent<Transition> {
+    export interface EventUpdate<Transition> {
       type: "event";
       transition: Transition;
       // TODO: from, to, condition
@@ -97,11 +97,11 @@ export namespace Superstate {
               > extends infer MatchedEvent
               ?
                   | (MatchedState extends { name: string }
-                      ? TargetState<MatchedState>
+                      ? StateUpdate<MatchedState>
                       : never)
                   | (MatchedEvent extends never
                       ? never
-                      : TargetEvent<MatchedEvent>)
+                      : EventUpdate<MatchedEvent>)
               : never
             : never
           : never

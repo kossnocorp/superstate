@@ -76,13 +76,6 @@ import { superstate, Superstate } from "./index.js";
       }
       // ------------ TODO: Implementation ------------
     } else if (update.type === "event") {
-      // TODO:
-      //! The update contains the from state
-      update.from.name satisfies "stopped" | "playing" | "paused";
-
-      //! The update contains the to state
-      update.to.name satisfies "stopped" | "playing" | "paused";
-
       switch (update.transition.event) {
         //! There's no such event
         // @ts-expect-error
