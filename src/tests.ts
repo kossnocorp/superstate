@@ -192,7 +192,7 @@ describe("Superstate", () => {
       player.send("play()");
       expect(listener).toHaveBeenCalledWith({
         type: "event",
-        transition: expect.objectContaining({ name: "play" }),
+        transition: expect.objectContaining({ event: "play" }),
       });
     });
   });

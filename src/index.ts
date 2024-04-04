@@ -72,9 +72,9 @@ export namespace Superstate {
       state: _State;
     }
 
-    export interface TargetEvent<MachineEvent> {
+    export interface TargetEvent<Transition> {
       type: "event";
-      transition: MachineEvent;
+      transition: Transition;
       // TODO: from, to, condition
     }
 
@@ -115,7 +115,7 @@ export namespace Superstate {
       EventCondition extends string | null
     > = MachineState extends { transitions: Array<infer Event> }
       ? Event extends {
-          name: EventName;
+          event: EventName;
           condition: EventCondition;
           to: infer ToName;
         }
@@ -148,7 +148,7 @@ export namespace Superstate {
           transitions: Array<infer Event>;
         }
           ? Event extends {
-              name: infer EventName extends string;
+              event: infer EventName extends string;
               condition: infer Condition extends string | null;
             }
             ? {
@@ -434,7 +434,7 @@ export namespace Superstate {
       ChildFromStateName extends string,
       MachineToStateName extends string
     > {
-      name: EventName;
+      event: EventName;
       from: ChildFromStateName;
       to: MachineToStateName;
     }
@@ -459,7 +459,7 @@ export namespace Superstate {
       Def extends SubstateFinalTransitionDef<any, any, any>
     > =
       Def extends `${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
-        ? { name: EventName; from: ChildFromStateName; to: MachineToStateName }
+        ? { event: EventName; from: ChildFromStateName; to: MachineToStateName }
         : never;
   }
 
@@ -598,7 +598,7 @@ export namespace Superstate {
               : never)
           // Get all state transitions actions
           | (Transition extends {
-              name: infer EventName extends string;
+              event: infer EventName extends string;
               action: { name: infer ActionName extends string };
               condition: infer Condition;
             }
@@ -675,7 +675,7 @@ export namespace Superstate {
       Action extends Superstate.Transitions.Action | null
     > {
       // TODO: Rename to event?
-      name: EventName;
+      event: EventName;
       condition: Condition;
       from: FromStateName;
       to: ToStateName;

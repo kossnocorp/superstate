@@ -124,7 +124,7 @@ volume.on("*", (target) => {
   if (target.type === "state") {
     console.log("State changed to", target.state.name);
   } else {
-    console.log("Event triggered", target.event.name);
+    console.log("Event triggered", target.transition.event);
   }
 });
 
