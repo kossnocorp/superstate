@@ -31,7 +31,7 @@ describe("Superstate", () => {
       expect(player.state.name).toBe("playing");
     });
 
-    it("allows to subscribe to state changes", () => {
+    it("allows to subscribe to state updates", () => {
       const listener = vi.fn();
       const playerState = createPlayerState();
       const player = playerState.host();
@@ -168,6 +168,32 @@ describe("Superstate", () => {
       const player = playerState.host();
       const nextState = player.send("pause()");
       expect(nextState).toBe(null);
+    });
+  });
+
+  describe("on", () => {
+    it("allows to subscribe to states", () => {
+      const listener = vi.fn();
+      const playerState = createPlayerState();
+      const player = playerState.host();
+      player.on("*", listener);
+      player.send("play()");
+      expect(listener).toHaveBeenCalledWith({
+        type: "state",
+        state: expect.objectContaining({ name: "playing" }),
+      });
+    });
+
+    it("allows to subscribe to events", () => {
+      const listener = vi.fn();
+      const playerState = createPlayerState();
+      const player = playerState.host();
+      player.on("*", listener);
+      player.send("play()");
+      expect(listener).toHaveBeenCalledWith({
+        type: "event",
+        transition: expect.objectContaining({ name: "play" }),
+      });
     });
   });
 });

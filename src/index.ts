@@ -74,7 +74,7 @@ export namespace Superstate {
 
     export interface TargetEvent<MachineEvent> {
       type: "event";
-      event: MachineEvent;
+      transition: MachineEvent;
       // TODO: from, to, condition
     }
 
