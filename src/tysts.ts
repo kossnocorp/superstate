@@ -74,7 +74,6 @@ import { superstate, Superstate } from "./index.js";
         default:
           update.state satisfies never;
       }
-      // ------------ TODO: Implementation ------------
     } else if (update.type === "event") {
       switch (update.transition.event) {
         //! There's no such event
@@ -117,6 +116,8 @@ import { superstate, Superstate } from "./index.js";
     //! Can only be state
     update.type satisfies never;
   });
+
+  // ------------ TODO: Implementation ------------
 
   //! The machine allows to subscribe to few states
   player.on(["stopped", "playing"], (update) => {

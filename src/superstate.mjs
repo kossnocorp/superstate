@@ -76,12 +76,21 @@ export function superstate(statechartName) {
 
             case "on":
               return (targetStr, listener) => {
-                const targets = [].concat(targetStr).map(() => ({ type: "*" }));
+                const targets = []
+                  .concat(targetStr)
+                  .map(subscriptionTargetFromStr);
+
                 const subscription = {
                   targets,
                   listener,
                 };
+
                 subscriptions.push(subscription);
+
+                return () => {
+                  const index = subscriptions.indexOf(subscription);
+                  subscriptions.splice(index, 1);
+                };
               };
 
             case "send":
@@ -94,10 +103,12 @@ export function superstate(statechartName) {
                 const nextState = findTransitionTarget(transition);
                 if (!nextState) return null;
 
-                const matchingListeners = subscriptions.reduce(
+                const eventListeners = subscriptions.reduce(
                   (acc, subscription) => {
                     const matching = subscription.targets.some(
-                      (target) => target.type === "*"
+                      (target) =>
+                        target.type === "*" ||
+                        (target.type === "event" && target.event === eventName)
                     );
                     return matching ? acc.concat(subscription.listener) : acc;
                   },
@@ -109,18 +120,31 @@ export function superstate(statechartName) {
                   transition,
                 };
 
-                matchingListeners.forEach((listener) => {
+                eventListeners.forEach((listener) => {
                   listener(eventChange);
                 });
 
                 currentState = nextState;
+
+                const stateListeners = subscriptions.reduce(
+                  (acc, subscription) => {
+                    const matching = subscription.targets.some(
+                      (target) =>
+                        target.type === "*" ||
+                        (target.type === "state" &&
+                          target.state === currentState.name)
+                    );
+                    return matching ? acc.concat(subscription.listener) : acc;
+                  },
+                  []
+                );
 
                 const stateChange = {
                   type: "state",
                   state: currentState,
                 };
 
-                matchingListeners.forEach((listener) => {
+                stateListeners.forEach((listener) => {
                   listener(stateChange);
                 });
 
@@ -155,6 +179,25 @@ export function superstate(statechartName) {
   return createBuilder();
 }
 
+const eventRe = /^(\w+)\(\)$/;
+
+function subscriptionTargetFromStr(str) {
+  if (str === "*") return { type: "*" };
+
+  const eventCaptures = str.match(eventRe);
+  if (eventCaptures)
+    return {
+      type: "event",
+      event: eventCaptures[1],
+      condition: null, // TODO:
+    };
+
+  return {
+    type: "state",
+    state: str, // TODO: Validate?
+  };
+}
+
 function transitionFromDef(from, def) {
   const captures = def.match(/^(\w+)\(\) -> (\w+)$/);
   const [_, event, to] = captures;
@@ -168,5 +211,5 @@ function transitionFromDef(from, def) {
 }
 
 function eventNameFromSignature(signature) {
-  return signature.match(/^(\w+)\(\)$/)[1];
+  return signature.match(eventRe)[1];
 }
