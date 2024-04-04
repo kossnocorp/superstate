@@ -1043,7 +1043,7 @@ import { superstate, Superstate } from "./index.js";
     // Send the press event:
     const nextState = pc.send("press()");
 
-    // The next state is "sleep":
+    // The next state is "sleep" or "on":
     if (nextState) nextState.name satisfies "sleep" | "on";
   }
 
@@ -1180,7 +1180,7 @@ import { superstate, Superstate } from "./index.js";
 
     const pc = pcState.host({
       on: {
-        // Here we bind the
+        // Here we bind the substate's actions
         os: {
           running: {
             "sleep() -> sleep!": () => console.log("Sleeping"),

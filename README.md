@@ -116,7 +116,7 @@ if (volume.in("high")) console.log("The volume is at maximum");
 
 The method creates an instance of statechart. It's the object that you will interact with, which holds the actual state.
 
-Using the `on` method you can listen to everything `*`, a single state or an event, or a combination of them:
+Using the `on` method you can listen to everything (`*`), a single state or an event, or a combination of them:
 
 ```ts
 // Listen to everything:
@@ -192,7 +192,7 @@ If you send the `press()` event without the condition, it might transition to th
 // Send the press event:
 const nextState = pc.send("press()");
 
-// The next state is "sleep":
+// The next state is "sleep" or "on":
 if (nextState) nextState.name satisfies "sleep" | "on";
 ```
 
@@ -212,7 +212,7 @@ const buttonState = superstate<ButtonState>("button")
 
 You can notice that the state definitions include strings with `!` at the end, i.e., `turnOn!` and `turnOff!`. These are the actions.
 
-They define what happens when the state is entered and force you to handle the side effects in your code:
+They define what happens when the state is entered and force you to handle the side effects in your code when calling the `host` method:
 
 ```ts
 // Bind the actions to code:
@@ -226,7 +226,7 @@ const button = buttonState.host({
 });
 ```
 
-In addition to enter actions (`-> turnOff!`), states can have exit actions (`turnOff! ->`), which are invoked when the state is left:
+In addition to enter actions (`-> turnOff!`), states can have exit actions (`turnOff! ->`), which are invoked right before the state is left:
 
 ```ts
 // The on state invokes the enter and exit actions:
@@ -242,7 +242,7 @@ const button = buttonState.host({
 });
 ```
 
-The transition actions (`press() -> turnOff! -> off`) are invoked during transitions:
+The transition actions (`press() -> turnOff! -> off`) are invoked during transitions, before calling the state's exit action (if any):
 
 ```ts
 // Actions are invoked on transitions:
@@ -294,7 +294,7 @@ const volumeState = superstate<VolumeState>("volume")
   .state("high", "down() -> medium");
 ```
 
-In this example, we nest the `volumeState` inside the `playing` state. The the `volumeState` will be initialized when the `playing` state is entered and will be destroyed when the `playing` state is exited.
+In this example, we nest the `volumeState` inside the `playing` state. The `volumeState` will be initialized when the `playing` state is entered and will be destroyed when the `playing` state is exited.
 
 You can send events, subscribe to changes, and access the substate from the parent state:
 
@@ -315,7 +315,7 @@ if (playingState) {
 }
 ```
 
-A state can be final, representing the end of the statechart:
+A state can be final, representing the end of a statechart:
 
 ```ts
 type OSState = "running" | "sleeping" | "terminated";
@@ -327,7 +327,7 @@ const osState = superstate<OSState>("running")
   .final("terminated");
 ```
 
-When nesting in such a state, the parent might connect the final states through an event to a parent state, allowing for a more complex logic:
+When nesting such a state, the parent might connect the substate's final states through an event to a parent state, allowing for a more complex logic:
 
 ```ts
 type PCState = "on" | "off";
@@ -385,7 +385,7 @@ The PC (personal computer) statechart nests OS (operating system). The OS has `s
 ```ts
 const pc = pcState.host({
   on: {
-    // Here we bind the
+    // Here we bind the substate's actions
     os: {
       running: {
         "sleep() -> sleep!": () => console.log("Sleeping"),
