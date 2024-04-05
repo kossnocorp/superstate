@@ -117,8 +117,6 @@ import { superstate, Superstate } from "./index.js";
     update.type satisfies never;
   });
 
-  // ------------ TODO: Implementation ------------
-
   //! The machine allows to subscribe to few states
   player.on(["stopped", "playing"], (update) => {
     //! It can only be stopped or playing state
@@ -237,7 +235,6 @@ import { superstate, Superstate } from "./index.js";
   }
 
   //! Multiple matches
-
   {
     const state = player.in(["paused", "playing"]);
 
