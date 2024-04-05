@@ -8,51 +8,13 @@ export function superstate(statechartName) {
         get(_, key, proxy) {
           switch (key) {
             case "state":
-              return (stateName, arg1) => {
-                const fromDef = transitionFromDef.bind(null, stateName);
-                const transitions = []
-                  .concat(
-                    Array.isArray(arg1) || typeof arg1 === "string" ? arg1 : []
-                  )
-                  .map(fromDef);
+              return state.bind(null, proxy, false);
 
-                function createStateBuilder() {
-                  return new Proxy(
-                    {},
-                    {
-                      get(_, key, proxy) {
-                        switch (key) {
-                          case "on":
-                            return (defs) => {
-                              const push = (def) =>
-                                transitions.push(fromDef(def));
-                              if (Array.isArray(defs)) defs.forEach(push);
-                              else push(defs);
-                              return proxy;
-                            };
-                        }
-                      },
-                    }
-                  );
-                }
-
-                if (typeof arg1 === "function") arg1(createStateBuilder());
-
-                states.push({
-                  name: stateName,
-                  transitions,
-                  actions: [],
-                  sub: {},
-                  final: false,
-                });
-                return proxy;
-              };
+            case "final":
+              return state.bind(null, proxy, true);
 
             case "host":
-              return () => {
-                const initialState = states[0];
-                return createHost(initialState);
-              };
+              return host;
 
             default:
               return;
@@ -60,9 +22,52 @@ export function superstate(statechartName) {
         },
       }
     );
+
+    function state(proxy, final, stateName, arg1) {
+      const fromDef = transitionFromDef.bind(null, stateName);
+      const transitions = []
+        .concat(Array.isArray(arg1) || typeof arg1 === "string" ? arg1 : [])
+        .map(fromDef);
+
+      function createStateBuilder() {
+        return new Proxy(
+          {},
+          {
+            get(_, key, proxy) {
+              switch (key) {
+                case "on":
+                  return (defs) => {
+                    const push = (def) => transitions.push(fromDef(def));
+                    if (Array.isArray(defs)) defs.forEach(push);
+                    else push(defs);
+                    return proxy;
+                  };
+              }
+            },
+          }
+        );
+      }
+
+      if (typeof arg1 === "function") arg1(createStateBuilder());
+
+      states.push({
+        name: stateName,
+        transitions,
+        actions: [],
+        sub: {},
+        final,
+      });
+      return proxy;
+    }
+
+    function host() {
+      const initialState = states[0];
+      return createHost(initialState);
+    }
   }
 
   function createHost(initialState) {
+    let finalized = false;
     let currentState = initialState;
     const subscriptions = [];
 
@@ -82,6 +87,9 @@ export function superstate(statechartName) {
 
             case "in":
               return in_;
+
+            case "finalized":
+              return finalized;
 
             default:
               return undefined;
@@ -141,6 +149,7 @@ export function superstate(statechartName) {
       });
 
       currentState = nextState;
+      if (currentState.final) finalized = true;
 
       const stateListeners = subscriptions.reduce((acc, subscription) => {
         const matching = subscription.targets.some(
