@@ -23,11 +23,12 @@ export function superstate(statechartName) {
       }
     );
 
-    function state(proxy, final, stateName, arg1) {
+    function state(proxy, final, stateName, arg1, arg2) {
+      const traitsStrs =
+        typeof arg1 === "function" ? [] : [].concat(arg1 || []);
+      const builderFn = typeof arg1 === "function" ? arg1 : arg2;
       const fromDef = transitionFromDef.bind(null, stateName);
-      const transitions = []
-        .concat(Array.isArray(arg1) || typeof arg1 === "string" ? arg1 : [])
-        .map(fromDef);
+      const transitions = traitsStrs.map(fromDef);
 
       function createStateBuilder() {
         return new Proxy(
@@ -36,19 +37,30 @@ export function superstate(statechartName) {
             get(_, key, proxy) {
               switch (key) {
                 case "on":
-                  return (defs) => {
-                    const push = (def) => transitions.push(fromDef(def));
-                    if (Array.isArray(defs)) defs.forEach(push);
-                    else push(defs);
-                    return proxy;
-                  };
+                  return on.bind(null, proxy);
+                case "if":
+                  return if_.bind(null, proxy);
               }
             },
           }
         );
+
+        function on(proxy, defs) {
+          const push = (def) => transitions.push(fromDef(def));
+          if (Array.isArray(defs)) defs.forEach(push);
+          else push(defs);
+          return proxy;
+        }
+
+        function if_(proxy, eventName, conditions) {
+          [].concat(conditions).forEach((condition) => {
+            transitions.push(fromDef(eventName + condition));
+          });
+          return proxy;
+        }
       }
 
-      if (typeof arg1 === "function") arg1(createStateBuilder());
+      if (builderFn) builderFn(createStateBuilder());
 
       states.push({
         name: stateName,
@@ -121,10 +133,12 @@ export function superstate(statechartName) {
       };
     }
 
-    function send(eventSignature, condition) {
-      const eventName = eventNameFromSignature(eventSignature);
+    function send(eventSignature, argCondition) {
+      const [eventName, signatureCondition] =
+        eventFromSignature(eventSignature);
+      const condition = argCondition || signatureCondition;
 
-      const transition = findTransition(eventName);
+      const transition = findTransition(eventName, condition || null);
       if (!transition) return null;
 
       const nextState = findTransitionTarget(transition);
@@ -172,12 +186,13 @@ export function superstate(statechartName) {
       return nextState;
     }
 
-    function findTransition(eventName) {
+    function findTransition(eventName, condition) {
       for (const state of states) {
         for (const transition of state.transitions) {
           if (
             transition.event === eventName &&
-            currentState.name === transition.from
+            currentState.name === transition.from &&
+            condition === transition.condition
           ) {
             return transition;
           }
@@ -193,7 +208,7 @@ export function superstate(statechartName) {
   return createBuilder();
 }
 
-const eventRe = /^(\w+)\(\)$/;
+const eventRe = /^(\w+)\((\w*)\)$/;
 
 function subscriptionTargetFromStr(str) {
   if (str === "*") return { type: "*" };
@@ -213,17 +228,18 @@ function subscriptionTargetFromStr(str) {
 }
 
 function transitionFromDef(from, def) {
-  const captures = def.match(/^(\w+)\(\) -> (\w+)$/);
-  const [_, event, to] = captures;
+  const captures = def.match(/^(\w+)\((\w*)\) -> (\w+)$/);
+  const [_, event, condition, to] = captures;
   return {
     event,
-    condition: null,
+    condition: condition || null,
     from,
     to,
     action: null,
   };
 }
 
-function eventNameFromSignature(signature) {
-  return signature.match(eventRe)[1];
+function eventFromSignature(signature) {
+  const [_, event, condition] = signature.match(eventRe);
+  return [event, condition || null];
 }
