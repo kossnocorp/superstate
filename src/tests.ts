@@ -15,6 +15,10 @@ describe("Superstate", () => {
 
   type CassetteState = "stopped" | "playing" | "ejected";
 
+  type PCState = "on" | "sleep" | "off";
+
+  type CatState = "boxed" | "alive" | "dead";
+
   describe("superstate", () => {
     it("creates a statechart", () => {
       const playerState = createPlayerState();
@@ -78,6 +82,33 @@ describe("Superstate", () => {
         expect(light.state.name).toBe("off");
       });
 
+      describe("conditions", () => {
+        it("allows to define conditions", () => {
+          const pcState = superstate<PCState>("pc")
+            .state("off", "press() -> on")
+            .state("sleep", [
+              "press(long) -> off",
+              "press() -> on",
+              "restart() -> on",
+            ])
+            .state("on", [
+              "press(long) -> off",
+              "press() -> sleep",
+              "restart() -> on",
+            ]);
+          const pc = pcState.host();
+          pc.send("press()");
+          pc.send("press()");
+          expect(pc.state.name).toBe("sleep");
+          pc.send("press()", "long");
+          expect(pc.state.name).toBe("off");
+          pc.send("press()");
+          expect(pc.state.name).toBe("on");
+          pc.send("press()", "long");
+          expect(pc.state.name).toBe("off");
+        });
+      });
+
       describe("builder", () => {
         describe("on", () => {
           it("accepts a single transition", () => {
@@ -129,6 +160,83 @@ describe("Superstate", () => {
             player.send("pause()");
             player.send("stop()");
             expect(player.state.name).toBe("stopped");
+          });
+
+          describe("conditions", () => {
+            it("allows to define conditions", () => {
+              const pcState = superstate<PCState>("pc")
+                .state("off", "press() -> on")
+                .state("sleep", ($) =>
+                  $.on("press(long) -> off")
+                    .on("press() -> on")
+                    .on("restart() -> on")
+                )
+                .state("on", ($) =>
+                  $.on("press(long) -> off")
+                    .on("press() -> sleep")
+                    .on("restart() -> on")
+                );
+              const pc = pcState.host();
+              pc.send("press()");
+              pc.send("press()");
+              expect(pc.state.name).toBe("sleep");
+              pc.send("press()", "long");
+              expect(pc.state.name).toBe("off");
+              pc.send("press()");
+              expect(pc.state.name).toBe("on");
+              pc.send("press()", "long");
+              expect(pc.state.name).toBe("off");
+            });
+          });
+        });
+
+        describe("if", () => {
+          it("allows to define conditions", () => {
+            const pcState = superstate<PCState>("pc")
+              .state("off", "press() -> on")
+              .state("sleep", ($) =>
+                $.if("press", ["(long) -> off", "() -> on"]).on(
+                  "restart() -> on"
+                )
+              )
+              .state("on", ($) =>
+                $.if("press", ["(long) -> off", "() -> sleep"]).on(
+                  "restart() -> on"
+                )
+              );
+            const pc = pcState.host();
+            pc.send("press()");
+            pc.send("press()");
+            expect(pc.state.name).toBe("sleep");
+            pc.send("press()", "long");
+            expect(pc.state.name).toBe("off");
+            pc.send("press()");
+            expect(pc.state.name).toBe("on");
+            pc.send("press()", "long");
+            expect(pc.state.name).toBe("off");
+          });
+
+          it("allows to mix conditions", () => {
+            const pcState = superstate<PCState>("pc")
+              .state("off", "press() -> on")
+              .state("sleep", "press() -> on", ($) =>
+                $.if("press", ["(long) -> off"]).on("restart() -> on")
+              )
+              .state("on", ($) =>
+                $.on("press(long) -> off")
+                  .if("press", "() -> sleep")
+                  .on("restart() -> on")
+              );
+            const pc = pcState.host();
+            pc.send("press()");
+            pc.send("press()");
+            expect(pc.state.name).toBe("sleep");
+            pc.send("press()", "long");
+            expect(pc.state.name).toBe("off");
+            pc.send("press()");
+            expect(pc.state.name).toBe("on");
+            pc.send("press()", "long");
+            expect(pc.state.name).toBe("off");
           });
         });
       });
@@ -191,6 +299,97 @@ describe("Superstate", () => {
         const player = playerState.host();
         const nextState = player.send("pause()");
         expect(nextState).toBe(null);
+      });
+
+      describe("conditions", () => {
+        it("allows to send conditions", () => {
+          const pcState = superstate<PCState>("pc")
+            .state("off", "press() -> on")
+            .state("sleep", ($) =>
+              $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+            )
+            .state("on", ($) =>
+              $.if("press", ["(long) -> off", "() -> sleep"]).on(
+                "restart() -> on"
+              )
+            );
+          const pc = pcState.host();
+          pc.send("press()");
+          pc.send("press()");
+          expect(pc.state.name).toBe("sleep");
+          pc.send("press()", "long");
+          expect(pc.state.name).toBe("off");
+          pc.send("press()");
+          expect(pc.state.name).toBe("on");
+          pc.send("press()", "long");
+          expect(pc.state.name).toBe("off");
+        });
+
+        it("picks the right condition", () => {
+          const pcState = superstate<PCState | "restarting">("pc")
+            .state("off", ["press() -> on"])
+            .state("sleep", ($) =>
+              $.if("press", [
+                "(long) -> off",
+                "(double) -> restarting",
+                "() -> on",
+              ]).on("restart() -> on")
+            )
+            .state("on", ($) =>
+              $.if("press", [
+                "(long) -> off",
+                "(double) -> restarting",
+                "() -> sleep",
+              ]).on("restart() -> on")
+            )
+            .state("restarting", "restarted() -> on");
+          const pc = pcState.host();
+          pc.send("press()");
+          pc.send("press()");
+          expect(pc.state.name).toBe("sleep");
+          pc.send("press()", "double");
+          expect(pc.state.name).toBe("restarting");
+          pc.send("restarted()");
+          expect(pc.state.name).toBe("on");
+          pc.send("press()", "long");
+          expect(pc.state.name).toBe("off");
+        });
+
+        it("works with only-conditional events", () => {
+          const catState = superstate<CatState>("cat")
+            .state("boxed", ($) =>
+              $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"])
+            )
+            .state("alive", ($) => $.on("pet() -> alive"))
+            .state("dead");
+
+          const cat = catState.host();
+          cat.send("reveal()", "lucky");
+          expect(cat.state.name).toBe("alive");
+        });
+
+        it("allows to use event shortcut", () => {
+          const pcState = superstate<PCState>("pc")
+            .state("off", "press() -> on")
+            .state("sleep", ($) =>
+              $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+            )
+            .state("on", ($) =>
+              $.if("press", ["(long) -> off", "() -> sleep"]).on(
+                "restart() -> on"
+              )
+            );
+          const pc = pcState.host();
+          pc.send("press()");
+          pc.send("press()");
+          expect(pc.state.name).toBe("sleep");
+          pc.send("press(long)");
+          expect(pc.state.name).toBe("off");
+          pc.send("press()");
+          expect(pc.state.name).toBe("on");
+          pc.send("press(long)");
+          expect(pc.state.name).toBe("off");
+        });
       });
     });
 
