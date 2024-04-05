@@ -19,6 +19,25 @@ describe("Superstate", () => {
 
   type CatState = "boxed" | "alive" | "dead";
 
+  type TeaState = "water" | "steeping" | "ready" | "finished";
+
+  type MugState = "clear" | "full" | "dirty";
+
+  function createMugWithTeaState() {
+    const teaState = superstate<TeaState>("tea")
+      .state("water", ["infuse() -> steeping", "drink() -> finished"])
+      .state("steeping", ["done() -> ready", "drink() -> finished"])
+      .state("ready", ["drink() -> finished"])
+      .final("finished");
+
+    return superstate<MugState>("mug")
+      .state("clear", "pour() -> full")
+      .state("full", ["drink() -> clear"], ($) =>
+        $.sub("tea", teaState, "finished -> finish() -> dirty")
+      )
+      .state("dirty", ["clean() -> clear"]);
+  }
+
   describe("superstate", () => {
     it("creates a statechart", () => {
       const playerState = createPlayerState();
@@ -237,6 +256,25 @@ describe("Superstate", () => {
             expect(pc.state.name).toBe("on");
             pc.send("press()", "long");
             expect(pc.state.name).toBe("off");
+          });
+        });
+
+        describe("sub", () => {
+          it("allows to define substates", () => {
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            expect(mug.state.sub).toEqual({});
+
+            mug.send("pour()");
+
+            const fullState = mug.in("full");
+            if (fullState) {
+              expect(fullState.sub.tea).toBeDefined();
+              expect(fullState.sub.tea.state.name).toBe("water");
+            } else {
+              throw new Error("Must be full");
+            }
           });
         });
       });
