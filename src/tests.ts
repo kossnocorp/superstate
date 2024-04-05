@@ -602,6 +602,38 @@ describe("Superstate", () => {
             }),
           });
         });
+
+        describe("conditions", () => {
+          it("allows to subscribe to conditions", () => {
+            const conditionListener = vi.fn();
+            const elseListener = vi.fn();
+            const pcState = superstate<PCState>("pc")
+              .state("off", "press() -> on")
+              .state("on", ($) =>
+                $.if("press", ["(long) -> off", "() -> sleep"]).on(
+                  "restart() -> on"
+                )
+              )
+              .state("sleep", ($) =>
+                $.if("press", ["(long) -> off", "() -> on"]).on(
+                  "restart() -> on"
+                )
+              );
+            const pc = pcState.host();
+            pc.send("press()");
+            pc.on("press(long)", conditionListener);
+            pc.on("press()", elseListener);
+            pc.send("press(long)");
+            expect(elseListener).not.toHaveBeenCalled();
+            expect(conditionListener).toBeCalledWith({
+              type: "event",
+              transition: expect.objectContaining({
+                event: "press",
+                condition: "long",
+              }),
+            });
+          });
+        });
       });
 
       describe("off", () => {

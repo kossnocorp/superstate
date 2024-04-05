@@ -51,7 +51,12 @@ export namespace Superstate {
     > = FlatState extends { key: Target } ? FlatState["state"] : never;
 
     export type EventTarget<FlatEvent extends FlatEventConstraint> =
-      `${FlatEvent["key"]}()`;
+      FlatEvent extends {
+        key: infer Key extends string;
+        condition: infer Condition extends string | null;
+      }
+        ? `${Key}(${Condition extends null ? "" : Condition})`
+        : never;
 
     export type MatchTargetEvent<
       FlatEvent extends FlatEventConstraint,

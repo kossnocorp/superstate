@@ -364,6 +364,14 @@ import { superstate, Superstate } from "./index.js";
   pc.send("nope()", "nope");
   // @ts-expect-error
   pc.send("nope()", "long");
+
+  //! on
+
+  //! Allows to subscribe to events with conditions
+  pc.on("press(long)", () => {});
+
+  //! Allows to subscribe to events without conditions
+  pc.on("press()", () => {});
 }
 
 //! Only-conditional events
@@ -404,6 +412,15 @@ import { superstate, Superstate } from "./index.js";
   cat.send("nope()", "nope");
   // @ts-expect-error
   cat.send("nope()", "long");
+
+  //! on
+
+  //! Allows to subscribe to events with conditions
+  cat.on("reveal(lucky)", () => {});
+
+  //! Can't subscribe without a condition
+  // @ts-expect-error
+  cat.on("reveal()", () => {});
 }
 
 //! Substates
