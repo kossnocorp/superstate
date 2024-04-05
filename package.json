@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "size": "size-limit"
   },
   "repository": {
     "type": "git",
@@ -21,6 +22,8 @@
   },
   "homepage": "https://github.com/kossnocorp/superstate#readme",
   "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.1.2",
+    "size-limit": "^11.1.2",
     "typescript": "^5.4.3",
     "vitest": "^1.4.0"
   }
