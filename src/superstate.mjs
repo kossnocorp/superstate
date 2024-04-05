@@ -148,7 +148,9 @@ export function superstate(statechartName) {
         const matching = subscription.targets.some(
           (target) =>
             target.type === "*" ||
-            (target.type === "event" && target.event === eventName)
+            (target.type === "event" &&
+              target.event === eventName &&
+              target.condition === condition)
         );
         return matching ? acc.concat(subscription.listener) : acc;
       }, []);
@@ -191,8 +193,8 @@ export function superstate(statechartName) {
         for (const transition of state.transitions) {
           if (
             transition.event === eventName &&
-            currentState.name === transition.from &&
-            condition === transition.condition
+            transition.condition === condition &&
+            currentState.name === transition.from
           ) {
             return transition;
           }
@@ -218,7 +220,7 @@ function subscriptionTargetFromStr(str) {
     return {
       type: "event",
       event: eventCaptures[1],
-      condition: null, // TODO:
+      condition: eventCaptures[2] || null,
     };
 
   return {
