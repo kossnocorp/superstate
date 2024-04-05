@@ -28,7 +28,18 @@ export function superstate(statechartName) {
         typeof arg1 === "function" ? [] : [].concat(arg1 || []);
       const builderFn = typeof arg1 === "function" ? arg1 : arg2;
       const fromDef = transitionFromDef.bind(null, stateName);
+
       const transitions = traitsStrs.map(fromDef);
+      const actions = [];
+      const sub = {};
+
+      const state = {
+        name: stateName,
+        transitions,
+        actions,
+        sub,
+        final,
+      };
 
       function createStateBuilder() {
         return new Proxy(
@@ -38,8 +49,12 @@ export function superstate(statechartName) {
               switch (key) {
                 case "on":
                   return on.bind(null, proxy);
+
                 case "if":
                   return if_.bind(null, proxy);
+
+                case "sub":
+                  return sub_.bind(null, proxy);
               }
             },
           }
@@ -58,17 +73,21 @@ export function superstate(statechartName) {
           });
           return proxy;
         }
+
+        function sub_(proxy, substateName, factory, transitionDefs) {
+          sub[substateName] = {
+            name: substateName,
+            factory,
+            transitions: [], // TODO
+          };
+          return proxy;
+        }
       }
 
       if (builderFn) builderFn(createStateBuilder());
 
-      states.push({
-        name: stateName,
-        transitions,
-        actions: [],
-        sub: {},
-        final,
-      });
+      states.push(state);
+
       return proxy;
     }
 
@@ -164,7 +183,13 @@ export function superstate(statechartName) {
         listener(eventChange);
       });
 
-      currentState = nextState;
+      const sub = Object.fromEntries(
+        Object.entries(nextState.sub).map(([name, substate]) => [
+          name,
+          substate.factory.host(),
+        ])
+      );
+      currentState = { ...nextState, sub };
       if (currentState.final) finalized = true;
 
       const stateListeners = subscriptions.reduce((acc, subscription) => {
