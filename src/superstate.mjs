@@ -99,11 +99,10 @@ export function superstate(statechartName) {
 
   function createHost(initialState) {
     let finalized = false;
+    const subscriptions = [];
 
     let currentState;
     setCurrentState(initialState);
-
-    const subscriptions = [];
 
     return new Proxy(
       {},
@@ -151,7 +150,9 @@ export function superstate(statechartName) {
 
       return () => {
         const index = subscriptions.indexOf(subscription);
-        subscriptions.splice(index, 1);
+        const unsubscribed = subscriptions.splice(index, 1);
+        // TODO: Write test for unsubscribing
+        // unsubscribed.forEach((target) => target?.off());
       };
     }
 
@@ -162,16 +163,9 @@ export function superstate(statechartName) {
 
       // It's a substate
       if (path.length) {
-        let accState = proxy;
-        for (let i = 0; i < path.length; i += 2) {
-          const name = path[i];
-          const subName = path[i + 1];
-          if (accState.state.name !== name) return;
-          accState = accState.state.sub[subName]; // ?
-        }
-
+        const substate = findSubstate(proxy, path);
         // TODO: Skip parsing?
-        accState.send(eventName + "()", condition);
+        substate?.send(eventName + "()", condition);
         return;
       }
 
@@ -224,6 +218,17 @@ export function superstate(statechartName) {
       return nextState;
     }
 
+    function findSubstate(proxy, path) {
+      let accState = proxy;
+      for (let i = 0; i < path.length; i += 2) {
+        const name = path[i];
+        const subName = path[i + 1];
+        if (accState.state.name !== name) return;
+        accState = accState.state.sub[subName];
+      }
+      return accState;
+    }
+
     function setCurrentState(state) {
       const sub = Object.fromEntries(
         Object.entries(state.sub).map(([name, substate]) => [
@@ -231,8 +236,23 @@ export function superstate(statechartName) {
           substate.factory.host(),
         ])
       );
+
       currentState = { ...state, sub };
       if (currentState.final) finalized = true;
+
+      subscriptions.forEach((subscription) => {
+        subscription.targets.forEach((target) => {
+          if (target.type !== "substate") return;
+
+          const [expectedState, substateName, ...rest] = target.path;
+          if (currentState.name !== expectedState) return;
+          const substate = currentState.sub[substateName];
+          target.off = substate.on(
+            (rest.length ? `${rest.join(".")}.` : "") + target.signature,
+            subscription.listener
+          );
+        });
+      });
     }
 
     function findTransition(eventName, condition) {
@@ -257,8 +277,32 @@ export function superstate(statechartName) {
   return createBuilder();
 }
 
+function transitionFromDef(from, def) {
+  const captures = def.match(/^(\w+)\((\w*)\) -> (\w+)$/);
+  const [_, event, condition, to] = captures;
+  return {
+    event,
+    condition: condition || null,
+    from,
+    to,
+    action: null,
+  };
+}
+
+const eventSignatureRe = /^(\w+)\((\w*)\)$/;
+
 function subscriptionTargetFromStr(str) {
   if (str === "*") return { type: "*" };
+
+  const path = str.split(".");
+  const signature = path.pop();
+
+  if (path.length)
+    return {
+      type: "substate",
+      path,
+      signature,
+    };
 
   const eventCaptures = str.match(eventSignatureRe);
   if (eventCaptures)
@@ -273,20 +317,6 @@ function subscriptionTargetFromStr(str) {
     state: str, // TODO: Validate?
   };
 }
-
-function transitionFromDef(from, def) {
-  const captures = def.match(/^(\w+)\((\w*)\) -> (\w+)$/);
-  const [_, event, condition, to] = captures;
-  return {
-    event,
-    condition: condition || null,
-    from,
-    to,
-    action: null,
-  };
-}
-
-const eventSignatureRe = /^(\w+)\((\w*)\)$/;
 
 function parseEventSignature(str) {
   const path = str.split(".");
