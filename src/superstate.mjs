@@ -99,7 +99,10 @@ export function superstate(statechartName) {
 
   function createHost(initialState) {
     let finalized = false;
-    let currentState = initialState;
+
+    let currentState;
+    setCurrentState(initialState);
+
     const subscriptions = [];
 
     return new Proxy(
@@ -111,10 +114,10 @@ export function superstate(statechartName) {
               return currentState;
 
             case "on":
-              return on;
+              return on.bind(null, proxy);
 
             case "send":
-              return send;
+              return send.bind(null, proxy);
 
             case "in":
               return in_;
@@ -136,7 +139,7 @@ export function superstate(statechartName) {
       return currentState;
     }
 
-    function on(targetStr, listener) {
+    function on(proxy, targetStr, listener) {
       const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
 
       const subscription = {
@@ -152,12 +155,27 @@ export function superstate(statechartName) {
       };
     }
 
-    function send(eventSignature, argCondition) {
-      const [eventName, signatureCondition] =
-        eventFromSignature(eventSignature);
+    function send(proxy, eventSignature, argCondition) {
+      const [path, eventName, signatureCondition] =
+        parseEventSignature(eventSignature);
       const condition = argCondition || signatureCondition;
 
-      const transition = findTransition(eventName, condition || null);
+      // It's a substate
+      if (path.length) {
+        let accState = proxy;
+        for (let i = 0; i < path.length; i += 2) {
+          const name = path[i];
+          const subName = path[i + 1];
+          if (accState.state.name !== name) return;
+          accState = accState.state.sub[subName]; // ?
+        }
+
+        // TODO: Skip parsing?
+        accState.send(eventName + "()", condition);
+        return;
+      }
+
+      const transition = findTransition(eventName, condition);
       if (!transition) return null;
 
       const nextState = findTransitionTarget(transition);
@@ -183,14 +201,7 @@ export function superstate(statechartName) {
         listener(eventChange);
       });
 
-      const sub = Object.fromEntries(
-        Object.entries(nextState.sub).map(([name, substate]) => [
-          name,
-          substate.factory.host(),
-        ])
-      );
-      currentState = { ...nextState, sub };
-      if (currentState.final) finalized = true;
+      setCurrentState(nextState);
 
       const stateListeners = subscriptions.reduce((acc, subscription) => {
         const matching = subscription.targets.some(
@@ -211,6 +222,17 @@ export function superstate(statechartName) {
       });
 
       return nextState;
+    }
+
+    function setCurrentState(state) {
+      const sub = Object.fromEntries(
+        Object.entries(state.sub).map(([name, substate]) => [
+          name,
+          substate.factory.host(),
+        ])
+      );
+      currentState = { ...state, sub };
+      if (currentState.final) finalized = true;
     }
 
     function findTransition(eventName, condition) {
@@ -235,12 +257,10 @@ export function superstate(statechartName) {
   return createBuilder();
 }
 
-const eventRe = /^(\w+)\((\w*)\)$/;
-
 function subscriptionTargetFromStr(str) {
   if (str === "*") return { type: "*" };
 
-  const eventCaptures = str.match(eventRe);
+  const eventCaptures = str.match(eventSignatureRe);
   if (eventCaptures)
     return {
       type: "event",
@@ -266,7 +286,11 @@ function transitionFromDef(from, def) {
   };
 }
 
-function eventFromSignature(signature) {
-  const [_, event, condition] = signature.match(eventRe);
-  return [event, condition || null];
+const eventSignatureRe = /^(\w+)\((\w*)\)$/;
+
+function parseEventSignature(str) {
+  const path = str.split(".");
+  const signature = path.pop();
+  const [_, event, condition] = signature.match(eventSignatureRe);
+  return [path, event, condition || null];
 }
