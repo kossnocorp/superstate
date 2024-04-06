@@ -535,6 +535,12 @@ describe("Superstate", () => {
             state: expect.objectContaining({ name: "off" }),
           });
         });
+
+        describe("substates", () => {
+          it.todo("allows to subscribe to substate state updates", () => {});
+
+          it.todo("allows to subscribe to all the state updates");
+        });
       });
 
       describe("event updates", () => {
@@ -697,9 +703,9 @@ describe("Superstate", () => {
         });
 
         describe("substates", () => {
-          it.todo("allows to subscribe to substate events", () => {});
+          it.todo("allows to subscribe to substate event updates", () => {});
 
-          it.todo("triggers the parent state on a substate event", () => {});
+          it.todo("allows to subscribe to all the event updates");
         });
       });
 
