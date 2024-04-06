@@ -537,9 +537,44 @@ describe("Superstate", () => {
         });
 
         describe("substates", () => {
-          it.todo("allows to subscribe to substate state updates", () => {});
+          it("allows to subscribe to substate state updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
 
-          it.todo("allows to subscribe to all the state updates");
+            const mug = mugState.host();
+
+            mug.on("full.tea.steeping", listener);
+
+            mug.send("pour()");
+            mug.send("full.tea.infuse()");
+
+            expect(listener).toHaveBeenCalledWith({
+              type: "state",
+              state: expect.objectContaining({ name: "steeping" }),
+            });
+          });
+
+          it("allows to subscribe to all the state updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+
+            mug.on("full.tea.*", listener);
+
+            mug.send("pour()");
+            mug.send("full.tea.infuse()");
+            mug.send("full.tea.done()");
+
+            expect(listener).toHaveBeenCalledWith({
+              type: "state",
+              state: expect.objectContaining({ name: "steeping" }),
+            });
+            expect(listener).toHaveBeenCalledWith({
+              type: "state",
+              state: expect.objectContaining({ name: "ready" }),
+            });
+          });
         });
       });
 
@@ -703,9 +738,44 @@ describe("Superstate", () => {
         });
 
         describe("substates", () => {
-          it.todo("allows to subscribe to substate event updates", () => {});
+          it("allows to subscribe to substate event updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
 
-          it.todo("allows to subscribe to all the event updates");
+            const mug = mugState.host();
+
+            mug.on("full.tea.infuse()", listener);
+
+            mug.send("pour()");
+            mug.send("full.tea.infuse()");
+
+            expect(listener).toHaveBeenCalledWith({
+              type: "event",
+              transition: expect.objectContaining({ event: "infuse" }),
+            });
+          });
+
+          it("allows to subscribe to all the event updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+
+            mug.on("full.tea.*", listener);
+
+            mug.send("pour()");
+            mug.send("full.tea.infuse()");
+            mug.send("full.tea.done()");
+
+            expect(listener).toHaveBeenCalledWith({
+              type: "event",
+              transition: expect.objectContaining({ event: "infuse" }),
+            });
+            expect(listener).toHaveBeenCalledWith({
+              type: "event",
+              transition: expect.objectContaining({ event: "done" }),
+            });
+          });
         });
       });
 
@@ -718,6 +788,57 @@ describe("Superstate", () => {
           off();
           player.send("play()");
           expect(listener).not.toHaveBeenCalled();
+        });
+
+        describe("substates", () => {
+          it("unsubscribes from substates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            const off = mug.on("full.tea.infuse()", listener);
+
+            mug.send("pour()");
+            mug.send("full.tea.infuse()");
+
+            expect(listener).toHaveBeenCalledOnce();
+
+            off();
+
+            mug.send("full.tea.infuse()");
+
+            expect(listener).toHaveBeenCalledOnce();
+          });
+
+          it("unsubscribes from deeply nested substates", () => {
+            const listener = vi.fn();
+            const dollState = createRussianDollState();
+
+            const doll = dollState.host();
+            const off = doll.on("open.doll.open.doll.open()", listener);
+            doll.send("open.doll.open.doll.open()");
+
+            expect(listener).not.toBeCalled();
+
+            doll.send("open()");
+            expect(doll.state.name).toBe("open");
+
+            doll.send("open.doll.open()");
+            expect(
+              doll.state.name === "open" && doll.state.sub.doll.state.name
+            ).toBe("open");
+
+            off();
+
+            doll.send("open.doll.open.doll.open()");
+            expect(
+              doll.state.name === "open" &&
+                doll.state.sub.doll.state.name === "open" &&
+                doll.state.sub.doll.state.sub.doll.state.name
+            ).toBe("open");
+
+            expect(listener).not.toBeCalled();
+          });
         });
       });
     });

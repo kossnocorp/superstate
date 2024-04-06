@@ -151,8 +151,9 @@ export function superstate(statechartName) {
       return () => {
         const index = subscriptions.indexOf(subscription);
         const unsubscribed = subscriptions.splice(index, 1);
-        // TODO: Write test for unsubscribing
-        // unsubscribed.forEach((target) => target?.off());
+        unsubscribed.forEach((subscription) =>
+          subscription.targets.forEach((target) => target.off?.())
+        );
       };
     }
 
