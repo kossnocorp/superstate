@@ -40,7 +40,12 @@ export namespace Superstate {
     export type OnTarget<
       FlatState extends FlatStateConstraint,
       FlatEvent extends FlatEventConstraint
-    > = "*" | StateTarget<FlatState> | EventTarget<FlatEvent>;
+    > =
+      | "*"
+      | (true extends FlatState["nested"] ? "**" : never)
+      | StateTarget<FlatState>
+      | FlatState["wildcard"]
+      | EventTarget<FlatEvent>;
 
     export type StateTarget<FlatState extends FlatStateConstraint> =
       FlatState["key"];
@@ -67,10 +72,24 @@ export namespace Superstate {
         : never
       : never;
 
-    export type GlobEvent<
+    export type DeepWildcardEvent<
       FlatState extends FlatStateConstraint,
       FlatEvent extends FlatEventConstraint
     > = StateUpdate<FlatState["state"]> | EventUpdate<FlatEvent["event"]>;
+
+    type WildcardConstraint = `${string}*`;
+
+    export type WildcardEvent<
+      FlatState extends FlatStateConstraint,
+      FlatEvent extends FlatEventConstraint,
+      Target extends WildcardConstraint
+    > =
+      | (FlatState extends { wildcard: Target }
+          ? StateUpdate<FlatState["state"]>
+          : never)
+      | (FlatEvent extends { wildcard: Target }
+          ? EventUpdate<FlatEvent["event"]>
+          : never);
 
     export interface StateUpdate<_State extends { name: string }> {
       type: "state";
@@ -80,7 +99,6 @@ export namespace Superstate {
     export interface EventUpdate<Transition> {
       type: "event";
       transition: Transition;
-      // TODO: from, to, condition
     }
 
     export interface OnListener<
@@ -89,9 +107,10 @@ export namespace Superstate {
       Target extends OnTarget<FlatState, FlatEvent> // TODO: Simplify it
     > {
       (
-        // TODO: Add listening to events
-        target: Target extends "*"
-          ? GlobEvent<FlatState, FlatEvent>
+        target: Target extends "**"
+          ? DeepWildcardEvent<FlatState, FlatEvent>
+          : Target extends WildcardConstraint
+          ? WildcardEvent<FlatState, FlatEvent, Target>
           : Target extends
               | Array<infer TargetString extends string>
               | infer TargetString extends string
@@ -132,15 +151,19 @@ export namespace Superstate {
 
     export interface FlatEventConstraint {
       key: string;
+      wildcard: WildcardConstraint;
       condition: string | null;
       final: boolean;
       next: AnyState;
       event: AnyTransition;
+      nested: boolean;
     }
 
     export interface FlatStateConstraint {
       key: string;
+      wildcard: WildcardConstraint;
       state: AnyState;
+      nested: boolean;
     }
 
     export type DeepFlatEvent<
@@ -157,13 +180,13 @@ export namespace Superstate {
               condition: infer Condition extends string | null;
             }
             ? {
-                key: Prefix extends undefined
-                  ? EventName
-                  : `${Prefix}${EventName}`;
+                key: `${Prefix}${EventName}`;
+                wildcard: `${Prefix}*`;
                 condition: Condition;
                 event: Event;
                 next: MatchNextState<AllState, AllState, EventName, Condition>;
                 final: false;
+                nested: Prefix extends "" ? false : true;
               }
             : never
           : never)
@@ -201,6 +224,7 @@ export namespace Superstate {
                               >
                               ? {
                                   key: `${Prefix}${EventName}`;
+                                  wildcard: `${Prefix}*`;
                                   event: Transition;
                                   condition: null;
                                   next: MatchNextState<
@@ -210,6 +234,7 @@ export namespace Superstate {
                                     null
                                   >;
                                   final: true;
+                                  nested: true;
                                 }
                               : never
                             : never)
@@ -229,7 +254,9 @@ export namespace Superstate {
         }
           ? {
               key: `${Prefix}${Name}`;
+              wildcard: `${Prefix}*`;
               state: MachineState;
+              nested: Prefix extends "" ? false : true;
             }
           : never)
       // Now we add the substates
