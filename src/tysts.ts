@@ -1,4 +1,4 @@
-import { superstate, Superstate } from "./index.js";
+import { superstate } from "./index.js";
 
 //! Simple machine
 {
@@ -481,9 +481,10 @@ import { superstate, Superstate } from "./index.js";
     )
     .state("dirty", ["clean() -> clear"]);
 
+  const tea = teaMachine.host();
   const mug = mugMachine.host();
 
-  //! Event listeners
+  //! on
 
   mug.on("full", (update) => {
     //! Should be able to listen to substate states
@@ -507,14 +508,24 @@ import { superstate, Superstate } from "./index.js";
     update.transition.event satisfies "infuse";
   });
 
+  //! The star should not catch nested events
   mug.on("*", (update) => {
     if (update.type === "state") {
-      //! The nested events should be propogated
+      //! The nested events should not propogate
+      // @ts-expect-error
       if (update.state.name === "ready") return;
     }
   });
 
-  mug.on("*", (update) => {
+  //! Double star should catch nested events
+  mug.on("**", (update) => {
+    if (update.type === "state") {
+      //! The nested events should no be propogated
+      if (update.state.name === "ready") return;
+    }
+  });
+
+  mug.on("**", (update) => {
     if (update.type === "state") {
       //! The state is not defined
       // @ts-expect-error
@@ -522,11 +533,28 @@ import { superstate, Superstate } from "./index.js";
     }
   });
 
+  //! The double start should not present when there are no substates
+  // @ts-expect-error
+  tea.on("**", () => {});
+
   //! Should be able to listen to the exit transition
   mug.on("finish()", (update) => {
     update.transition.event satisfies "finish";
     update.transition.to satisfies "dirty";
   });
+
+  //! It allows to subscribe to substate wildcard updates
+  mug.on("full.tea.*", (target) => {
+    if (target.type === "state") {
+      target.state.name satisfies "water" | "steeping" | "ready" | "finished";
+    } else {
+      target.transition.event satisfies "infuse" | "done" | "drink";
+    }
+  });
+
+  //! The wildcard must be correct
+  // @ts-expect-error
+  mug.on("full.tae.*", () => {});
 
   //! Sending events
 
