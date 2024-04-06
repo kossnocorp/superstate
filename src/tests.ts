@@ -2,42 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { superstate } from "./index.js";
 
 describe("Superstate", () => {
-  type PlayerState = "stopped" | "playing" | "paused";
-
-  function createPlayerState() {
-    return superstate<PlayerState>("player")
-      .state("stopped", "play() -> playing")
-      .state("playing", ["pause() -> paused", "stop() -> stopped"])
-      .state("paused", ["play() -> playing", "stop() -> stopped"]);
-  }
-
-  type LightState = "on" | "off";
-
-  type CassetteState = "stopped" | "playing" | "ejected";
-
-  type PCState = "on" | "sleep" | "off";
-
-  type CatState = "boxed" | "alive" | "dead";
-
-  type TeaState = "water" | "steeping" | "ready" | "finished";
-
-  type MugState = "clear" | "full" | "dirty";
-
-  function createMugWithTeaState() {
-    const teaState = superstate<TeaState>("tea")
-      .state("water", ["infuse() -> steeping", "drink() -> finished"])
-      .state("steeping", ["done() -> ready", "drink() -> finished"])
-      .state("ready", ["drink() -> finished"])
-      .final("finished");
-
-    return superstate<MugState>("mug")
-      .state("clear", "pour() -> full")
-      .state("full", ["drink() -> clear"], ($) =>
-        $.sub("tea", teaState, "finished -> finish() -> dirty")
-      )
-      .state("dirty", ["clean() -> clear"]);
-  }
-
   describe("superstate", () => {
     it("creates a statechart", () => {
       const playerState = createPlayerState();
@@ -429,6 +393,65 @@ describe("Superstate", () => {
           expect(pc.state.name).toBe("off");
         });
       });
+
+      describe("substates", () => {
+        it("allows to send events to substates", () => {
+          const mugState = createMugWithTeaState();
+
+          const mug = mugState.host();
+          mug.send("pour()");
+          mug.send("full.tea.infuse()");
+
+          expect(
+            mug.state.name === "full" &&
+              mug.state.sub.tea.state.name === "steeping"
+          ).toBe(true);
+        });
+
+        it("does not trigger parent events with the same name", () => {
+          const bigDollListener = vi.fn();
+          const dollState = createRussianDollState();
+
+          const doll = dollState.host();
+          doll.send("open()");
+          doll.on("close()", bigDollListener);
+          doll.send("open.doll.open()");
+          doll.send("open.doll.close()");
+
+          expect(bigDollListener).not.toHaveBeenCalled();
+        });
+
+        it("allows to send events to deeply nested substates", () => {
+          const smallDollListener = vi.fn();
+          const starListener = vi.fn();
+          const dollState = createRussianDollState();
+
+          const doll = dollState.host();
+          doll.on("*", starListener);
+          doll.on("open.doll.open.doll.open()", smallDollListener);
+          doll.send("open.doll.open.doll.open()");
+
+          expect(smallDollListener).not.toBeCalled();
+          expect(starListener).not.toBeCalled();
+
+          doll.send("open()");
+          expect(doll.state.name).toBe("open");
+
+          doll.send("open.doll.open()");
+          expect(
+            doll.state.name === "open" && doll.state.sub.doll.state.name
+          ).toBe("open");
+
+          doll.send("open.doll.open.doll.open()");
+          expect(
+            doll.state.name === "open" &&
+              doll.state.sub.doll.state.name === "open" &&
+              doll.state.sub.doll.state.sub.doll.state.name
+          ).toBe("open");
+
+          expect(smallDollListener).toHaveBeenCalledOnce();
+        });
+      });
     });
 
     describe("on", () => {
@@ -672,6 +695,12 @@ describe("Superstate", () => {
             });
           });
         });
+
+        describe("substates", () => {
+          it.todo("allows to subscribe to substate events", () => {});
+
+          it.todo("triggers the parent state on a substate event", () => {});
+        });
       });
 
       describe("off", () => {
@@ -714,3 +743,57 @@ describe("Superstate", () => {
     });
   });
 });
+
+type PlayerState = "stopped" | "playing" | "paused";
+
+function createPlayerState() {
+  return superstate<PlayerState>("player")
+    .state("stopped", "play() -> playing")
+    .state("playing", ["pause() -> paused", "stop() -> stopped"])
+    .state("paused", ["play() -> playing", "stop() -> stopped"]);
+}
+
+type LightState = "on" | "off";
+
+type CassetteState = "stopped" | "playing" | "ejected";
+
+type PCState = "on" | "sleep" | "off";
+
+type CatState = "boxed" | "alive" | "dead";
+
+type TeaState = "water" | "steeping" | "ready" | "finished";
+
+type MugState = "clear" | "full" | "dirty";
+
+function createMugWithTeaState() {
+  const teaState = superstate<TeaState>("tea")
+    .state("water", ["infuse() -> steeping", "drink() -> finished"])
+    .state("steeping", ["done() -> ready", "drink() -> finished"])
+    .state("ready", ["drink() -> finished"])
+    .final("finished");
+
+  return superstate<MugState>("mug")
+    .state("clear", "pour() -> full")
+    .state("full", ["drink() -> clear"], ($) =>
+      $.sub("tea", teaState, "finished -> finish() -> dirty")
+    )
+    .state("dirty", ["clean() -> clear"]);
+}
+
+type DollState = "open" | "closed";
+
+function createRussianDollState() {
+  const smallDollState = superstate<DollState>("smallDoll")
+    .state("closed", "open() -> open")
+    .state("open", "close() -> closed");
+
+  const mediumDollState = superstate<DollState>("mediumDoll")
+    .state("closed", "open() -> open")
+    .state("open", "close() -> closed", ($) => $.sub("doll", smallDollState));
+
+  const bigDollState = superstate<DollState>("bigDoll")
+    .state("closed", "open() -> open")
+    .state("open", "close() -> closed", ($) => $.sub("doll", mediumDollState));
+
+  return bigDollState;
+}
