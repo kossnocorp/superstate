@@ -423,16 +423,16 @@ describe("Superstate", () => {
 
         it("allows to send events to deeply nested substates", () => {
           const smallDollListener = vi.fn();
-          const starListener = vi.fn();
+          const wildcardListener = vi.fn();
           const dollState = createRussianDollState();
 
           const doll = dollState.host();
-          doll.on("*", starListener);
+          doll.on("*", wildcardListener);
           doll.on("open.doll.open.doll.open()", smallDollListener);
           doll.send("open.doll.open.doll.open()");
 
           expect(smallDollListener).not.toBeCalled();
-          expect(starListener).not.toBeCalled();
+          expect(wildcardListener).not.toBeCalled();
 
           doll.send("open()");
           expect(doll.state.name).toBe("open");
