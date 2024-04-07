@@ -196,6 +196,11 @@ import { superstate } from "./index.js";
   // @ts-expect-error
   player.on(["stopped()", "nope()"], () => {});
 
+  //! off
+
+  //! Can unsubscribe from all events
+  player.off();
+
   //! Current state
 
   //! The machine allows to get the current state

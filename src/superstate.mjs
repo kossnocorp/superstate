@@ -100,10 +100,12 @@ export function superstate(statechartName) {
   function createHost(initialState) {
     let finalized = false;
     const subscriptions = [];
+    const subscriptionOffs = new Map();
 
     let currentState;
     setCurrentState(initialState);
 
+    // TODO: Rewrite with class
     return new Proxy(
       {},
       {
@@ -115,11 +117,14 @@ export function superstate(statechartName) {
             case "on":
               return on.bind(null, proxy);
 
+            case "off":
+              return off.bind(null, proxy);
+
             case "send":
               return send.bind(null, proxy);
 
             case "in":
-              return in_;
+              return in_.bind(null, proxy);
 
             case "finalized":
               return finalized;
@@ -131,11 +136,16 @@ export function superstate(statechartName) {
       }
     );
 
-    function in_(stateName) {
-      if (Array.isArray(stateName)) {
-        if (!stateName.some((name) => currentState.name === name)) return null;
-      } else if (currentState.name !== stateName) return null;
-      return currentState;
+    function in_(proxy, deepSatateNameArg) {
+      for (const deepStateName of [].concat(deepSatateNameArg)) {
+        const [path, stateName] = parseDeepPath(deepStateName);
+        if (path.length) {
+          const substate = findSubstate(proxy, path);
+          const substateResult = substate?.in(stateName);
+          if (substateResult) return substateResult;
+        } else if (currentState.name === stateName) return currentState;
+      }
+      return null;
     }
 
     function on(proxy, targetStr, listener) {
@@ -146,14 +156,17 @@ export function superstate(statechartName) {
         listener,
       };
 
+      subcribeSubstates(subscription);
+
       subscriptions.push(subscription);
 
       return () => {
         const index = subscriptions.indexOf(subscription);
         const unsubscribed = subscriptions.splice(index, 1);
         unsubscribed.forEach((subscription) =>
-          subscription.targets.forEach((target) => target.off?.())
+          subscriptionOffs.get(subscription)?.forEach((off) => off())
         );
+        subscriptionOffs.delete(subscription);
       };
     }
 
@@ -179,6 +192,7 @@ export function superstate(statechartName) {
       const eventListeners = subscriptions.reduce((acc, subscription) => {
         const matching = subscription.targets.some(
           (target) =>
+            target.type === "**" ||
             target.type === "*" ||
             (target.type === "event" &&
               target.event === eventName &&
@@ -201,6 +215,7 @@ export function superstate(statechartName) {
       const stateListeners = subscriptions.reduce((acc, subscription) => {
         const matching = subscription.targets.some(
           (target) =>
+            target.type === "**" ||
             target.type === "*" ||
             (target.type === "state" && target.state === currentState.name)
         );
@@ -219,6 +234,57 @@ export function superstate(statechartName) {
       return nextState;
     }
 
+    function registerSubscriptionListener(subscription, listener) {
+      let set = subscriptionOffs.get(subscription);
+      if (!set) {
+        set = new Set();
+        subscriptionOffs.set(subscription, set);
+      }
+      set.add(listener);
+    }
+
+    function subcribeSubstates(subscription, mint) {
+      // TODO: Do not create double listeners for multiple targets
+      subscription.targets.forEach((target) => {
+        if (target.type == "substate") {
+          const [expectedState, substateName, ...rest] = target.path;
+          if (currentState.name !== expectedState) return;
+          const substate = currentState.sub[substateName];
+          const off = substate.on(
+            (rest.length ? `${rest.join(".")}.` : "") + target.signature,
+            subscription.listener
+          );
+          registerSubscriptionListener(subscription, off);
+        } else if (target.type === "**") {
+          Object.values(currentState.sub).map((substate) => {
+            const off = substate.on("**", subscription.listener);
+            registerSubscriptionListener(subscription, off);
+          });
+        }
+      });
+
+      if (!mint) return;
+
+      if (subscription.targets.some((target) => target.type === "**")) {
+        const updates = [];
+        function reduceSubstateUpdates(state) {
+          Object.values(state.sub).forEach((substate) => {
+            updates.push(substate.state);
+            reduceSubstateUpdates(substate.state);
+          });
+        }
+        reduceSubstateUpdates(currentState);
+        updates.forEach((state) =>
+          subscription.listener({ type: "state", state })
+        );
+      }
+    }
+
+    function off() {
+      offSubstates();
+      subscriptions.length = 0;
+    }
+
     function findSubstate(proxy, path) {
       let accState = proxy;
       for (let i = 0; i < path.length; i += 2) {
@@ -231,6 +297,9 @@ export function superstate(statechartName) {
     }
 
     function setCurrentState(state) {
+      // Clean up the current state
+      currentState && offSubstates();
+
       const sub = Object.fromEntries(
         Object.entries(state.sub).map(([name, substate]) => [
           name,
@@ -241,19 +310,13 @@ export function superstate(statechartName) {
       currentState = { ...state, sub };
       if (currentState.final) finalized = true;
 
-      subscriptions.forEach((subscription) => {
-        subscription.targets.forEach((target) => {
-          if (target.type !== "substate") return;
+      subscriptions.forEach((subscription) =>
+        subcribeSubstates(subscription, true)
+      );
+    }
 
-          const [expectedState, substateName, ...rest] = target.path;
-          if (currentState.name !== expectedState) return;
-          const substate = currentState.sub[substateName];
-          target.off = substate.on(
-            (rest.length ? `${rest.join(".")}.` : "") + target.signature,
-            subscription.listener
-          );
-        });
-      });
+    function offSubstates() {
+      Object.values(currentState.sub).forEach((substate) => substate.off());
     }
 
     function findTransition(eventName, condition) {
@@ -293,10 +356,9 @@ function transitionFromDef(from, def) {
 const eventSignatureRe = /^(\w+)\((\w*)\)$/;
 
 function subscriptionTargetFromStr(str) {
-  if (str === "*") return { type: "*" };
+  if (str === "**" || str === "*") return { type: str };
 
-  const path = str.split(".");
-  const signature = path.pop();
+  const [path, signature] = parseDeepPath(str);
 
   if (path.length)
     return {
@@ -315,13 +377,18 @@ function subscriptionTargetFromStr(str) {
 
   return {
     type: "state",
-    state: str, // TODO: Validate?
+    state: str,
   };
 }
 
 function parseEventSignature(str) {
-  const path = str.split(".");
-  const signature = path.pop();
+  const [path, signature] = parseDeepPath(str);
   const [_, event, condition] = signature.match(eventSignatureRe);
   return [path, event, condition || null];
+}
+
+function parseDeepPath(str) {
+  const path = str.split(".");
+  const name = path.pop();
+  return [path, name];
 }
