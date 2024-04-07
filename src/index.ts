@@ -375,6 +375,8 @@ export namespace Superstate {
       in<Target extends StateTarget<FlatState>>(
         target: Target | Target[]
       ): MatchTargetState<FlatState, Target> | undefined;
+
+      off(): void;
     }
 
     export interface State<
