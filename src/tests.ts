@@ -246,7 +246,7 @@ describe("Superstate", () => {
             }
           });
 
-          it("defines substate transitions", () => {
+          it("defines substate final transitions", () => {
             const listener = vi.fn();
             const mug = createMugWithTeaState().host();
             mug.on(["dirty", "finish()"], listener);
@@ -267,7 +267,7 @@ describe("Superstate", () => {
             });
           });
 
-          it("allows to define several substate transitions", () => {
+          it("allows to define several substate final transitions", () => {
             const teaState = superstate<TeaState | "oversteeped">("tea")
               .state("water", ["infuse() -> steeping", "drink() -> finished"])
               .state("steeping", ["done() -> ready", "drink() -> finished"])

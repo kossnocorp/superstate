@@ -80,10 +80,13 @@ export function superstate(statechartName) {
 
         // MARK: state->sub
         function sub_(proxy, substateName, factory, transitionDefs) {
+          const transitions = []
+            .concat(transitionDefs || [])
+            .map(exitTransitionFromDef);
           sub[substateName] = {
             name: substateName,
             factory,
-            transitions: [], // TODO
+            transitions,
           };
           return proxy;
         }
@@ -199,47 +202,9 @@ export function superstate(statechartName) {
       const nextState = findTransitionTarget(transition);
       if (!nextState) return null;
 
-      const eventListeners = subscriptions.reduce((acc, subscription) => {
-        const matching = subscription.targets.some(
-          (target) =>
-            target.type === "**" ||
-            target.type === "*" ||
-            (target.type === "event" &&
-              target.event === eventName &&
-              target.condition === condition)
-        );
-        return matching ? acc.concat(subscription.listener) : acc;
-      }, []);
-
-      const eventChange = {
-        type: "event",
-        transition,
-      };
-
-      eventListeners.forEach((listener) => {
-        listener(eventChange);
-      });
+      triggerEventListeners(transition);
 
       setCurrentState(nextState);
-
-      const stateListeners = subscriptions.reduce((acc, subscription) => {
-        const matching = subscription.targets.some(
-          (target) =>
-            target.type === "**" ||
-            target.type === "*" ||
-            (target.type === "state" && target.state === currentState.name)
-        );
-        return matching ? acc.concat(subscription.listener) : acc;
-      }, []);
-
-      const stateChange = {
-        type: "state",
-        state: currentState,
-      };
-
-      stateListeners.forEach((listener) => {
-        listener(stateChange);
-      });
 
       return nextState;
     }
@@ -320,26 +285,84 @@ export function superstate(statechartName) {
     }
 
     function setCurrentState(state) {
-      // Clean up the current state
-      currentState && offSubstates();
+      const initial = !currentState;
 
+      // Clean up the current state
+      !initial && offSubstates();
+
+      // Initialize substates
       const sub = Object.fromEntries(
-        Object.entries(state.sub).map(([name, substate]) => [
-          name,
-          substate.factory.host(),
-        ])
+        Object.entries(state.sub).map(([name, substate]) => {
+          const instance = substate.factory.host();
+          substate.transitions.forEach((transition) => {
+            const landingState = findTransitionTarget(transition);
+            instance.on(transition.from, () => {
+              triggerEventListeners(transition);
+              setCurrentState(landingState);
+            });
+          });
+          return [name, instance];
+        })
       );
 
+      // Transition to the new state
       currentState = { ...state, sub };
       if (currentState.final) finalized = true;
 
+      // Subscribe the substates
       subscriptions.forEach((subscription) =>
         subcribeSubstates(subscription, true)
       );
+
+      !initial && triggerStateListeners(currentState);
     }
 
     function offSubstates() {
       Object.values(currentState.sub).forEach((substate) => substate.off());
+    }
+
+    function triggerStateListeners(state) {
+      const stateListeners = subscriptions.reduce((acc, subscription) => {
+        const matching = subscription.targets.some(
+          (target) =>
+            target.type === "**" ||
+            target.type === "*" ||
+            (target.type === "state" && target.state === state.name)
+        );
+        return matching ? acc.concat(subscription.listener) : acc;
+      }, []);
+
+      const stateChange = {
+        type: "state",
+        state,
+      };
+
+      stateListeners.forEach((listener) => {
+        listener(stateChange);
+      });
+    }
+
+    function triggerEventListeners(transition) {
+      const eventListeners = subscriptions.reduce((acc, subscription) => {
+        const matching = subscription.targets.some(
+          (target) =>
+            target.type === "**" ||
+            target.type === "*" ||
+            (target.type === "event" &&
+              target.event === transition.event &&
+              target.condition === transition.condition)
+        );
+        return matching ? acc.concat(subscription.listener) : acc;
+      }, []);
+
+      const eventChange = {
+        type: "event",
+        transition,
+      };
+
+      eventListeners.forEach((listener) => {
+        listener(eventChange);
+      });
     }
 
     function findTransition(eventName, condition) {
@@ -414,4 +437,12 @@ function parseDeepPath(str) {
   const path = str.split(".");
   const name = path.pop();
   return [path, name];
+}
+
+const exitTransitionDefRe = /^(\w+)+ -> (\w+)\(\) -> (\w+)+$/;
+
+function exitTransitionFromDef(def) {
+  const captures = def.match(exitTransitionDefRe);
+  const [_, from, event, to] = captures;
+  return { event, from, to, condition: null };
 }

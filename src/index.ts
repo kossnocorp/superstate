@@ -471,6 +471,7 @@ export namespace Superstate {
       event: EventName;
       from: ChildFromStateName;
       to: MachineToStateName;
+      condition: null;
     }
 
     export interface Substate<
@@ -493,7 +494,12 @@ export namespace Superstate {
       Def extends SubstateFinalTransitionDef<any, any, any>
     > =
       Def extends `${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
-        ? { event: EventName; from: ChildFromStateName; to: MachineToStateName }
+        ? {
+            event: EventName;
+            from: ChildFromStateName;
+            to: MachineToStateName;
+            condition: null;
+          }
         : never;
   }
 
