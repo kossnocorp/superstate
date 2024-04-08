@@ -11,10 +11,10 @@ types-watch:
 	@npx tsc --noEmit --watch
 
 size:
-	@npx size-limit
+	@node ./size.mjs
 
 size-watch:
-	@npx nodemon --exec "size-limit"
+	@node ./size.mjs --watch
 
 benchmark:
 	@bun ./benchmark.ts

@@ -10,7 +10,7 @@ const srcRegExp = /^src\//;
 const patterns = ["src/**/*.d.ts", "package.json", "*.md"];
 
 if (watch) {
-  const debouncedCopy = debounceByArgs(copy, 50);
+  const debouncedCopy = debounceByArgs(copy, 100);
 
   watcher.subscribe(process.cwd(), (error, events) => {
     if (error) {

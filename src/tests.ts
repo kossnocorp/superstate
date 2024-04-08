@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { superstate } from "./index.js";
+import { superstate } from "./index.mjs";
 
 describe("Superstate", () => {
   // MARK: superstate
