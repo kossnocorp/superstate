@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { superstate } from "./index.js";
 
 describe("Superstate", () => {
+  // MARK: superstate
   describe("superstate", () => {
     it("creates a statechart", () => {
       const playerState = createPlayerState();
@@ -36,6 +37,7 @@ describe("Superstate", () => {
   });
 
   describe("builder", () => {
+    // MARK: state
     describe("state", () => {
       it("accepts transition as single string", () => {
         const lightState = superstate<LightState>("light")
@@ -244,6 +246,7 @@ describe("Superstate", () => {
       });
     });
 
+    // MARK: final
     describe("final", () => {
       it("creates a final state that finalizes the statechart", () => {
         const casseteState = superstate<CassetteState>("cassette")
@@ -264,6 +267,7 @@ describe("Superstate", () => {
   });
 
   describe("factory", () => {
+    // MARK: host
     describe("host", () => {
       it("returns statatechart instance", () => {
         const playerState = createPlayerState();
@@ -274,6 +278,7 @@ describe("Superstate", () => {
   });
 
   describe("instance", () => {
+    // MARK: send
     describe("send", () => {
       it("sends an event", () => {
         const playerState = createPlayerState();
@@ -455,6 +460,7 @@ describe("Superstate", () => {
       });
     });
 
+    // MARK: on
     describe("on", () => {
       describe("state updates", () => {
         it("allows to subscribe to state updates", () => {
@@ -1164,6 +1170,7 @@ describe("Superstate", () => {
       });
     });
 
+    // MARK: in
     describe("in", () => {
       it("returns the state if the passed state name is current", () => {
         const lightState = superstate<LightState>("light")
@@ -1219,6 +1226,7 @@ describe("Superstate", () => {
       });
     });
 
+    // MARK: off
     describe("off", () => {
       it("unsubscribes from all events", () => {
         const listener = vi.fn();
