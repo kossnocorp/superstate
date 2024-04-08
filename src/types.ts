@@ -1109,6 +1109,3 @@ export namespace Superstate {
     }
   }
 }
-
-import { superstate } from "./superstate.mjs";
-export { superstate };

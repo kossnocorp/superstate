@@ -1,4 +1,4 @@
-import { superstate } from "./index.js";
+import { superstate } from "./index.mjs";
 
 // MARK: Simple machine
 {
