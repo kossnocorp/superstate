@@ -95,6 +95,7 @@ describe("Superstate", () => {
       });
 
       describe("builder", () => {
+        // MARK: state->on
         describe("on", () => {
           it("accepts a single transition", () => {
             const lightState = superstate<LightState>("light")
@@ -175,6 +176,7 @@ describe("Superstate", () => {
           });
         });
 
+        // MARK: state->if
         describe("if", () => {
           it("allows to define conditions", () => {
             const pcState = superstate<PCState>("pc")
@@ -225,6 +227,7 @@ describe("Superstate", () => {
           });
         });
 
+        // MARK: state->sub
         describe("sub", () => {
           it("allows to define substates", () => {
             const mugState = createMugWithTeaState();
