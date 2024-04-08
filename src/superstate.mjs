@@ -1,6 +1,7 @@
 export function superstate(statechartName) {
   const states = [];
 
+  // MARK: builder
   function createBuilder() {
     return new Proxy(
       {},
@@ -23,6 +24,7 @@ export function superstate(statechartName) {
       }
     );
 
+    // MARK: state
     function state(proxy, final, stateName, arg1, arg2) {
       const traitsStrs =
         typeof arg1 === "function" ? [] : [].concat(arg1 || []);
@@ -60,6 +62,7 @@ export function superstate(statechartName) {
           }
         );
 
+        // MARK: state->on
         function on(proxy, defs) {
           const push = (def) => transitions.push(fromDef(def));
           if (Array.isArray(defs)) defs.forEach(push);
@@ -67,6 +70,7 @@ export function superstate(statechartName) {
           return proxy;
         }
 
+        // MARK: state->if
         function if_(proxy, eventName, conditions) {
           [].concat(conditions).forEach((condition) => {
             transitions.push(fromDef(eventName + condition));
@@ -74,6 +78,7 @@ export function superstate(statechartName) {
           return proxy;
         }
 
+        // MARK: state->sub
         function sub_(proxy, substateName, factory, transitionDefs) {
           sub[substateName] = {
             name: substateName,
@@ -91,13 +96,15 @@ export function superstate(statechartName) {
       return proxy;
     }
 
+    // MARK: host
     function host() {
       const initialState = states[0];
-      return createHost(initialState);
+      return createInstance(initialState);
     }
   }
 
-  function createHost(initialState) {
+  // MARK: instance
+  function createInstance(initialState) {
     let finalized = false;
     const subscriptions = [];
     const subscriptionOffs = new Map();
@@ -136,6 +143,7 @@ export function superstate(statechartName) {
       }
     );
 
+    // MARK: in
     function in_(proxy, deepSatateNameArg) {
       for (const deepStateName of [].concat(deepSatateNameArg)) {
         const [path, stateName] = parseDeepPath(deepStateName);
@@ -148,6 +156,7 @@ export function superstate(statechartName) {
       return null;
     }
 
+    // MARK: on
     function on(proxy, targetStr, listener) {
       const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
 
@@ -170,6 +179,7 @@ export function superstate(statechartName) {
       };
     }
 
+    // MARK: send
     function send(proxy, eventSignature, argCondition) {
       const [path, eventName, signatureCondition] =
         parseEventSignature(eventSignature);
@@ -292,6 +302,7 @@ export function superstate(statechartName) {
       }
     }
 
+    // MARK: off
     function off() {
       offSubstates();
       subscriptions.length = 0;
