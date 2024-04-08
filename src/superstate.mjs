@@ -283,7 +283,7 @@ export function superstate(statechartName) {
       // Initialize substates
       const sub = Object.fromEntries(
         Object.entries(state.sub).map(([name, substate]) => {
-          const instance = substate.factory.host();
+          const instance = substate.factory.host(bindings[state.name]?.[name]);
           substate.transitions.forEach((transition) => {
             const landingState = findTransitionTarget(transition);
             instance.on(transition.from, () => {

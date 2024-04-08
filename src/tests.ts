@@ -666,6 +666,83 @@ describe("Superstate", () => {
         const player = playerState.host();
         expect(player).toBeDefined();
       });
+
+      describe("actions", () => {
+        it("allows to bind substate actions", () => {
+          const smallDollCloseListener = vi.fn();
+          const smallDollOpenListener = vi.fn();
+          const mediumDollCloseListener = vi.fn();
+          const mediumDollOpenListener = vi.fn();
+
+          const smallDollState = superstate<DollState>("smallDoll")
+            .state("closed", ["-> close!", "open! ->", "open() -> open"])
+            .state("open", "close() -> closed");
+
+          const mediumDollState = superstate<DollState>("mediumDoll")
+            .state("closed", ($) => $.on("open() -> open! -> open"))
+            .state("open", ["close() -> closed", "close! ->"], ($) =>
+              $.sub("doll", smallDollState)
+            );
+
+          const bigDollState = superstate<DollState>("bigDoll")
+            .state("closed", "open() -> open")
+            .state("open", "close() -> closed", ($) =>
+              $.sub("doll", mediumDollState)
+            );
+
+          const bigDoll = bigDollState.host({
+            open: {
+              doll: {
+                open: {
+                  "close! ->": mediumDollCloseListener,
+                  doll: {
+                    closed: {
+                      "open! ->": smallDollOpenListener,
+                      "-> close!": smallDollCloseListener,
+                    },
+                  },
+                },
+                closed: {
+                  "open() -> open!": mediumDollOpenListener,
+                },
+              },
+            },
+          });
+
+          expect(mediumDollCloseListener).not.toBeCalled();
+          expect(mediumDollOpenListener).not.toBeCalled();
+          expect(smallDollCloseListener).not.toBeCalled();
+          expect(smallDollOpenListener).not.toBeCalled();
+
+          bigDoll.send("open()");
+
+          expect(mediumDollCloseListener).not.toBeCalled();
+          expect(mediumDollOpenListener).not.toBeCalled();
+          expect(smallDollCloseListener).not.toBeCalled();
+          expect(smallDollOpenListener).not.toBeCalled();
+
+          bigDoll.send("open.doll.open()");
+
+          expect(mediumDollCloseListener).not.toBeCalled();
+          expect(mediumDollOpenListener).toBeCalled();
+          expect(smallDollCloseListener).toBeCalled();
+          expect(smallDollOpenListener).not.toBeCalled();
+
+          bigDoll.send("open.doll.open.doll.open()");
+
+          expect(mediumDollCloseListener).not.toBeCalled();
+          expect(mediumDollOpenListener).toBeCalled();
+          expect(smallDollCloseListener).toBeCalled();
+          expect(smallDollOpenListener).toBeCalled();
+
+          bigDoll.send("open.doll.close()");
+
+          expect(mediumDollCloseListener).toBeCalled();
+          expect(mediumDollOpenListener).toBeCalled();
+          expect(smallDollCloseListener).toBeCalled();
+          expect(smallDollOpenListener).toBeCalled();
+        });
+      });
     });
   });
 
