@@ -229,7 +229,7 @@ describe("Superstate", () => {
 
         // MARK: state->sub
         describe("sub", () => {
-          it("allows to define substates", () => {
+          it("defines substates", () => {
             const mugState = createMugWithTeaState();
 
             const mug = mugState.host();
@@ -244,6 +244,66 @@ describe("Superstate", () => {
             } else {
               throw new Error("Must be full");
             }
+          });
+
+          it("defines substate transitions", () => {
+            const listener = vi.fn();
+            const mug = createMugWithTeaState().host();
+            mug.on(["dirty", "finish()"], listener);
+
+            mug.send("pour()");
+            mug.send("full.tea.infuse()");
+            mug.send("full.tea.done()");
+            mug.send("full.tea.drink()");
+
+            expect(mug.in("dirty")).not.toBe(null);
+            expect(listener).toBeCalledWith({
+              type: "state",
+              state: expect.objectContaining({ name: "dirty" }),
+            });
+            expect(listener).toBeCalledWith({
+              type: "event",
+              transition: expect.objectContaining({ event: "finish" }),
+            });
+          });
+
+          it("allows to define several substate transitions", () => {
+            const teaState = superstate<TeaState | "oversteeped">("tea")
+              .state("water", ["infuse() -> steeping", "drink() -> finished"])
+              .state("steeping", ["done() -> ready", "drink() -> finished"])
+              .state("ready", [
+                "drink() -> finished",
+                "infuse() -> oversteeped",
+              ])
+              .final("finished")
+              .final("oversteeped");
+
+            const mug = superstate<MugState | "undrinkable">("mug")
+              .state("clear", "pour() -> full")
+              .state("full", ["drink() -> clear"], ($) =>
+                $.sub("tea", teaState, [
+                  "finished -> finish() -> dirty",
+                  "oversteeped -> oversteep() -> undrinkable",
+                ])
+              )
+              .state("undrinkable", "drain() -> dirty")
+              .state("dirty", ["clean() -> clear"]);
+
+            const mugA = mug.host();
+            mugA.send("pour()");
+            mugA.send("full.tea.infuse()");
+            mugA.send("full.tea.done()");
+            mugA.send("full.tea.drink()");
+
+            expect(mugA.in("dirty")).not.toBe(null);
+
+            const mugB = mug.host();
+            mugB.send("pour()");
+            mugB.send("full.tea.infuse()");
+            mugB.send("full.tea.done()");
+            mugB.send("full.tea.infuse()");
+
+            expect(mugB.in("undrinkable")).not.toBe(null);
           });
         });
       });
