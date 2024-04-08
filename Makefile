@@ -14,7 +14,7 @@ size:
 	@npx size-limit
 
 size-watch:
-	@nodemon --exec "size-limit"
+	@npx nodemon --exec "size-limit"
 
 build: prepare-build
 	@npx tsc -p tsconfig.json 
