@@ -3,29 +3,23 @@ export function superstate(statechartName) {
 
   // MARK: builder
   function createBuilder() {
-    return new Proxy(
-      {},
-      {
-        get(_, key, proxy) {
-          switch (key) {
-            case "state":
-              return state.bind(null, proxy, false);
+    const self = {
+      // MARK: host
+      host() {
+        const initialState = states[0];
+        return createInstance(initialState);
+      },
+    };
 
-            case "final":
-              return state.bind(null, proxy, true);
+    Object.assign(self, {
+      state: state.bind(null, self, false),
+      final: state.bind(null, self, true),
+    });
 
-            case "host":
-              return host;
-
-            default:
-              return;
-          }
-        },
-      }
-    );
+    return self;
 
     // MARK: state
-    function state(proxy, final, stateName, arg1, arg2) {
+    function state(self, final, stateName, arg1, arg2) {
       const traitsStrs =
         typeof arg1 === "function" ? [] : [].concat(arg1 || []);
       const builderFn = typeof arg1 === "function" ? arg1 : arg2;
@@ -44,65 +38,43 @@ export function superstate(statechartName) {
       };
 
       function createStateBuilder() {
-        return new Proxy(
-          {},
-          {
-            get(_, key, proxy) {
-              switch (key) {
-                case "on":
-                  return on.bind(null, proxy);
+        return {
+          // MARK: state->on
+          on(defs) {
+            const push = (def) => transitions.push(fromDef(def));
+            if (Array.isArray(defs)) defs.forEach(push);
+            else push(defs);
+            return this;
+          },
 
-                case "if":
-                  return if_.bind(null, proxy);
+          // MARK: state->if
+          if(eventName, conditions) {
+            [].concat(conditions).forEach((condition) => {
+              transitions.push(fromDef(eventName + condition));
+            });
+            return this;
+          },
 
-                case "sub":
-                  return sub_.bind(null, proxy);
-              }
-            },
-          }
-        );
-
-        // MARK: state->on
-        function on(proxy, defs) {
-          const push = (def) => transitions.push(fromDef(def));
-          if (Array.isArray(defs)) defs.forEach(push);
-          else push(defs);
-          return proxy;
-        }
-
-        // MARK: state->if
-        function if_(proxy, eventName, conditions) {
-          [].concat(conditions).forEach((condition) => {
-            transitions.push(fromDef(eventName + condition));
-          });
-          return proxy;
-        }
-
-        // MARK: state->sub
-        function sub_(proxy, substateName, factory, transitionDefs) {
-          const transitions = []
-            .concat(transitionDefs || [])
-            .map(exitTransitionFromDef);
-          sub[substateName] = {
-            name: substateName,
-            factory,
-            transitions,
-          };
-          return proxy;
-        }
+          // MARK: state->sub
+          sub(substateName, factory, transitionDefs) {
+            const transitions = []
+              .concat(transitionDefs || [])
+              .map(exitTransitionFromDef);
+            sub[substateName] = {
+              name: substateName,
+              factory,
+              transitions,
+            };
+            return this;
+          },
+        };
       }
 
       if (builderFn) builderFn(createStateBuilder());
 
       states.push(state);
 
-      return proxy;
-    }
-
-    // MARK: host
-    function host() {
-      const initialState = states[0];
-      return createInstance(initialState);
+      return self;
     }
   }
 
@@ -116,98 +88,84 @@ export function superstate(statechartName) {
     setCurrentState(initialState);
 
     // TODO: Rewrite with class
-    return new Proxy(
-      {},
-      {
-        get(_, key, proxy) {
-          switch (key) {
-            case "state":
-              return currentState;
+    return {
+      get state() {
+        return currentState;
+      },
 
-            case "on":
-              return on.bind(null, proxy);
+      get finalized() {
+        return finalized;
+      },
 
-            case "off":
-              return off.bind(null, proxy);
+      // MARK: in
+      in(deepSatateNameArg) {
+        for (const deepStateName of [].concat(deepSatateNameArg)) {
+          const [path, stateName] = parseDeepPath(deepStateName);
+          if (path.length) {
+            const substate = findSubstate(this, path);
+            const substateResult = substate?.in(stateName);
+            if (substateResult) return substateResult;
+          } else if (currentState.name === stateName) return currentState;
+        }
+        return null;
+      },
 
-            case "send":
-              return send.bind(null, proxy);
+      // MARK: on
+      on(targetStr, listener) {
+        const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
 
-            case "in":
-              return in_.bind(null, proxy);
+        const subscription = {
+          targets,
+          listener,
+        };
 
-            case "finalized":
-              return finalized;
+        subcribeSubstates(subscription);
 
-            default:
-              return undefined;
-          }
-        },
-      }
-    );
+        subscriptions.push(subscription);
 
-    // MARK: in
-    function in_(proxy, deepSatateNameArg) {
-      for (const deepStateName of [].concat(deepSatateNameArg)) {
-        const [path, stateName] = parseDeepPath(deepStateName);
+        return () => {
+          const index = subscriptions.indexOf(subscription);
+          const unsubscribed = subscriptions.splice(index, 1);
+          unsubscribed.forEach((subscription) =>
+            subscriptionOffs.get(subscription)?.forEach((off) => off())
+          );
+          subscriptionOffs.delete(subscription);
+        };
+      },
+
+      // MARK: send
+      send(eventSignature, argCondition) {
+        const [path, eventName, signatureCondition] =
+          parseEventSignature(eventSignature);
+        const condition = argCondition || signatureCondition;
+
+        // It's a substate
         if (path.length) {
-          const substate = findSubstate(proxy, path);
-          const substateResult = substate?.in(stateName);
-          if (substateResult) return substateResult;
-        } else if (currentState.name === stateName) return currentState;
-      }
-      return null;
-    }
+          const substate = findSubstate(this, path);
+          // TODO: Skip parsing?
+          substate?.send(eventName + "()", condition);
+          return;
+        }
 
-    // MARK: on
-    function on(proxy, targetStr, listener) {
-      const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
+        const transition = findTransition(eventName, condition);
+        if (!transition) return null;
 
-      const subscription = {
-        targets,
-        listener,
-      };
+        const nextState = findTransitionTarget(transition);
+        if (!nextState) return null;
 
-      subcribeSubstates(subscription);
+        triggerEventListeners(transition);
 
-      subscriptions.push(subscription);
+        setCurrentState(nextState);
 
-      return () => {
-        const index = subscriptions.indexOf(subscription);
-        const unsubscribed = subscriptions.splice(index, 1);
-        unsubscribed.forEach((subscription) =>
-          subscriptionOffs.get(subscription)?.forEach((off) => off())
-        );
-        subscriptionOffs.delete(subscription);
-      };
-    }
+        return nextState;
+      },
 
-    // MARK: send
-    function send(proxy, eventSignature, argCondition) {
-      const [path, eventName, signatureCondition] =
-        parseEventSignature(eventSignature);
-      const condition = argCondition || signatureCondition;
-
-      // It's a substate
-      if (path.length) {
-        const substate = findSubstate(proxy, path);
-        // TODO: Skip parsing?
-        substate?.send(eventName + "()", condition);
-        return;
-      }
-
-      const transition = findTransition(eventName, condition);
-      if (!transition) return null;
-
-      const nextState = findTransitionTarget(transition);
-      if (!nextState) return null;
-
-      triggerEventListeners(transition);
-
-      setCurrentState(nextState);
-
-      return nextState;
-    }
+      // MARK: off
+      off() {
+        offSubstates();
+        subscriptions.length = 0;
+      },
+    };
 
     function registerSubscriptionListener(subscription, listener) {
       let set = subscriptionOffs.get(subscription);
@@ -245,6 +203,7 @@ export function superstate(statechartName) {
           );
         }
       });
+
       substateTargets.forEach((targets, substate) => {
         const off = substate.on(targets, subscription.listener);
         registerSubscriptionListener(subscription, off);
@@ -267,14 +226,8 @@ export function superstate(statechartName) {
       }
     }
 
-    // MARK: off
-    function off() {
-      offSubstates();
-      subscriptions.length = 0;
-    }
-
-    function findSubstate(proxy, path) {
-      let accState = proxy;
+    function findSubstate(self, path) {
+      let accState = self;
       for (let i = 0; i < path.length; i += 2) {
         const name = path[i];
         const subName = path[i + 1];
