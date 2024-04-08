@@ -611,6 +611,25 @@ describe("Superstate", () => {
             expect(listener).not.toBeCalled();
           });
 
+          it("preserves subscription groups", () => {
+            const aListener = vi.fn();
+            const bListener = vi.fn();
+
+            const mug = createMugWithTeaState().host();
+
+            mug.send("pour()");
+
+            mug.on(["**", "full.tea.*", "full.tea.infuse()"], aListener);
+            mug.on("**", bListener);
+            mug.on("full.tea.*", bListener);
+            mug.on("full.tea.infuse()", bListener);
+
+            mug.send("full.tea.infuse()");
+
+            expect(bListener).toHaveBeenCalledTimes(5);
+            expect(aListener).toHaveBeenCalledTimes(2);
+          });
+
           describe("wildcard", () => {
             it("subscribes to all updates", () => {
               const listener = vi.fn();
@@ -669,8 +688,6 @@ describe("Superstate", () => {
               mug.send("pour()");
               mug.send("full.tea.infuse()");
               mug.send("full.tea.done()");
-
-              console.log(listener.mock.calls);
 
               expect(listener).toBeCalledWith({
                 type: "state",
