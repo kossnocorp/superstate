@@ -542,10 +542,12 @@ import { superstate } from "./index.js";
   // @ts-expect-error
   tea.on("**", () => {});
 
-  //! Should be able to listen to the exit transition
+  //! Should be able to listen to the final transition
   mug.on("finish()", (update) => {
     update.transition.event satisfies "finish";
     update.transition.to satisfies "dirty";
+    //! The final transitions conditions must be null
+    update.transition.condition satisfies null;
   });
 
   //! It allows to subscribe to substate wildcard updates
