@@ -1,6 +1,6 @@
 import { superstate } from "./index.js";
 
-//! Simple machine
+// MARK: Simple machine
 {
   type PlayerState = "stopped" | "playing" | "paused";
 
@@ -253,7 +253,7 @@ import { superstate } from "./index.js";
   }
 }
 
-//! Multiple event targets
+// MARK: Multiple event targets
 {
   type LightState = "off" | "on";
 
@@ -276,7 +276,7 @@ import { superstate } from "./index.js";
   });
 }
 
-//! Final states
+// MARK: Final states
 {
   type CassetteState = "stopped" | "playing" | "ejected";
 
@@ -306,7 +306,7 @@ import { superstate } from "./index.js";
   player.finalized = false;
 }
 
-//! Conditions
+// MARK: Conditions
 {
   type PCState = "on" | "sleep" | "off";
 
@@ -379,7 +379,7 @@ import { superstate } from "./index.js";
   pc.on("press()", () => {});
 }
 
-//! Only-conditional events
+// MARK: Only-conditional events
 {
   type CatState = "boxed" | "alive" | "dead";
 
@@ -428,7 +428,7 @@ import { superstate } from "./index.js";
   cat.on("reveal()", () => {});
 }
 
-//! Substates
+// MARK: Substates
 {
   type TeaState = "water" | "steeping" | "ready" | "finished";
 
@@ -597,7 +597,7 @@ import { superstate } from "./index.js";
   }
 }
 
-//! Parallel states
+// MARK: Parallel states
 {
   type ExpireState = "fresh" | "expired";
 
@@ -669,7 +669,7 @@ import { superstate } from "./index.js";
   meatPie.in("unpacked.eat.thawed");
 }
 
-//! State actions
+// MARK: State actions
 {
   type SwitchState = "off" | "on";
 
@@ -783,7 +783,7 @@ import { superstate } from "./index.js";
   });
 }
 
-//! Transition actions
+// MARK: Transition actions
 {
   type ButtonState = "off" | "on";
 
@@ -903,7 +903,7 @@ import { superstate } from "./index.js";
   });
 }
 
-//! Substate actions
+// MARK: Substate actions
 {
   type OSState = "running" | "sleeping" | "terminated";
 
@@ -1009,7 +1009,7 @@ import { superstate } from "./index.js";
   });
 }
 
-//! Documentation examples:
+// MARK: Documentation examples:
 {
   //! README.md:
 
