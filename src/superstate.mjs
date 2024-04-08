@@ -245,22 +245,34 @@ export function superstate(statechartName) {
 
     function subcribeSubstates(subscription, mint) {
       // TODO: Do not create double listeners for multiple targets
+      const substateTargets = new Map();
+      const push = (substate, target) => {
+        let arr = substateTargets.get(substate);
+        if (!arr) {
+          arr = [];
+          substateTargets.set(substate, arr);
+        }
+        arr.push(target);
+      };
+
       subscription.targets.forEach((target) => {
         if (target.type == "substate") {
           const [expectedState, substateName, ...rest] = target.path;
           if (currentState.name !== expectedState) return;
           const substate = currentState.sub[substateName];
-          const off = substate.on(
-            (rest.length ? `${rest.join(".")}.` : "") + target.signature,
-            subscription.listener
+          push(
+            substate,
+            (rest.length ? `${rest.join(".")}.` : "") + target.signature
           );
-          registerSubscriptionListener(subscription, off);
         } else if (target.type === "**") {
-          Object.values(currentState.sub).map((substate) => {
-            const off = substate.on("**", subscription.listener);
-            registerSubscriptionListener(subscription, off);
-          });
+          Object.values(currentState.sub).map((substate) =>
+            push(substate, "**")
+          );
         }
+      });
+      substateTargets.forEach((targets, substate) => {
+        const off = substate.on(targets, subscription.listener);
+        registerSubscriptionListener(subscription, off);
       });
 
       if (!mint) return;
