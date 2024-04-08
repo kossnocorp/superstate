@@ -22,78 +22,77 @@ export function superstate(statechartName) {
 
     // MARK: state
     function state(self, final, stateName, arg1, arg2) {
-      const traitsStrs =
-        typeof arg1 === "function" ? [] : [].concat(arg1 || []);
-      const builderFn = typeof arg1 === "function" ? arg1 : arg2;
-      const fromDef = transitionFromDef.bind(null, stateName);
-
-      const transitions = [];
-      const actions = [];
-
-      traitsStrs.forEach((def) => {
-        const transition = transitionFromDef(stateName, def);
-        if (transition) return transitions.push(transition);
-
-        const action = actionFromDef(def);
-        actions.push(action);
-      });
-
-      const sub = {};
-
       const state = {
         name: stateName,
-        transitions,
-        actions,
-        sub,
+        transitions: [],
+        actions: [],
+        sub: {},
         final,
       };
 
-      function createStateBuilder() {
-        return {
+      (typeof arg1 === "function" ? [] : [].concat(arg1 || [])).forEach(
+        (def) => {
+          const transition = transitionFromDef(stateName, def);
+          if (transition) return state.transitions.push(transition);
+          state.actions.push(actionFromDef(def));
+        }
+      );
+
+      const builderFn = typeof arg1 === "function" ? arg1 : arg2;
+      if (builderFn)
+        builderFn({
           // MARK: state->on
           on(defs) {
-            const push = (def) => transitions.push(fromDef(def));
-            if (Array.isArray(defs)) defs.forEach(push);
-            else push(defs);
+            []
+              .concat(defs)
+              .forEach((def) =>
+                state.transitions.push(transitionFromDef(stateName, def))
+              );
             return this;
           },
 
           // MARK: state->if
           if(eventName, conditions) {
-            [].concat(conditions).forEach((condition) => {
-              transitions.push(fromDef(eventName + condition));
-            });
+            []
+              .concat(conditions)
+              .forEach((condition) =>
+                state.transitions.push(
+                  transitionFromDef(stateName, eventName + condition)
+                )
+              );
             return this;
           },
 
           // MARK: state->sub
-          sub(substateName, factory, transitionDefs) {
-            const transitions = []
-              .concat(transitionDefs || [])
-              .map(exitTransitionFromDef);
-            sub[substateName] = {
-              name: substateName,
+          sub(name, factory, transitionDefs) {
+            state.sub[name] = {
+              name,
               factory,
-              transitions,
+              transitions: []
+                .concat(transitionDefs || [])
+                .map(exitTransitionFromDef),
             };
             return this;
           },
 
           // MARK: state->enter
           enter(actionDef) {
-            actions.push({ type: "enter", name: parseActionName(actionDef) });
+            state.actions.push({
+              type: "enter",
+              name: parseActionName(actionDef),
+            });
             return this;
           },
 
           // MARK: state->enter
           exit(actionDef) {
-            actions.push({ type: "exit", name: parseActionName(actionDef) });
+            state.actions.push({
+              type: "exit",
+              name: parseActionName(actionDef),
+            });
             return this;
           },
-        };
-      }
-
-      if (builderFn) builderFn(createStateBuilder());
+        });
 
       states.push(state);
 
@@ -125,8 +124,7 @@ export function superstate(statechartName) {
         for (const deepStateName of [].concat(deepSatateNameArg)) {
           const [path, stateName] = parseDeepPath(deepStateName);
           if (path.length) {
-            const substate = findSubstate(this, path);
-            const substateResult = substate?.in(stateName);
+            const substateResult = findSubstate(this, path)?.in(stateName);
             if (substateResult) return substateResult;
           } else if (currentState.name === stateName) return currentState;
         }
@@ -164,9 +162,7 @@ export function superstate(statechartName) {
 
         // It's a substate
         if (path.length) {
-          const substate = findSubstate(this, path);
-          // TODO: Skip parsing?
-          substate?.send(eventName + "()", condition);
+          findSubstate(this, path)?.send(eventName + "()", condition);
           return;
         }
 
@@ -183,7 +179,7 @@ export function superstate(statechartName) {
             }!`
           ]?.();
 
-        triggerEventListeners(transition);
+        triggerListeners("event", transition);
 
         setCurrentState(nextState);
 
@@ -196,15 +192,6 @@ export function superstate(statechartName) {
         subscriptions.length = 0;
       },
     };
-
-    function registerSubscriptionListener(subscription, listener) {
-      let set = subscriptionOffs.get(subscription);
-      if (!set) {
-        set = new Set();
-        subscriptionOffs.set(subscription, set);
-      }
-      set.add(listener);
-    }
 
     function subcribeSubstates(subscription, mint) {
       // TODO: Do not create double listeners for multiple targets
@@ -236,20 +223,24 @@ export function superstate(statechartName) {
 
       substateTargets.forEach((targets, substate) => {
         const off = substate.on(targets, subscription.listener);
-        registerSubscriptionListener(subscription, off);
+        let set = subscriptionOffs.get(subscription);
+        if (!set) {
+          set = new Set();
+          subscriptionOffs.set(subscription, set);
+        }
+        set.add(off);
       });
 
       if (!mint) return;
 
       if (subscription.targets.some((target) => target.type === "**")) {
         const updates = [];
-        function reduceSubstateUpdates(state) {
+        (function reduceSubstateUpdates(state) {
           Object.values(state.sub).forEach((substate) => {
             updates.push(substate.state);
             reduceSubstateUpdates(substate.state);
           });
-        }
-        reduceSubstateUpdates(currentState);
+        })(currentState);
         updates.forEach((state) =>
           subscription.listener({ type: "state", state })
         );
@@ -259,10 +250,8 @@ export function superstate(statechartName) {
     function findSubstate(self, path) {
       let accState = self;
       for (let i = 0; i < path.length; i += 2) {
-        const name = path[i];
-        const subName = path[i + 1];
-        if (accState.state.name !== name) return;
-        accState = accState.state.sub[subName];
+        if (accState.state.name !== path[i]) return;
+        accState = accState.state.sub[path[i + 1]];
       }
       return accState;
     }
@@ -287,7 +276,7 @@ export function superstate(statechartName) {
           substate.transitions.forEach((transition) => {
             const landingState = findTransitionTarget(transition);
             instance.on(transition.from, () => {
-              triggerEventListeners(transition);
+              triggerListeners("event", transition);
               setCurrentState(landingState);
             });
           });
@@ -310,55 +299,34 @@ export function superstate(statechartName) {
         bindings[currentState.name]?.[`-> ${action.name}!`]?.();
       });
 
-      !initial && triggerStateListeners(currentState);
+      !initial && triggerListeners("state", currentState);
     }
 
     function offSubstates() {
-      Object.values(currentState.sub).forEach((substate) => substate.off());
+      Object.values(currentState.sub).forEach(({ off }) => off());
     }
 
-    function triggerStateListeners(state) {
-      const stateListeners = subscriptions.reduce((acc, subscription) => {
-        const matching = subscription.targets.some(
+    function triggerListeners(type, entity) {
+      const listeners = [];
+      subscriptions.forEach((subscription) => {
+        subscription.targets.some(
           (target) =>
             target.type === "**" ||
             target.type === "*" ||
-            (target.type === "state" && target.state === state.name)
-        );
-        return matching ? acc.concat(subscription.listener) : acc;
-      }, []);
+            (target.type === type &&
+              (type === "event"
+                ? target.event === entity.event &&
+                  target.condition === entity.condition
+                : target.state === entity.name))
+        ) && listeners.push(subscription.listener);
+      });
 
-      const stateChange = {
-        type: "state",
-        state,
+      const update = {
+        type,
+        [type === "event" ? "transition" : type]: entity,
       };
 
-      stateListeners.forEach((listener) => {
-        listener(stateChange);
-      });
-    }
-
-    function triggerEventListeners(transition) {
-      const eventListeners = subscriptions.reduce((acc, subscription) => {
-        const matching = subscription.targets.some(
-          (target) =>
-            target.type === "**" ||
-            target.type === "*" ||
-            (target.type === "event" &&
-              target.event === transition.event &&
-              target.condition === transition.condition)
-        );
-        return matching ? acc.concat(subscription.listener) : acc;
-      }, []);
-
-      const eventChange = {
-        type: "event",
-        transition,
-      };
-
-      eventListeners.forEach((listener) => {
-        listener(eventChange);
-      });
+      listeners.forEach((listener) => listener(update));
     }
 
     function findTransition(eventName, condition) {
@@ -368,9 +336,8 @@ export function superstate(statechartName) {
             transition.event === eventName &&
             transition.condition === condition &&
             currentState.name === transition.from
-          ) {
+          )
             return transition;
-          }
         }
       }
     }
@@ -383,8 +350,10 @@ export function superstate(statechartName) {
   return createBuilder();
 }
 
+const transitionDefRe = /^(\w+)\((\w*)\)(?: -> (\w+)\!)? -> (\w+)$/;
+
 function transitionFromDef(from, def) {
-  const captures = def.match(/^(\w+)\((\w*)\)(?: -> (\w+)\!)? -> (\w+)$/);
+  const captures = def.match(transitionDefRe);
   if (!captures) return;
   const [_, event, condition, action, to] = captures;
   return {
@@ -410,12 +379,12 @@ function subscriptionTargetFromStr(str) {
       signature,
     };
 
-  const eventCaptures = str.match(eventSignatureRe);
-  if (eventCaptures)
+  const captures = str.match(eventSignatureRe);
+  if (captures)
     return {
       type: "event",
-      event: eventCaptures[1],
-      condition: eventCaptures[2] || null,
+      event: captures[1],
+      condition: captures[2] || null,
     };
 
   return {
@@ -426,7 +395,7 @@ function subscriptionTargetFromStr(str) {
 
 function parseEventSignature(str) {
   const [path, signature] = parseDeepPath(str);
-  const [_, event, condition] = signature.match(eventSignatureRe);
+  const [, event, condition] = signature.match(eventSignatureRe);
   return [path, event, condition || null];
 }
 
