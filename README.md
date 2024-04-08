@@ -407,6 +407,22 @@ const pc = pcState.host({
 
 ## API
 
+### `superstate`
+
+The main function that creates a new statechart.
+
+```ts
+import { superstate } from "superstate";
+
+type SwitchState = "off" | "on";
+
+const state = superstate<SwitchState>("name");
+```
+
+It accepts the `name` string as an argument and the generic state type. The `name` is used for visualization and debugging purposes, i.e., to render Mermaid diagrams. The generic type defines the available states.
+
+It returns the builder object that allows you to define each state.
+
 **🚧 Work in progress, [follow for updates](https://twitter.com/kossnocorp)**
 
 TODO: Describe each method

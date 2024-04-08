@@ -1249,6 +1249,18 @@ import { superstate } from "./index.js";
       },
     });
   }
+
+  //! API
+
+  //! superstate
+
+  {
+    // import { superstate } from "superstate";
+
+    type SwitchState = "off" | "on";
+
+    const state = superstate<SwitchState>("name");
+  }
 }
 
 export function assertExtends<Type>(_value: Type) {}
