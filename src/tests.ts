@@ -34,6 +34,11 @@ describe("Superstate", () => {
         state: expect.objectContaining({ name: "playing" }),
       });
     });
+
+    it("assigns the statechart name", () => {
+      const playerState = createPlayerState();
+      expect(playerState.name).toBe("player");
+    });
   });
 
   describe("builder", () => {

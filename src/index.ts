@@ -23,6 +23,9 @@ export namespace Superstate {
       MachineFactory<MachineState>;
 
     export interface MachineFactory<State extends AnyState> {
+      /** The statechart name. Used for visualization and debugging. */
+      name: string;
+
       host(
         ...args: Superstate.Actions.BindingArgs<State>
       ): MachineInstance<

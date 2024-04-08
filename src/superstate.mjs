@@ -1,10 +1,12 @@
-export function superstate(statechartName) {
+export function superstate(name) {
   const states = [];
   let bindings;
 
   // MARK: builder
   function createBuilder() {
     const self = {
+      name,
+
       // MARK: host
       host(bindings_) {
         bindings = bindings_ || {};
