@@ -23,9 +23,11 @@
   "homepage": "https://github.com/kossnocorp/superstate#readme",
   "devDependencies": {
     "@size-limit/preset-small-lib": "^11.1.2",
+    "benny": "^3.7.1",
     "nodemon": "^3.1.0",
     "size-limit": "^11.1.2",
     "typescript": "^5.4.3",
-    "vitest": "^1.4.0"
+    "vitest": "^1.4.0",
+    "xstate": "^5.9.1"
   }
 }

@@ -16,6 +16,9 @@ size:
 size-watch:
 	@npx nodemon --exec "size-limit"
 
+benchmark:
+	@bun ./benchmark.ts
+
 build: prepare-build
 	@npx tsc -p tsconfig.json 
 	@node copy.mjs
