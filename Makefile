@@ -1,8 +1,20 @@
+test:
+	@npx vitest run
+
+test-watch:
+	@npx vitest
+
 types:
 	@npx tsc --noEmit
 
 types-watch:
 	@npx tsc --noEmit --watch
+
+size:
+	@npx size-limit
+
+size-watch:
+	@nodemon --exec "size-limit"
 
 build: prepare-build
 	@npx tsc -p tsconfig.json 
