@@ -1,11 +1,13 @@
 export function superstate(statechartName) {
   const states = [];
+  let bindings;
 
   // MARK: builder
   function createBuilder() {
     const self = {
       // MARK: host
-      host() {
+      host(bindings_) {
+        bindings = bindings_;
         const initialState = states[0];
         return createInstance(initialState);
       },
@@ -25,8 +27,18 @@ export function superstate(statechartName) {
       const builderFn = typeof arg1 === "function" ? arg1 : arg2;
       const fromDef = transitionFromDef.bind(null, stateName);
 
-      const transitions = traitsStrs.map(fromDef);
+      const transitions = [];
       const actions = [];
+
+      traitsStrs.forEach((def) => {
+        const transition = transitionFromDef(stateName, def);
+        if (transition) return transitions.push(transition);
+
+        const action = actionFromDef(def);
+        actions.push(action);
+      });
+
+      traitsStrs.map(fromDef);
       const sub = {};
 
       const state = {
@@ -65,6 +77,18 @@ export function superstate(statechartName) {
               factory,
               transitions,
             };
+            return this;
+          },
+
+          // MARK: state->enter
+          enter(actionDef) {
+            actions.push({ type: "enter", name: parseActionName(actionDef) });
+            return this;
+          },
+
+          // MARK: state->enter
+          exit(actionDef) {
+            actions.push({ type: "exit", name: parseActionName(actionDef) });
             return this;
           },
         };
@@ -240,6 +264,13 @@ export function superstate(statechartName) {
     function setCurrentState(state) {
       const initial = !currentState;
 
+      // Trigger exit actions
+      !initial &&
+        currentState.actions.forEach((action) => {
+          if (action.type !== "exit") return;
+          bindings[currentState.name]?.[`${action.name}! ->`]?.();
+        });
+
       // Clean up the current state
       !initial && offSubstates();
 
@@ -266,6 +297,12 @@ export function superstate(statechartName) {
       subscriptions.forEach((subscription) =>
         subcribeSubstates(subscription, true)
       );
+
+      // Trigger enter actions
+      currentState.actions.forEach((action) => {
+        if (action.type !== "enter") return;
+        bindings[currentState.name]?.[`-> ${action.name}!`]?.();
+      });
 
       !initial && triggerStateListeners(currentState);
     }
@@ -342,6 +379,7 @@ export function superstate(statechartName) {
 
 function transitionFromDef(from, def) {
   const captures = def.match(/^(\w+)\((\w*)\) -> (\w+)$/);
+  if (!captures) return;
   const [_, event, condition, to] = captures;
   return {
     event,
@@ -398,4 +436,20 @@ function exitTransitionFromDef(def) {
   const captures = def.match(exitTransitionDefRe);
   const [_, from, event, to] = captures;
   return { event, from, to, condition: null };
+}
+
+const actionRe = /^(\w+)\!$/;
+
+function parseActionName(def) {
+  return def.match(actionRe)[1];
+}
+
+const actionDefRe = /^(-> )?(\w+)\!( ->)?$/;
+
+function actionFromDef(def) {
+  const [_, enterProbe, name] = def.match(actionDefRe);
+  return {
+    type: enterProbe ? "enter" : "exit",
+    name,
+  };
 }

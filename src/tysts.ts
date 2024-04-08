@@ -703,7 +703,7 @@ import { superstate } from "./index.js";
     .state(
       "on",
       // @ts-expect-error
-      [`-> turnOn()`, "turnOff? ->", "toggle() -> off"],
+      ["-> turnOn()", "turnOff? ->", "toggle() -> off"],
       ($) =>
         // @ts-expect-error
         $.enter("turnOn?")

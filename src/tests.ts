@@ -94,6 +94,44 @@ describe("Superstate", () => {
         });
       });
 
+      describe("actions", () => {
+        it("defines enter action", () => {
+          const offListener = vi.fn();
+          const onListener = vi.fn();
+          const lightState = superstate<LightState>("light")
+            .state("off", ["-> off!", "toggle() -> on"])
+            .state("on", ["-> on!", "toggle() -> off"]);
+          const light = lightState.host({
+            off: { "-> off!": offListener },
+            on: { "-> on!": onListener },
+          });
+          expect(offListener).toBeCalled();
+          expect(onListener).not.toBeCalled();
+          light.send("toggle()");
+          expect(onListener).toBeCalled();
+          expect(offListener).toBeCalledTimes(1);
+        });
+
+        it("defines exit action", () => {
+          const offListener = vi.fn();
+          const onListener = vi.fn();
+          const lightState = superstate<LightState>("light")
+            .state("off", ["on! ->", "toggle() -> on"])
+            .state("on", ["off! ->", "toggle() -> off"]);
+          const light = lightState.host({
+            off: { "on! ->": onListener },
+            on: { "off! ->": offListener },
+          });
+          expect(offListener).not.toBeCalled();
+          expect(onListener).not.toBeCalled();
+          light.send("toggle()");
+          expect(onListener).toBeCalled();
+          expect(offListener).not.toBeCalled();
+          light.send("toggle()");
+          expect(offListener).toBeCalled();
+        });
+      });
+
       describe("builder", () => {
         // MARK: state->on
         describe("on", () => {
@@ -304,6 +342,142 @@ describe("Superstate", () => {
             mugB.send("full.tea.infuse()");
 
             expect(mugB.in("undrinkable")).not.toBe(null);
+          });
+        });
+
+        // MARK: state->enter
+        describe("enter", () => {
+          it("defines enter action", () => {
+            const offListener = vi.fn();
+            const onListener = vi.fn();
+            const lightState = superstate<LightState>("light")
+              .state("off", ($) => $.enter("off!").on("toggle() -> on"))
+              .state("on", ($) => $.enter("on!").on("toggle() -> off"));
+            const light = lightState.host({
+              off: { "-> off!": offListener },
+              on: { "-> on!": onListener },
+            });
+            expect(offListener).toBeCalled();
+            expect(onListener).not.toBeCalled();
+            light.send("toggle()");
+            expect(onListener).toBeCalled();
+            expect(offListener).toBeCalledTimes(1);
+          });
+
+          it("calls action before state update", () => {
+            const updateListener = vi.fn();
+            const actionListener = vi.fn(() => {
+              expect(updateListener).not.toBeCalled();
+            });
+            const lightState = superstate<LightState>("light")
+              .state("off", ($) => $.enter("off!").on("toggle() -> on"))
+              .state("on", ($) => $.enter("on!").on("toggle() -> off"));
+            const light = lightState.host({
+              off: { "-> off!": () => {} },
+              on: { "-> on!": actionListener },
+            });
+            light.on("on", updateListener);
+            light.send("toggle()");
+            expect(actionListener).toBeCalled();
+            expect(updateListener).toBeCalled();
+          });
+
+          it("calls action after event update", () => {
+            const updateListener = vi.fn();
+            const actionListener = vi.fn(() => {
+              expect(updateListener).toBeCalled();
+            });
+            const lightState = superstate<LightState>("light")
+              .state("off", ($) => $.enter("off!").on("toggle() -> on"))
+              .state("on", ($) => $.enter("on!").on("toggle() -> off"));
+            const light = lightState.host({
+              off: { "-> off!": () => {} },
+              on: { "-> on!": actionListener },
+            });
+            light.on("toggle()", updateListener);
+            light.send("toggle()");
+            expect(actionListener).toBeCalled();
+          });
+        });
+
+        // MARK: state->exit
+        describe("exit", () => {
+          it("defines exit action", () => {
+            const offListener = vi.fn();
+            const onListener = vi.fn();
+            const lightState = superstate<LightState>("light")
+              .state("off", ($) => $.exit("on!").on("toggle() -> on"))
+              .state("on", ($) => $.exit("off!").on("toggle() -> off"));
+            const light = lightState.host({
+              off: { "on! ->": onListener },
+              on: { "off! ->": offListener },
+            });
+            expect(offListener).not.toBeCalled();
+            expect(onListener).not.toBeCalled();
+            light.send("toggle()");
+            expect(onListener).toBeCalled();
+            expect(offListener).not.toBeCalled();
+            light.send("toggle()");
+            expect(offListener).toBeCalled();
+          });
+
+          it("calls exit before enter action", () => {
+            const offEnterListener = vi.fn(() => {
+              expect(offExitListener).not.toBeCalled();
+              expect(onEnterListener).not.toBeCalled();
+              expect(onExitListener).not.toBeCalled();
+            });
+            const offExitListener = vi.fn(() => {
+              expect(offEnterListener).toBeCalled();
+              expect(onEnterListener).not.toBeCalled();
+              expect(onExitListener).not.toBeCalled();
+            });
+            const onEnterListener = vi.fn(() => {
+              expect(offExitListener).toBeCalled();
+              expect(onExitListener).not.toBeCalled();
+            });
+            const onExitListener = vi.fn(() => {
+              expect(onEnterListener).toBeCalled();
+            });
+            const lightState = superstate<LightState>("light")
+              .state("off", ($) =>
+                $.enter("offEnter!").exit("offExit!").on("toggle() -> on")
+              )
+              .state("on", ($) =>
+                $.enter("onEnter!").exit("onExit!").on("toggle() -> off")
+              );
+            const light = lightState.host({
+              off: {
+                "-> offEnter!": offEnterListener,
+                "offExit! ->": offExitListener,
+              },
+              on: {
+                "-> onEnter!": onEnterListener,
+                "onExit! ->": onExitListener,
+              },
+            });
+            light.send("toggle()");
+            expect(offEnterListener).toBeCalled();
+            expect(offExitListener).toBeCalled();
+            expect(onEnterListener).toBeCalled();
+            expect(onExitListener).not.toBeCalled();
+          });
+
+          it("calls action after event update", () => {
+            const updateListener = vi.fn();
+            const actionListener = vi.fn(() => {
+              expect(updateListener).toBeCalled();
+            });
+            const lightState = superstate<LightState>("light")
+              .state("off", ($) => $.exit("on!").on("toggle() -> on"))
+              .state("on", ($) => $.exit("off!").on("toggle() -> off"));
+            const light = lightState.host({
+              off: { "on! ->": actionListener },
+              on: { "off! ->": () => {} },
+            });
+            light.on("toggle()", updateListener);
+            light.send("toggle()");
+            expect(actionListener).toBeCalled();
           });
         });
       });
