@@ -92,6 +92,54 @@ describe("Superstate", () => {
           pc.send("press()", "long");
           expect(pc.state.name).toBe("off");
         });
+
+        describe("actions", () => {
+          it("defines transtions actions", () => {
+            const onListener = vi.fn();
+            const offListener = vi.fn();
+            const sleepListener = vi.fn();
+
+            const pcState = superstate<PCState>("pc")
+              .state("off", "press() -> on! -> on")
+              .state("sleep", [
+                "press(long) -> off! -> off",
+                "press() -> on! -> on",
+              ])
+              .state("on", [
+                "press(long) -> off! -> off",
+                "press() -> sleep! -> sleep",
+              ]);
+
+            const pc = pcState.host({
+              off: { "press() -> on!": onListener },
+              sleep: {
+                "press() -> on!": onListener,
+                "press(long) -> off!": offListener,
+              },
+              on: {
+                "press() -> sleep!": sleepListener,
+                "press(long) -> off!": offListener,
+              },
+            });
+
+            expect(onListener).not.toBeCalled();
+            pc.send("press()");
+            expect(pc.in("on")).not.toBe(null);
+            expect(onListener).toBeCalled();
+            expect(offListener).not.toBeCalled();
+            expect(sleepListener).not.toBeCalled();
+
+            pc.send("press(long)");
+            expect(pc.in("off")).not.toBe(null);
+            expect(offListener).toBeCalled();
+            expect(sleepListener).not.toBeCalled();
+
+            pc.send("press()");
+            pc.send("press()");
+            expect(pc.in("sleep")).not.toBe(null);
+            expect(sleepListener).toBeCalled();
+          });
+        });
       });
 
       describe("actions", () => {
@@ -129,6 +177,43 @@ describe("Superstate", () => {
           expect(offListener).not.toBeCalled();
           light.send("toggle()");
           expect(offListener).toBeCalled();
+        });
+
+        it("defines transiton action", () => {
+          const offListener = vi.fn();
+          const onListener = vi.fn();
+          const lightState = superstate<LightState>("light")
+            .state("off", "toggle() -> on! -> on")
+            .state("on", "toggle() -> off! -> off");
+          const light = lightState.host({
+            off: { "toggle() -> on!": onListener },
+            on: { "toggle() -> off!": offListener },
+          });
+          expect(offListener).not.toBeCalled();
+          expect(onListener).not.toBeCalled();
+          light.send("toggle()");
+          expect(onListener).toBeCalled();
+          expect(offListener).not.toBeCalled();
+          light.send("toggle()");
+          expect(offListener).toBeCalled();
+        });
+
+        it("triggers transition aciton before event update", () => {
+          const eventListener = vi.fn();
+          const actionListener = vi.fn(() => {
+            expect(eventListener).not.toBeCalled();
+          });
+          const lightState = superstate<LightState>("light")
+            .state("off", "toggle() -> on! -> on")
+            .state("on", "toggle() -> off! -> off");
+          const light = lightState.host({
+            off: { "toggle() -> on!": actionListener },
+            on: { "toggle() -> off!": () => {} },
+          });
+          light.on("toggle()", eventListener);
+          light.send("toggle()");
+          expect(eventListener).toBeCalled();
+          expect(actionListener).toBeCalled();
         });
       });
 
@@ -212,6 +297,27 @@ describe("Superstate", () => {
               expect(pc.state.name).toBe("off");
             });
           });
+
+          describe("actions", () => {
+            it("defines transiton action", () => {
+              const offListener = vi.fn();
+              const onListener = vi.fn();
+              const lightState = superstate<LightState>("light")
+                .state("off", ($) => $.on("toggle() -> on! -> on"))
+                .state("on", ($) => $.on("toggle() -> off! -> off"));
+              const light = lightState.host({
+                off: { "toggle() -> on!": onListener },
+                on: { "toggle() -> off!": offListener },
+              });
+              expect(offListener).not.toBeCalled();
+              expect(onListener).not.toBeCalled();
+              light.send("toggle()");
+              expect(onListener).toBeCalled();
+              expect(offListener).not.toBeCalled();
+              light.send("toggle()");
+              expect(offListener).toBeCalled();
+            });
+          });
         });
 
         // MARK: state->if
@@ -262,6 +368,55 @@ describe("Superstate", () => {
             expect(pc.state.name).toBe("on");
             pc.send("press()", "long");
             expect(pc.state.name).toBe("off");
+          });
+
+          describe("actions", () => {
+            it("defines transtions actions", () => {
+              const onListener = vi.fn();
+              const offListener = vi.fn();
+              const sleepListener = vi.fn();
+
+              const pcState = superstate<PCState>("pc")
+                .state("off", "press() -> on! -> on")
+                .state("sleep", ($) =>
+                  $.if("press", ["(long) -> off! -> off", "() -> on! -> on"])
+                )
+                .state("on", ($) =>
+                  $.if("press", [
+                    "(long) -> off! -> off",
+                    "() -> sleep! -> sleep",
+                  ])
+                );
+
+              const pc = pcState.host({
+                off: { "press() -> on!": onListener },
+                sleep: {
+                  "press() -> on!": onListener,
+                  "press(long) -> off!": offListener,
+                },
+                on: {
+                  "press() -> sleep!": sleepListener,
+                  "press(long) -> off!": offListener,
+                },
+              });
+
+              expect(onListener).not.toBeCalled();
+              pc.send("press()");
+              expect(pc.in("on")).not.toBe(null);
+              expect(onListener).toBeCalled();
+              expect(offListener).not.toBeCalled();
+              expect(sleepListener).not.toBeCalled();
+
+              pc.send("press(long)");
+              expect(pc.in("off")).not.toBe(null);
+              expect(offListener).toBeCalled();
+              expect(sleepListener).not.toBeCalled();
+
+              pc.send("press()");
+              pc.send("press()");
+              expect(pc.in("sleep")).not.toBe(null);
+              expect(sleepListener).toBeCalled();
+            });
           });
         });
 

@@ -7,7 +7,7 @@ export function superstate(statechartName) {
     const self = {
       // MARK: host
       host(bindings_) {
-        bindings = bindings_;
+        bindings = bindings_ || {};
         const initialState = states[0];
         return createInstance(initialState);
       },
@@ -38,7 +38,6 @@ export function superstate(statechartName) {
         actions.push(action);
       });
 
-      traitsStrs.map(fromDef);
       const sub = {};
 
       const state = {
@@ -176,6 +175,13 @@ export function superstate(statechartName) {
 
         const nextState = findTransitionTarget(transition);
         if (!nextState) return null;
+
+        transition.action &&
+          bindings[currentState.name]?.[
+            `${transition.event}(${transition.condition || ""}) -> ${
+              transition.action.name
+            }!`
+          ]?.();
 
         triggerEventListeners(transition);
 
@@ -378,15 +384,15 @@ export function superstate(statechartName) {
 }
 
 function transitionFromDef(from, def) {
-  const captures = def.match(/^(\w+)\((\w*)\) -> (\w+)$/);
+  const captures = def.match(/^(\w+)\((\w*)\)(?: -> (\w+)\!)? -> (\w+)$/);
   if (!captures) return;
-  const [_, event, condition, to] = captures;
+  const [_, event, condition, action, to] = captures;
   return {
     event,
     condition: condition || null,
     from,
     to,
-    action: null,
+    action: action ? { name: action } : null,
   };
 }
 
