@@ -10,7 +10,7 @@
     🎯 Easy to read without visualization
     <br/>
     🧩 Highly composable
-    ⚡ Lightweight and fast
+    ⚡ Lightweight (1.5kB) and fast
   </div>
 
   <br/>
@@ -413,9 +413,9 @@ Once initiated, the API has three modes of operation:
 
 - [Builder](#builder) - the object that allows defining state properties. Once all the states are defined, the builder turns into [the factory object](#factory).
 
-- [Factory](#factory) - the object that creates [statechart instances](#instance) and holds the statechart information.
+- [Factory](#factory) - the object that creates [statechart instances](#instance) and holds the statechart information. It can be used as a substate.
 
-- [Instance](#intance) - the statechart instances that allow interacting with the statechart.
+- [Instance](#intance) - the statechart instance created by [the factory](#factory) allows interacting with the statechart.
 
 ### `superstate`
 
@@ -424,24 +424,29 @@ The function that initiated a new statechart creation.
 ```ts
 import { superstate } from "superstate";
 
+// Define available states:
 type SwitchState = "off" | "on";
 
-const state = superstate<SwitchState>("name");
+// Initiate the "name" statechart creation:
+const builder = superstate<SwitchState>("name");
 ```
 
 It accepts the `name` string as an argument and the generic state type. The `name` is used for visualization and debugging purposes, i.e., to render Mermaid diagrams. The generic type defines the available states.
 
-It returns the builder object that allows you to define each state.
+It returns [the builder](#builder) object that allows you to define each state.
 
 ### Builder
 
 The `superstate` method returns a builder object that allows you to define each state one-by-one. The builder object has the following methods:
 
-TODO:
+- [`state`](#builderstate) - defines the state properties.
+- [`final`](#buildefinal) - same as the `state` method but marks the state as final.
 
-#### `state`
+All methods return the builder object, allowing you to chain the state definitions.
 
-The method defines the state properties, such as transitions, actions and substates.
+#### `builder.state`
+
+The method defines the state properties, such as transitions, actions, and substates.
 
 ```ts
 const state = superstate<SwitchState>("name")
@@ -451,35 +456,279 @@ const state = superstate<SwitchState>("name")
 
 It accepts 1-3 arguments. The first argument is the state name (`name`), followed by optional property string definitions (`defs`) and the optional state builder function (`builder`).
 
-#### State builder
+##### `builder.state(_, defs)`
 
-TODO:
+Pass string definitions as the second argument to define the state transitions and actions. The argument can be a `string` or `string[]`.
 
-##### `on`
+```ts
+const state = superstate<SwitchState>("name")
+  .state("off", [
+    // Enter action: call `turnOffLights!` action upon entering the state
+    "-> turnOffLights!",
+    // Exit action: call `turnOnLights!` action upon exiting the state
+    "turnOnLights! ->",
+    // Transition: when `turnOn()` event is sent, transition to the on state
+    "turnOn() -> on",
+  ])
+  // Transitions with action: call `onOff!` action when `turnOff()` event
+  // is sent before transitioning to the `off` state.
+  .state("on", "turnOff() -> onOff! -> off");
+```
 
-TODO:
+There are six types of available definitions:
 
-##### `if`
+| Name                           | Definition                                         | Description                                                                                       |
+| ------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Enter action                   | `-> actionName!`                                   | The action that is called when the state is entered.                                              |
+| Exit action                    | `actionName! ->`                                   | The action that is called when the state is exited.                                               |
+| Transition                     | `eventName() -> nextState`                         | The event that triggers the transition to the next state.                                         |
+| Guarded transition             | `eventName(condition) -> nextState`                | The transition is triggered when the event is sent with the given condition.                      |
+| Transition with action         | `eventName() -> actionName! -> nextState`          | The event that triggers the transition to the next state and calls the action.                    |
+| Guarded transition with action | `eventName(condition) -> actionName! -> nextState` | The transition is triggered when the event is sent with the given condition and calls the action. |
 
-TODO:
+There're no limit on the number of transitions and actions you can define.
 
-##### `enter`
+→ [Read more about guards](#guards)
 
-TODO:
+→ [Read more about actions](#actions)
 
-##### `exit`
+##### `builder.state(_, [defs], builder)`
 
-TODO:
+After `name` or `defs`, you can pass a function that accepts the state builder object (`$`).
 
-##### `sub`
+```ts
+// Define the state properties using the state builder object:
+const state = superstate<SwitchState>("switch")
+  .state("off", ($) =>
+    $.enter("turnOffLights!").exit("turnOnLights!").on("turnOn() -> on")
+  )
+  .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
+```
 
-TODO:
+You can combine the string definitions with the builder function:
 
-#### `final`
+```ts
+// Use both string and builder function definitions:
+const state = superstate<SwitchState>("switch")
+  .state("off", "-> turnOffLights!", ($) =>
+    $.exit("turnOnLights!").on("turnOn() -> on")
+  )
+  .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
+```
 
-The method works the same as the `state` method, but marks the state as final.
+You can use `def` and `builder` interchangeably expect when defining the substates. In that case, you must use the builder function:
 
-[See `state` docs](#state) for more info.
+```ts
+type PlayerState = "stopped" | "playing" | "paused";
+
+const playerState = superstate<PlayerState>("player")
+  .state("stopped", "play() -> playing")
+  .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+    // Define the substate using the builder function:
+    $.sub("volume", volumeState)
+  )
+  .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+type VolumeState = "low" | "medium" | "high";
+
+const volumeState = superstate<VolumeState>("volume")
+  .state("low", "up() -> medium")
+  .state("medium", ["up() -> high", "down() -> low"])
+  .state("high", "down() -> medium");
+```
+
+The state builder also defines the enter and exit actions more explicitly, which some will find easier to read.
+
+---
+
+The state builder has the following methods:
+
+- [`$.on`](#on) - defines the state transitions.
+- [`$.if`](#if) - defines the guarded transitions.
+- [`$.enter`](#enter) - defines the enter action.
+- [`$.exit`](#exit) - defines the exit action.
+- [`$.sub`](#sub) - defines the substate.
+
+##### `$.on`
+
+The method defines the state transitions.
+
+```ts
+const state = superstate<SwitchState>("name")
+  .state("off", ($) => $.on("turnOn() -> on"))
+  .state("on", ($) => $.on("turnOff() -> off"));
+```
+
+It accepts a `string` or `string[]` as the argument:
+
+```ts
+const pcState = superstate<PCState>("pc")
+  .state("off", "press() -> on")
+  .state("on", ($) =>
+    // Chain the transitions:
+    $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on"])
+  )
+  .state("sleep", ($) =>
+    // Pass all at once:
+    $.on(["press(long) -> off", "press() -> on", "restart() -> on"])
+  );
+```
+
+There are four types of available definitions:
+
+| Name                           | Definition                                         | Description                                                                                       |
+| ------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Transition                     | `eventName() -> nextState`                         | The event that triggers the transition to the next state.                                         |
+| Guarded transition             | `eventName(condition) -> nextState`                | The transition is triggered when the event is sent with the given condition.                      |
+| Transition with action         | `eventName() -> actionName! -> nextState`          | The event that triggers the transition to the next state and calls the action.                    |
+| Guarded transition with action | `eventName(condition) -> actionName! -> nextState` | The transition is triggered when the event is sent with the given condition and calls the action. |
+
+##### `$.if`
+
+The method defines a guarded transition. It accepts the event name as the first argument and transition definitions as the second argument.
+
+```ts
+const pcState = superstate<PCState>("pc")
+  .state("off", "press() -> on")
+  .state("on", ($) =>
+    // When `press` event with `long` condition is sent, transition to the `off` state.
+    // Otherwise, transition to the `sleep` state.
+    $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+  )
+  .state("sleep", ($) =>
+    // When `press` event with `long` condition is sent, transition to the `off` state.
+    // Otherwise, transition to the `on` state.
+    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+  );
+```
+
+The transitions definition is the same as with the `on` method, except that the event name is omitted (`(long) -> off` instead of the complete `press(long) -> off`).
+
+There can be a single transition as well as they can be mixed with the `on` method and even the `state` `defs` argument:
+
+```ts
+const pcState = superstate<PCState>("pc")
+  .state("off", "press() -> on")
+  // Mix with the `defs` argument:
+  .state("on", "press() -> sleep", ($) =>
+    // Single guarded transition:
+    $.if("press", "(long) -> off").on("restart() -> on")
+  )
+  .state("sleep", ($) =>
+    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+  );
+```
+
+There are four types of available guarded definitions:
+
+| Name                           | Definition                                | Description                                                                                       |
+| ------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Guarded transition             | `(condition) -> nextState`                | The transition is triggered when the event is sent with the given condition.                      |
+| Guarded transition with action | `(condition) -> actionName! -> nextState` | The transition is triggered when the event is sent with the given condition and calls the action. |
+| Else transition                | `() -> nextState`                         | The transition is triggered when the event is sent without the condition.                         |
+| Else transition with action    | `() -> actionName! -> nextState`          | The transition is triggered when the event is sent without the condition and calls the action.    |
+
+→ [Read more about guards](#guards)
+
+##### `$.enter`
+
+The method defines an enter state action. The action is called when the state is entered.
+
+```ts
+const state = superstate<SwitchState>("name")
+  .state("off", ($) => $.enter("-> turnOffLights!").on("turnOn() -> on"))
+  .state("on", ($) => $.enter("-> turnOnLights!").on("turnOff() -> off"));
+```
+
+You can define any number of enter actions.
+
+→ [Read more about actions](#actions)
+
+##### `$.exit`
+
+The method defines an exit state action. The action is called when the state is exited.
+
+```ts
+const state = superstate<SwitchState>("name")
+  .state("off", ($) => $.exit("turnOnLights! ->").on("turnOn() -> on"))
+  .state("on", ($) => $.exit("turnOffLights! ->").on("turnOff() -> off"));
+```
+
+##### `$.sub`
+
+The methods defines a substate.
+
+```ts
+type PlayerState = "stopped" | "playing" | "paused";
+
+const playerState = superstate<PlayerState>("player")
+  .state("stopped", "play() -> playing")
+  .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+    // Nest the volume statechart as `volume`
+    $.sub("volume", volumeState)
+  )
+  .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+type VolumeState = "low" | "medium" | "high";
+
+const volumeState = superstate<VolumeState>("volume")
+  .state("low", "up() -> medium")
+  .state("medium", ["up() -> high", "down() -> low"])
+  .state("high", "down() -> medium");
+```
+
+The first argument is the alias of the substate, that will allow you access the substate from the parent state:
+
+```ts
+const playing = player.in("playing");
+// Access the volume substate:
+if (playing) console.log("Is volume high? ", playing.sub.volume.in("high"));
+
+// Or using the dot notation from the parent:
+const high = player.in("playing.volume.high");
+console.log("Is volume high? ", high);
+```
+
+The second argument is the substate factory.
+
+If the substate has final states, you can connect them to the parent state through an event:
+
+```ts
+type OSState = "running" | "sleeping" | "terminated";
+
+const osState = superstate<OSState>("running")
+  .state("running", "terminate() -> terminated")
+  .state("sleeping", ["wake() -> running", "terminate() -> terminated"])
+  // Mark the terminated state as final
+  .final("terminated");
+
+type PCState = "on" | "off";
+
+const pcState = superstate<PCState>("pc")
+  .state("off", "power() -> on")
+  .state("on", ($) =>
+    $.on("power() -> off")
+      // Nest the OS state as `os` and connect the `terminated` state
+      // through `shutdown()` event to `off` state of the parent.
+      .sub("os", osState, "terminated -> shutdown() -> off")
+  );
+```
+
+The transitions consists of the final substate `terminated`, the event `shutdown()`, and the parent state `off`.
+
+So that after the substate OS enters the final `terminated` state, the parent PC will receive `shutdown()` and event and automatically transition to the `off` state.
+
+The final transitions can be a `string` or `string[]`, allowing you to connect multiple final states to the parent state.
+
+There are no limits on the number of substates you can define.
+
+→ [Read more about substates](#substates)
+
+#### `builder.final`
+
+The method works the same as the `state` method but marks the state as final.
+
+[See `state` docs](#builderstate) for more info.
 
 ### Factory
 
@@ -489,7 +738,7 @@ A factory is a statechart definition that allows creating instances using [the `
 
 The factory also makes the statechart information available for debugging and visualization tools.
 
-#### `host`
+#### `factory.host`
 
 The method creates a statechart instance that holds the current state and allows you to interact with it, by subscribing to state and event updates, sending events, and checking the current state, etc.
 
@@ -509,7 +758,7 @@ If the statechart or its substates have actions, the method argument will allow 
 TODO:
 ```
 
-#### `name`
+#### `factory.name`
 
 The property holds the statechart name.
 
@@ -521,27 +770,27 @@ TODO:
 
 TODO:
 
-#### `state`
+#### `instance.state`
 
 TODO:
 
-#### `finalized`
+#### `instance.finalized`
 
 TODO:
 
-#### `in`
+#### `instance.in`
 
 TODO:
 
-#### `on`
+#### `instance.on`
 
 TODO:
 
-#### `send`
+#### `instance.send`
 
 TODO:
 
-#### `off`
+#### `instance.off`
 
 TODO:
 
