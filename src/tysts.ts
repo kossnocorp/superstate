@@ -1252,14 +1252,281 @@ import { superstate } from "./index.mjs";
 
   //! API
 
+  type SwitchState = "off" | "on";
+
   //! superstate
 
   {
     // import { superstate } from "superstate";
 
+    // Define available states:
     type SwitchState = "off" | "on";
 
-    const state = superstate<SwitchState>("name");
+    // Initiate the "name" statechart creation:
+    const builder = superstate<SwitchState>("name");
+  }
+
+  //! builder.state
+
+  {
+    const state = superstate<SwitchState>("name")
+      .state("off", "turnOn() -> on")
+      .state("on", "turnOff() -> off");
+  }
+
+  //! builder.state(_, defs)
+
+  {
+    const state = superstate<SwitchState>("name")
+      .state("off", [
+        // Enter action: call `turnOffLights!` action upon entering the state
+        "-> turnOffLights!",
+        // Exit action: call `turnOnLights!` action upon exiting the state
+        "turnOnLights! ->",
+        // Transition: when `turnOn()` event is sent, transition to the on state
+        "turnOn() -> on",
+      ])
+      // Transitions with action: call `onOff!` action when `turnOff()` event
+      // is sent before transitioning to the `off` state.
+      .state("on", "turnOff() -> onOff! -> off");
+  }
+
+  //! builder.state(_, [defs], builder)
+
+  {
+    // Define the state properties using the state builder object:
+    const state = superstate<SwitchState>("switch")
+      .state("off", ($) =>
+        $.enter("turnOffLights!").exit("turnOnLights!").on("turnOn() -> on")
+      )
+      .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
+  }
+
+  {
+    // Use both string and builder function definitions:
+    const state = superstate<SwitchState>("switch")
+      .state("off", "-> turnOffLights!", ($) =>
+        $.exit("turnOnLights!").on("turnOn() -> on")
+      )
+      .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
+  }
+
+  {
+    type PlayerState = "stopped" | "playing" | "paused";
+
+    const playerState = superstate<PlayerState>("player")
+      .state("stopped", "play() -> playing")
+      .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+        // Define the substate using the builder function:
+        $.sub("volume", volumeState)
+      )
+      .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+    type VolumeState = "low" | "medium" | "high";
+
+    const volumeState = superstate<VolumeState>("volume")
+      .state("low", "up() -> medium")
+      .state("medium", ["up() -> high", "down() -> low"])
+      .state("high", "down() -> medium");
+  }
+
+  //! $.on
+
+  {
+    const state = superstate<SwitchState>("name")
+      .state("off", ($) => $.on("turnOn() -> on"))
+      .state("on", ($) => $.on("turnOff() -> off"));
+  }
+
+  {
+    const pcState = superstate<PCState>("pc")
+      .state("off", "press() -> on")
+      .state("on", ($) =>
+        // Chain the transitions:
+        $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
+      )
+      .state("sleep", ($) =>
+        // Pass all at once:
+        $.on(["press(long) -> off", "press() -> on", "restart() -> on"])
+      );
+  }
+
+  //! $.if
+
+  {
+    const pcState = superstate<PCState>("pc")
+      .state("off", "press() -> on")
+      .state("on", ($) =>
+        // When `press` event with `long` condition is sent, transition to the `off` state.
+        // Otherwise, transition to the `sleep` state.
+        $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+      )
+      .state("sleep", ($) =>
+        // When `press` event with `long` condition is sent, transition to the `off` state.
+        // Otherwise, transition to the `on` state.
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+      );
+  }
+
+  {
+    const pcState = superstate<PCState>("pc")
+      .state("off", "press() -> on")
+      // Mix with the `defs` argument:
+      .state("on", "press() -> sleep", ($) =>
+        // Single guarded transition:
+        $.if("press", "(long) -> off").on("restart() -> on")
+      )
+      .state("sleep", ($) =>
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+      );
+  }
+
+  //! $.enter
+
+  {
+    const state = superstate<SwitchState>("name")
+      .state("off", ($) => $.enter("turnOffLights!").on("turnOn() -> on"))
+      .state("on", ($) => $.enter("turnOnLights!").on("turnOff() -> off"));
+  }
+
+  //! $.exit
+
+  {
+    const state = superstate<SwitchState>("name")
+      .state("off", ($) => $.exit("turnOnLights!").on("turnOn() -> on"))
+      .state("on", ($) => $.exit("turnOffLights!").on("turnOff() -> off"));
+  }
+
+  //! $.sub
+
+  {
+    type PlayerState = "stopped" | "playing" | "paused";
+
+    const playerState = superstate<PlayerState>("player")
+      .state("stopped", "play() -> playing")
+      .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+        // Nest the volume statechart as `volume`
+        $.sub("volume", volumeState)
+      )
+      .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+    type VolumeState = "low" | "medium" | "high";
+
+    const volumeState = superstate<VolumeState>("volume")
+      .state("low", "up() -> medium")
+      .state("medium", ["up() -> high", "down() -> low"])
+      .state("high", "down() -> medium");
+
+    const player = playerState.host();
+
+    const playing = player.in("playing");
+    // Access the volume substate:
+    if (playing) console.log("Is volume high? ", playing.sub.volume.in("high"));
+
+    // Or using the dot notation from the parent:
+    const high = player.in("playing.volume.high");
+    console.log("Is volume high? ", high);
+  }
+
+  {
+    type OSState = "running" | "sleeping" | "terminated";
+
+    const osState = superstate<OSState>("running")
+      .state("running", "terminate() -> terminated")
+      .state("sleeping", ["wake() -> running", "terminate() -> terminated"])
+      // Mark the terminated state as final
+      .final("terminated");
+
+    type PCState = "on" | "off";
+
+    const pcState = superstate<PCState>("pc")
+      .state("off", "power() -> on")
+      .state("on", ($) =>
+        $.on("power() -> off")
+          // Nest the OS state as `os` and connect the `terminated` state
+          // through `shutdown()` event to `off` state of the parent.
+          .sub("os", osState, "terminated -> shutdown() -> off")
+      );
+  }
+
+  //! factory.host
+
+  {
+    type ButtonState = "off" | "on";
+
+    const buttonState = superstate<ButtonState>("button")
+      .state("off", "press() -> on")
+      .state("on", "press() -> off");
+  }
+
+  {
+    type ButtonState = "off" | "on";
+
+    const buttonState = superstate<ButtonState>("button")
+      .state("off", ["-> turnOff!", "press() -> on"])
+      .state("on", ["-> turnOn!", "press() -> off"]);
+
+    const button = buttonState.host({
+      on: {
+        "-> turnOn!": () => console.log("Turning on"),
+      },
+      off: {
+        "-> turnOff!": () => console.log("Turning off"),
+      },
+    });
+  }
+
+  {
+    type OSState = "running" | "sleeping" | "terminated";
+
+    const osState = superstate<OSState>("running")
+      .state("running", "terminate() -> terminateOS! -> terminated")
+      .state("sleeping", [
+        "wake() -> wakeOS! -> running",
+        "terminate() -> terminateOS! -> terminated",
+      ])
+      .final("terminated");
+
+    type PCState = "on" | "off";
+
+    const pcState = superstate<PCState>("pc")
+      .state("off", "power() -> powerOn! -> on")
+      .state("on", ($) =>
+        $.on("power() -> powerOff! -> off").sub("os", osState)
+      );
+
+    const pc = pcState.host({
+      on: {
+        // Bind the root's transition action:
+        "power() -> powerOff!": () => console.log("Turning off PC"),
+        os: {
+          // Bind the substate's transition actions:
+          running: {
+            "terminate() -> terminateOS!": () => console.log("Terminating OS"),
+          },
+          sleeping: {
+            "terminate() -> terminateOS!": () => console.log("Terminating OS"),
+            "wake() -> wakeOS!": () => console.log("Waking OS"),
+          },
+        },
+      },
+      off: {
+        "power() -> powerOn!": () => console.log("Turning on PC"),
+      },
+    });
+  }
+
+  //! factory.name
+
+  {
+    type ButtonState = "off" | "on";
+
+    const buttonState = superstate<ButtonState>("button")
+      .state("off", "press() -> on")
+      .state("on", "press() -> off");
+
+    buttonState.name;
+    //=> "button"
   }
 }
 
