@@ -566,7 +566,7 @@ const pcState = superstate<PCState>("pc")
   .state("off", "press() -> on")
   .state("on", ($) =>
     // Chain the transitions:
-    $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on"])
+    $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
   )
   .state("sleep", ($) =>
     // Pass all at once:
@@ -636,8 +636,8 @@ The method defines an enter state action. The action is called when the state is
 
 ```ts
 const state = superstate<SwitchState>("name")
-  .state("off", ($) => $.enter("-> turnOffLights!").on("turnOn() -> on"))
-  .state("on", ($) => $.enter("-> turnOnLights!").on("turnOff() -> off"));
+  .state("off", ($) => $.enter("turnOffLights!").on("turnOn() -> on"))
+  .state("on", ($) => $.enter("turnOnLights!").on("turnOff() -> off"));
 ```
 
 You can define any number of enter actions.
@@ -650,8 +650,8 @@ The method defines an exit state action. The action is called when the state is 
 
 ```ts
 const state = superstate<SwitchState>("name")
-  .state("off", ($) => $.exit("turnOnLights! ->").on("turnOn() -> on"))
-  .state("on", ($) => $.exit("turnOffLights! ->").on("turnOff() -> off"));
+  .state("off", ($) => $.exit("turnOnLights!").on("turnOn() -> on"))
+  .state("on", ($) => $.exit("turnOffLights!").on("turnOff() -> off"));
 ```
 
 ##### `$.sub`
@@ -743,27 +743,101 @@ The factory also makes the statechart information available for debugging and vi
 The method creates a statechart instance that holds the current state and allows you to interact with it, by subscribing to state and event updates, sending events, and checking the current state, etc.
 
 ```ts
-TODO:
+const player = playerState.host();
 ```
 
 Once all the states are defined, the type system will make the `host` method available. It creates an instance of the statechart.
 
 ```ts
-TODO:
+type ButtonState = "off" | "on";
+
+const buttonState = superstate<ButtonState>("button")
+  .state("off", "press() -> on")
+  .state("on", "press() -> off");
 ```
 
 If the statechart or its substates have actions, the method argument will allow to bind those actions to the code:
 
 ```ts
-TODO:
+type ButtonState = "off" | "on";
+
+const buttonState = superstate<ButtonState>("button")
+  .state("off", ["-> turnOff!", "press() -> on"])
+  .state("on", ["-> turnOn!", "press() -> off"]);
+
+const button = buttonState.host({
+  on: {
+    "-> turnOn!": () => console.log("Turning on"),
+  },
+  off: {
+    "-> turnOff!": () => console.log("Turning off"),
+  },
+});
 ```
+
+The action bindings, allows binding the enter, exit, and transition actions, including all the nested substate actions.
+
+```ts
+type OSState = "running" | "sleeping" | "terminated";
+
+const osState = superstate<OSState>("running")
+  .state("running", "terminate() -> terminateOS! -> terminated")
+  .state("sleeping", [
+    "wake() -> wakeOS! -> running",
+    "terminate() -> terminateOS! -> terminated",
+  ])
+  .final("terminated");
+
+type PCState = "on" | "off";
+
+const pcState = superstate<PCState>("pc")
+  .state("off", "power() -> powerOn! -> on")
+  .state("on", ($) => $.on("power() -> powerOff! -> off").sub("os", osState));
+
+const pc = pcState.host({
+  on: {
+    // Bind the root's transition action:
+    "power() -> powerOff!": () => console.log("Turning off PC"),
+    os: {
+      // Bind the substate's transition actions:
+      running: {
+        "terminate() -> terminateOS!": () => console.log("Terminating OS"),
+      },
+      sleeping: {
+        "terminate() -> terminateOS!": () => console.log("Terminating OS"),
+        "wake() -> wakeOS!": () => console.log("Waking OS"),
+      },
+    },
+  },
+  off: {
+    "power() -> powerOn!": () => console.log("Turning on PC"),
+  },
+});
+```
+
+The hierarchy of the statecharts is preserved, so you bind each state and substate actions individually.
+
+There are three types of available bindings:
+
+| Name              | Definition                   | Description                                                 |
+| ----------------- | ---------------------------- | ----------------------------------------------------------- |
+| Enter action      | `-> actionName!`             | The action that is called when the state is entered.        |
+| Exit action       | `actionName! ->`             | The action that is called when the state is exited.         |
+| Transition action | `eventName() -> actionName!` | The action that is called when the transition is triggered. |
 
 #### `factory.name`
 
 The property holds the statechart name.
 
 ```ts
-TODO:
+type ButtonState = "off" | "on";
+
+const buttonState = superstate<ButtonState>("button")
+  .state("off", "press() -> on")
+  .state("on", "press() -> off");
+
+buttonState.name;
+//=> "button"
 ```
 
 ### Instance
