@@ -407,9 +407,19 @@ const pc = pcState.host({
 
 ## API
 
+The main entry point of the Superstate API is the [`superstate`](#superstate) function that initiates a statechart creation. It returns [the builder object](#builder).
+
+Once initiated, the API has three modes of operation:
+
+- [Builder](#builder) - the object that allows defining state properties. Once all the states are defined, the builder turns into [the factory object](#factory).
+
+- [Factory](#factory) - the object that creates [statechart instances](#instance) and holds the statechart information.
+
+- [Instance](#intance) - the statechart instances that allow interacting with the statechart.
+
 ### `superstate`
 
-The main function that creates a new statechart.
+The function that initiated a new statechart creation.
 
 ```ts
 import { superstate } from "superstate";
@@ -423,9 +433,117 @@ It accepts the `name` string as an argument and the generic state type. The `nam
 
 It returns the builder object that allows you to define each state.
 
-**🚧 Work in progress, [follow for updates](https://twitter.com/kossnocorp)**
+### Builder
 
-TODO: Describe each method
+The `superstate` method returns a builder object that allows you to define each state one-by-one. The builder object has the following methods:
+
+TODO:
+
+#### `state`
+
+The method defines the state properties, such as transitions, actions and substates.
+
+```ts
+const state = superstate<SwitchState>("name")
+  .state("off", "turnOn() -> on")
+  .state("on", "turnOff() -> off");
+```
+
+It accepts 1-3 arguments. The first argument is the state name (`name`), followed by optional property string definitions (`defs`) and the optional state builder function (`builder`).
+
+#### State builder
+
+TODO:
+
+##### `on`
+
+TODO:
+
+##### `if`
+
+TODO:
+
+##### `enter`
+
+TODO:
+
+##### `exit`
+
+TODO:
+
+##### `sub`
+
+TODO:
+
+#### `final`
+
+The method works the same as the `state` method, but marks the state as final.
+
+[See `state` docs](#state) for more info.
+
+### Factory
+
+Once all the states are defined, the type system will transition [the builder object](#builder) into the statechart factory.
+
+A factory is a statechart definition that allows creating instances using [the `host` method](#host). It can be passed to [the `sub` method](#sub) as a substate.
+
+The factory also makes the statechart information available for debugging and visualization tools.
+
+#### `host`
+
+The method creates a statechart instance that holds the current state and allows you to interact with it, by subscribing to state and event updates, sending events, and checking the current state, etc.
+
+```ts
+TODO:
+```
+
+Once all the states are defined, the type system will make the `host` method available. It creates an instance of the statechart.
+
+```ts
+TODO:
+```
+
+If the statechart or its substates have actions, the method argument will allow to bind those actions to the code:
+
+```ts
+TODO:
+```
+
+#### `name`
+
+The property holds the statechart name.
+
+```ts
+TODO:
+```
+
+### Instance
+
+TODO:
+
+#### `state`
+
+TODO:
+
+#### `finalized`
+
+TODO:
+
+#### `in`
+
+TODO:
+
+#### `on`
+
+TODO:
+
+#### `send`
+
+TODO:
+
+#### `off`
+
+TODO:
 
 ## Acknowledgments
 
