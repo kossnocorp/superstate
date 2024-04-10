@@ -1124,7 +1124,7 @@ instance.send("play()");
 
 ## Acknowledgments
 
-Special thanks to [Eric Vicenti](https://github.com/ericvicenti) for donatime the npm package name `superstate` to this project.
+Special thanks to [Eric Vicenti](https://github.com/ericvicenti) for donating the npm package name `superstate` to this project.
 
 The project wouldn't exist without the [XState](https://stately.ai/docs/xstate) library, a great source of inspiration and knowledge.
 
