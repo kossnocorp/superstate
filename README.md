@@ -1062,7 +1062,51 @@ There are seven types of available update targets:
 
 #### `instance.send`
 
-TODO:
+The method sends an event to the statechart.
+
+```ts
+instance.on("playing", () => console.log("Playing!"));
+
+// Send "play()", trigger the listener and print "Playing!":
+instance.send("play()");
+```
+
+The first argument is the event name. Guarded events may receive the condition as the second argument or as part of the event name:
+
+```ts
+const instance = pcMachine.host();
+
+instance.on("press(long)", () => console.log("Pressed long"));
+
+// Won't trigger the listener:
+instance.send("press()");
+
+// Will trigger the listener and print "Pressed long":
+instance.send("press()", "long");
+
+// Same as above:
+instance.send("press(long)");
+```
+
+The method returns the next state if the event leads to a transition or `null` otherwise:
+
+```ts
+const nextState = instance.send("play()");
+
+// If the event triggered a transition, send will return the playing state:
+if (nextState) {
+  nextState.name satisfies "playing";
+}
+```
+
+To send the event to a substate, use the dot-notation path:
+
+```ts
+instance.on("playing.volume.up()", () => console.log("Volume up!"));
+
+// Will trigger the listener and print "Volume up!":
+instance.send("playing.volume.up()");
+```
 
 #### `instance.off`
 
