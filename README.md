@@ -454,6 +454,8 @@ const state = superstate<SwitchState>("name")
   .state("on", "turnOff() -> off");
 ```
 
+The first state in the builder chain is the initial state.
+
 It accepts 1-3 arguments. The first argument is the state name (`name`), followed by optional property string definitions (`defs`) and the optional state builder function (`builder`).
 
 ##### `builder.state(_, defs)`
@@ -842,23 +844,221 @@ buttonState.name;
 
 ### Instance
 
-TODO:
+By calling the [`host`](#factoryhost) method on [the factory object](#factory), you create a statechart instance.
+
+When creating an instance, it enters the initial state, the very first state defined in [the builder](#builder).
+
+The instances allows to interact with the statechart, by listening to state and transition updates, sending events, checking the current state, etc.
+
+Here are the available methods and properties:
+
+- [`state`](#instancestate) - the current state of the statechart.
+- [`finalized`](#instancefinalized) - is the statechart in the final state?
+- [`in`](#instancein) - checks if the statechart is in the given state.
+- [`on`](#instanceon) - subscribes to the state and transition updates.
+- [`send`](#instancesend) - sends an event to the statechart.
+- [`off`](#instanceoff) - unsubscribes all the statechart listeners.
 
 #### `instance.state`
 
-TODO:
+The property holds the current state of the statechart.
+
+```ts
+instance.send("play()");
+
+// Check the current state:
+instance.state.name;
+//=> "playing"
+```
 
 #### `instance.finalized`
 
-TODO:
+The property is `true` if the statechart has reached a final state.
+
+```ts
+instance.send("terminate()");
+
+// Check if the statechart is finalized:
+instance.finalized;
+//=> true
+```
 
 #### `instance.in`
 
-TODO:
+The method checks if the statechart is in the given state.
+
+```ts
+// Check if the statechart is playing:
+const playingState = instance.in("playing");
+
+if (playingState) {
+  playingState.name;
+  //=> "playing"
+}
+```
+
+The first argument is the state name `string` or `string[]`. It returns the state object if the statechart is in the given state or `null` otherwise.
+
+```ts
+// Check if the statechart is playing or paused:
+const state = instance.in(["playing", "paused"]);
+
+if (state) {
+  state.name;
+  //=> "playing" | "paused"
+}
+```
+
+It also accepts the dot-notation path to nested substates.
+
+```ts
+// Check if the statechart is in the `on` state and the `os` substate
+// is in the `sleeping` state:
+const state = instance.in("on.os.sleeping");
+
+if (state) {
+  state.name;
+  //=> "sleeping"
+}
+```
+
+When a few overlapping states are passed, the method returns the first state that matches the condition.
+
+```ts
+// "on.os.sleeping" is a substate of "on":
+const state = instance.in(["on", "on.os.sleeping"]);
+
+if (state) {
+  // Will always be "on":
+  state.name;
+  //=> "on"
+}
+```
+
+There are two types of available checks:
+
+| Name                 | Definition                     | Description                                             |
+| -------------------- | ------------------------------ | ------------------------------------------------------- |
+| State check          | `state`                        | Check if the statechart is in the given state.          |
+| Substate state check | `state.substate.substateState` | Check if the statechart is in the given substate state. |
 
 #### `instance.on`
 
-TODO:
+The method subscribes to the state and event updates.
+
+```ts
+// Trigger when the instances tranisitions into the "paused" state:
+instance.on("paused", (update) => {
+  console.log("The player is now paused");
+
+  update.type satisfies "state";
+  update.state.name satisfies "paused";
+});
+
+// Trigger when the "pause()" event is sent:
+instance.on("pause()", (update) => {
+  console.log("The player is paused");
+
+  update.type satisfies "event";
+  update.transition.event satisfies "pause";
+});
+```
+
+The first argument is a `string` or `string[]` of state and event names. The second is the listener that accepts the `update` object containing the state or event information.
+
+The method returns the `off` function that unsubscribes the listener:
+
+```ts
+const off = instance.on("paused", () => {});
+
+off();
+
+// Won't trigger the listener:
+instance.send("pause()");
+```
+
+Subscribe to multiple state and event updates at once:
+
+```ts
+// Trigger on "pause()" event and "paused" state:
+instance.on(["paused", "pause()"], (update) => {
+  if (update.type === "state") {
+    update.state.name satisfies "paused";
+  } else {
+    update.transition.event satisfies "pause";
+  }
+});
+```
+
+You can also subscribe to all statechart updates using the wildcard string `*` (note that it **won't subscribe to the substate updates**, use `**` for that):
+
+```ts
+// Subscribe to all statechart updates:
+instance.on("*", (update) => {
+  if (update.type === "state") {
+    update.state.name satisfies "stopped" | "playing" | "paused";
+  } else {
+    update.transition.event satisfies "play" | "pause" | "stop";
+  }
+});
+```
+
+When the statechart has substates, you can subscribe to the substate updates using the dot-notation path:
+
+```ts
+// Subscribe to substate updates:
+instance.on(["playing.volume.down()", "playing.volume.low"], (update) => {
+  if (update.type === "state") {
+    update.state.name satisfies "low";
+  } else {
+    update.transition.event satisfies "down";
+  }
+});
+```
+
+To subscribe to all substate updates, use the wildcard string (`state.substate.*`):
+
+```ts
+// Subscribe to all substate updates:
+instance.on("playing.volume.*", (update) => {
+  if (update.type === "state") {
+    update.state.name satisfies "low" | "medium" | "high";
+  } else {
+    update.transition.event satisfies "up" | "down";
+  }
+});
+```
+
+It's also possible to subscribe to all the updates including the root and substates using the double wildcard string (`**`):
+
+```ts
+// Subscribe to all updates:
+instance.on("**", (update) => {
+  if (update.type === "state") {
+    update.state.name satisfies
+      | "stopped"
+      | "playing"
+      | "paused"
+      | "low"
+      | "medium"
+      | "high";
+  } else {
+    update.transition.event satisfies "play" | "pause" | "stop" | "up" | "down";
+  }
+});
+```
+
+There are seven types of available update targets:
+
+| Name                  | Definition                       | Description                                                        |
+| --------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| Statechart updates    | `*`                              | Subscribe to all the statechart updates.                           |
+| State update          | `state`                          | Triggered when the statechart transitions into the state.          |
+| Event update          | `event()`                        | Triggered when the event is sent to the statechart.                |
+| Substate state update | `state.substate.substateState`   | Triggered when the statechart transitions into the substate state. |
+| Substate event update | `state.substate.substateEvent()` | Triggered when the event is sent to the substate.                  |
+| All substate updates  | `state.substate.*`               | Subscribe to all the substate updates.                             |
+| All updates           | `**`                             | Subscribe to all the statechart and substate updates.              |
 
 #### `instance.send`
 
@@ -866,7 +1066,17 @@ TODO:
 
 #### `instance.off`
 
-TODO:
+The method unsubscribes all statechart update listeners.
+
+```ts
+instance.on("playing", () => console.log("Playing!"));
+
+// Unsubscribe from all the updates:
+instance.off();
+
+// Won't trigger the listener:
+instance.send("play()");
+```
 
 ## Acknowledgments
 
