@@ -1,9 +1,24 @@
 {
   "name": "superstate",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.1",
   "description": "",
   "main": "index.js",
-  "type": "module",
+  "module": "index.mjs",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": {
+        "types": "./index.d.ts",
+        "browser": "./adapter/web/index.js",
+        "default": "./adapter/admin/index.js"
+      },
+      "import": {
+        "types": "./index.d.mts",
+        "browser": "./adapter/web/index.mjs",
+        "default": "./adapter/admin/index.mjs"
+      }
+    }
+  },
   "scripts": {
     "test": "vitest run",
     "size": "size-limit"
@@ -22,10 +37,17 @@
   },
   "homepage": "https://github.com/kossnocorp/superstate#readme",
   "devDependencies": {
+    "@babel/cli": "^7.24.1",
+    "@babel/core": "^7.24.4",
+    "@babel/plugin-transform-modules-commonjs": "^7.24.1",
+    "@babel/preset-env": "^7.24.4",
+    "@babel/preset-typescript": "^7.24.1",
     "@parcel/watcher": "^2.4.1",
     "@swc/core": "^1.4.12",
+    "babel-plugin-add-import-extension": "^1.6.0",
     "benny": "^3.7.1",
     "bytes-iec": "^3.1.1",
+    "glob": "^10.3.12",
     "picocolors": "^1.0.0",
     "typescript": "^5.4.3",
     "vitest": "^1.4.0",
