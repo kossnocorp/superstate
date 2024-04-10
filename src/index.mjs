@@ -111,7 +111,6 @@ export function superstate(name) {
     let currentState;
     setCurrentState(initialState);
 
-    // TODO: Rewrite with class
     return {
       get state() {
         return currentState;
@@ -196,7 +195,6 @@ export function superstate(name) {
     };
 
     function subcribeSubstates(subscription, mint) {
-      // TODO: Do not create double listeners for multiple targets
       const substateTargets = new Map();
       const push = (substate, target) => {
         let arr = substateTargets.get(substate);
