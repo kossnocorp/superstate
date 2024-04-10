@@ -525,7 +525,7 @@ import { superstate } from "./index.mjs";
   //! Double star should catch nested events
   mug.on("**", (update) => {
     if (update.type === "state") {
-      //! The nested events should no be propogated
+      //! The nested events should propogate
       if (update.state.name === "ready") return;
     }
   });
@@ -1068,33 +1068,35 @@ import { superstate } from "./index.mjs";
 
   //! Guards:
 
-  type PCState = "on" | "sleep" | "off";
-
-  const pcState = superstate<PCState>("pc")
-    .state("off", "press() -> on")
-    .state("on", ($) =>
-      $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
-    )
-    .state("sleep", ($) =>
-      $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
-    );
-
-  const pc = pcState.host();
-
   {
-    // Send the long press event:
-    const nextState = pc.send("press()", "long");
+    type PCState = "on" | "off" | "sleep";
 
-    // The next state is "off":
-    if (nextState) nextState.name satisfies "off";
-  }
+    const pcState = superstate<PCState>("pc")
+      .state("off", "press() -> on")
+      .state("on", ($) =>
+        $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+      )
+      .state("sleep", ($) =>
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+      );
 
-  {
-    // Send the press event:
-    const nextState = pc.send("press()");
+    const pc = pcState.host();
 
-    // The next state is "sleep" or "on":
-    if (nextState) nextState.name satisfies "sleep" | "on";
+    {
+      // Send the long press event:
+      const nextState = pc.send("press()", "long");
+
+      // The next state is "off":
+      if (nextState) nextState.name satisfies "off";
+    }
+
+    {
+      // Send the press event:
+      const nextState = pc.send("press()");
+
+      // The next state is "sleep" or "on":
+      if (nextState) nextState.name satisfies "sleep" | "on";
+    }
   }
 
   //! Actions
@@ -1177,6 +1179,8 @@ import { superstate } from "./index.mjs";
     }
   }
 
+  type PCState = "on" | "off";
+
   type OSState = "running" | "sleeping" | "terminated";
 
   const osState = superstate<OSState>("running")
@@ -1186,8 +1190,6 @@ import { superstate } from "./index.mjs";
     .final("terminated");
 
   {
-    type PCState = "on" | "off";
-
     const pcState = superstate<PCState>("pc")
       .state("off", "power() -> on")
       .state("on", ($) =>
@@ -1266,6 +1268,8 @@ import { superstate } from "./index.mjs";
     const builder = superstate<SwitchState>("name");
   }
 
+  //! Builder
+
   //! builder.state
 
   {
@@ -1339,6 +1343,8 @@ import { superstate } from "./index.mjs";
   }
 
   {
+    type PCState = "on" | "off" | "sleep";
+
     const pcState = superstate<PCState>("pc")
       .state("off", "press() -> on")
       .state("on", ($) =>
@@ -1354,6 +1360,8 @@ import { superstate } from "./index.mjs";
   //! $.if
 
   {
+    type PCState = "on" | "off" | "sleep";
+
     const pcState = superstate<PCState>("pc")
       .state("off", "press() -> on")
       .state("on", ($) =>
@@ -1369,6 +1377,8 @@ import { superstate } from "./index.mjs";
   }
 
   {
+    type PCState = "on" | "off" | "sleep";
+
     const pcState = superstate<PCState>("pc")
       .state("off", "press() -> on")
       // Mix with the `defs` argument:
@@ -1449,19 +1459,17 @@ import { superstate } from "./index.mjs";
       );
   }
 
+  //! Factory
+
   //! factory.host
 
   {
-    type ButtonState = "off" | "on";
-
     const buttonState = superstate<ButtonState>("button")
       .state("off", "press() -> on")
       .state("on", "press() -> off");
   }
 
   {
-    type ButtonState = "off" | "on";
-
     const buttonState = superstate<ButtonState>("button")
       .state("off", ["-> turnOff!", "press() -> on"])
       .state("on", ["-> turnOn!", "press() -> off"]);
@@ -1519,14 +1527,192 @@ import { superstate } from "./index.mjs";
   //! factory.name
 
   {
-    type ButtonState = "off" | "on";
-
     const buttonState = superstate<ButtonState>("button")
       .state("off", "press() -> on")
       .state("on", "press() -> off");
 
     buttonState.name;
     //=> "button"
+  }
+
+  //! Instance
+
+  {
+    const playerState = superstate<PlayerState>("player")
+      .state("stopped", "play() -> playing")
+      .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+        // Define the substate using the builder function:
+        $.sub("volume", volumeState)
+      )
+      .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+    const volumeState = superstate<VolumeState>("volume")
+      .state("low", "up() -> medium")
+      .state("medium", ["up() -> high", "down() -> low"])
+      .state("high", "down() -> medium");
+
+    const osState = superstate<OSState>("running")
+      .state("running", "terminate() -> terminated")
+      .state("sleeping", ["wake() -> running", "terminate() -> terminated"])
+      .final("terminated");
+
+    const pcState = superstate<PCState>("pc")
+      .state("off", "power() -> on")
+      .state("on", ($) =>
+        $.on("power() -> off").sub(
+          "os",
+          osState,
+          "terminated -> shutdown() -> off"
+        )
+      );
+
+    //! instance.state
+
+    {
+      const instance = playerState.host();
+
+      instance.send("play()");
+
+      // Check the current state:
+      instance.state.name;
+      //=> "playing"
+    }
+
+    //! instance.finalized
+
+    {
+      const instance = osState.host();
+
+      instance.send("terminate()");
+
+      // Check if the statechart is finalized:
+      instance.finalized;
+      //=> true
+    }
+
+    //! instance.finalized
+
+    {
+      const instance = playerState.host();
+
+      {
+        // Check if the statechart is playing:
+        const playingState = instance.in("playing");
+
+        if (playingState) {
+          playingState.name;
+          //=> "playing"
+        }
+      }
+
+      {
+        // Check if the statechart is playing or paused:
+        const state = instance.in(["playing", "paused"]);
+
+        if (state) {
+          state.name;
+          //=> "playing" | "paused"
+        }
+      }
+
+      {
+        const instance = pcState.host();
+
+        // Check if the statechart is in the `on` state and the `os` substate
+        // is in the `sleeping` state:
+        const state = instance.in("on.os.sleeping");
+
+        if (state) {
+          state.name;
+          //=> "sleeping"
+        }
+      }
+    }
+
+    //! instance.on
+
+    {
+      const instance = playerState.host();
+
+      // Trigger when the instances tranisitions into the "paused" state:
+      instance.on("paused", (update) => {
+        console.log("The player is now paused");
+
+        update.type satisfies "state";
+        update.state.name satisfies "paused";
+      });
+
+      // Trigger when the "pause()" event is sent:
+      instance.on("pause()", (update) => {
+        console.log("The player is paused");
+
+        update.type satisfies "event";
+        update.transition.event satisfies "pause";
+      });
+
+      const off = instance.on("paused", () => {});
+
+      off();
+
+      // Won't trigger the listener:
+      instance.send("pause()");
+
+      // Trigger on "pause()" event and "paused" state:
+      instance.on(["paused", "pause()"], (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "paused";
+        } else {
+          update.transition.event satisfies "pause";
+        }
+      });
+
+      // Subscribe to all updates:
+      instance.on("*", (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "stopped" | "playing" | "paused";
+        } else {
+          update.transition.event satisfies "play" | "pause" | "stop";
+        }
+      });
+
+      // Subscribe to substate updates:
+      instance.on(["playing.volume.down()", "playing.volume.low"], (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "low";
+        } else {
+          update.transition.event satisfies "down";
+        }
+      });
+
+      // Subscribe to all substate updates:
+      instance.on("playing.volume.*", (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "low" | "medium" | "high";
+        } else {
+          update.transition.event satisfies "up" | "down";
+        }
+      });
+
+      // Subscribe to all updates:
+      instance.on("**", (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies
+            | "stopped"
+            | "playing"
+            | "paused"
+            | "low"
+            | "medium"
+            | "high";
+        } else {
+          update.transition.event satisfies
+            | "play"
+            | "pause"
+            | "stop"
+            | "up"
+            | "down";
+        }
+      });
+    }
   }
 }
 

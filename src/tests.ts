@@ -1697,6 +1697,16 @@ describe("Superstate", () => {
           const mug = mugState.host();
           expect(mug.in("full.tea.water")).toBe(null);
         });
+
+        it("returns the first state if the states are overlapping", () => {
+          const mug = createMugWithTeaState().host();
+          mug.send("pour()");
+          expect(mug.in("full")).not.toBeNull();
+          expect(mug.in("full.tea.water")).not.toBeNull();
+
+          expect(mug.in(["full", "full.tea.water"])?.name).toBe("full");
+          expect(mug.in(["full.tea.water", "full"])?.name).toBe("water");
+        });
       });
     });
 
