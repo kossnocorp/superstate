@@ -1713,6 +1713,73 @@ import { superstate } from "./index.mjs";
         }
       });
     }
+
+    //! instance.send
+    {
+      const instance = playerState.host();
+
+      instance.on("playing", () => console.log("Playing!"));
+
+      // Send "play()", trigger the listener and print "Playing!":
+      instance.send("play()");
+    }
+
+    //! instance.off
+    {
+      const instance = playerState.host();
+
+      instance.on("playing", () => console.log("Playing!"));
+
+      // Unsubscribe from all the updates:
+      instance.off();
+
+      // Won't trigger the listener:
+      instance.send("play()");
+
+      {
+        type PCState = "on" | "sleep" | "off";
+
+        const pcMachine = superstate<PCState>("pc")
+          .state("off", "press() -> on")
+          .state("sleep", ($) =>
+            $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+          )
+          .state("on", ($) =>
+            $.on("press(long) -> off")
+              .on("press() -> sleep")
+              .on("restart() -> on")
+          );
+
+        const instance = pcMachine.host();
+
+        instance.on("press(long)", () => console.log("Pressed long"));
+
+        // Won't trigger the listener:
+        instance.send("press()");
+
+        // Will trigger the listener and print "Pressed long":
+        instance.send("press()", "long");
+
+        // Same as above:
+        instance.send("press(long)");
+      }
+
+      {
+        const nextState = instance.send("play()");
+
+        // If the event triggered a transition, send will return the playing state:
+        if (nextState) {
+          nextState.name satisfies "playing";
+        }
+      }
+
+      {
+        instance.on("playing.volume.up()", () => console.log("Volume up!"));
+
+        // Will trigger the listener and print "Volume up!":
+        instance.send("playing.volume.up()");
+      }
+    }
   }
 }
 
