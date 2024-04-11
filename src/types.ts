@@ -26,6 +26,9 @@ export namespace Superstate {
       /** The statechart name. Used for visualization and debugging. */
       name: string;
 
+      /** The available states. */
+      states: State[];
+
       host(
         ...args: Superstate.Actions.BindingArgs<State>
       ): MachineInstance<

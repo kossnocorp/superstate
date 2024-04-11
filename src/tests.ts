@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { superstate } from "./index.mjs";
+import { superstate } from ".";
 
 describe("Superstate", () => {
   // MARK: superstate
@@ -664,6 +664,32 @@ describe("Superstate", () => {
   });
 
   describe("factory", () => {
+    // MARK: name
+    describe("name", () => {
+      it("holds the statechart name", () => {
+        const playerState = createPlayerState();
+        expect(playerState.name).toBe("player");
+      });
+    });
+
+    // MARK: name
+    describe("states", () => {
+      it("holds the availble states", () => {
+        const playerState = createPlayerState();
+        expect(playerState.states).toEqual([
+          expect.objectContaining({
+            name: "stopped",
+          }),
+          expect.objectContaining({
+            name: "playing",
+          }),
+          expect.objectContaining({
+            name: "paused",
+          }),
+        ]);
+      });
+    });
+
     // MARK: host
     describe("host", () => {
       it("returns statatechart instance", () => {
