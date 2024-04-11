@@ -12,32 +12,14 @@ export namespace Superstate {
       FromStateName extends MachineStateName = MachineStateName
     > = Transitions.Transition<
       EventName,
-      MachineStateName,
       FromStateName,
       any,
       string | null,
       Transitions.Action | null
     >;
 
-    export type AnyMachineFactory<MachineState extends AnyState = any> =
-      MachineFactory<MachineState>;
-
-    export interface MachineFactory<State extends AnyState> {
-      /** The statechart name. Used for visualization and debugging. */
-      name: string;
-
-      /** The available states. */
-      states: State[];
-
-      host(
-        ...args: Superstate.Actions.BindingArgs<State>
-      ): MachineInstance<
-        State,
-        DeepFlatState<State>,
-        DeepFlatEvent<State, State>,
-        never
-      >;
-    }
+    export type AnyMachineFactory<MachineState extends States.AnyState = any> =
+      Factories.MachineFactory<MachineState>;
 
     export interface Off {
       (): void;
@@ -139,8 +121,8 @@ export namespace Superstate {
     }
 
     export type MatchNextState<
-      MachineState extends AnyState, // TODO: Cut it
-      AllState extends AnyState, // TODO: Cut it
+      MachineState extends States.AnyState, // TODO: Cut it
+      AllState extends States.AnyState, // TODO: Cut it
       EventName,
       EventCondition extends string | null
     > = MachineState extends { transitions: Array<infer Event> }
@@ -160,7 +142,7 @@ export namespace Superstate {
       wildcard: WildcardConstraint;
       condition: string | null;
       final: boolean;
-      next: AnyState;
+      next: States.AnyState;
       event: AnyTransition;
       nested: boolean;
     }
@@ -168,13 +150,13 @@ export namespace Superstate {
     export interface FlatStateConstraint {
       key: string;
       wildcard: WildcardConstraint;
-      state: AnyState;
+      state: States.AnyState;
       nested: boolean;
     }
 
     export type DeepFlatEvent<
-      MachineState extends AnyState,
-      AllState extends AnyState,
+      MachineState extends States.AnyState,
+      AllState extends States.AnyState,
       Prefix extends string | "" = ""
     > =
       // First we get the root level events
@@ -208,7 +190,7 @@ export namespace Superstate {
             ? {
                 [SubstateName in keyof Substates]: Substates[SubstateName] extends {
                   sub: infer AsSubstate;
-                  state: infer SubstateState extends AnyState;
+                  state: infer SubstateState extends States.AnyState;
                 }
                   ? SubstateName extends string
                     ?
@@ -251,7 +233,7 @@ export namespace Superstate {
           : never);
 
     export type DeepFlatState<
-      MachineState extends AnyState,
+      MachineState extends States.AnyState,
       Prefix extends string | "" = ""
     > =
       // First we get the root level states
@@ -276,7 +258,7 @@ export namespace Superstate {
             keyof Substates extends string
             ? {
                 [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-                  state: infer SubstateState extends AnyState;
+                  state: infer SubstateState extends States.AnyState;
                 }
                   ? SubstateName extends string
                     ? DeepFlatState<
@@ -289,18 +271,11 @@ export namespace Superstate {
             : never
           : never);
 
-    export type AnyMachineInstance<
-      MachineState extends AnyState = AnyState,
-      FlatState extends FlatStateConstraint = any,
-      FlatEvent extends FlatEventConstraint = any,
-      AsSubstate extends Substate<any, any, any> = Substate<any, any, any>
-    > = MachineInstance<MachineState, FlatState, FlatEvent, AsSubstate>;
-
     export interface MachineInstance<
-      MachineState extends AnyState, // TODO: Cut it
+      MachineState,
       FlatState extends FlatStateConstraint,
       FlatEvent extends FlatEventConstraint,
-      AsSubstate extends Substate<any, any, any>
+      AsSubstate
     > {
       readonly sub: AsSubstate;
 
@@ -385,29 +360,13 @@ export namespace Superstate {
       off(): void;
     }
 
-    export interface State<
-      MachineStateName extends string,
-      StateName extends MachineStateName,
-      Action,
-      Transition,
-      Substates,
-      Final extends boolean
-    > {
+    export interface State<StateName, Action, Transition, Substates, Final> {
       name: StateName;
       actions: Action[];
       transitions: Transition[];
       sub: Substates;
       final: Final;
     }
-
-    export type AnyState<
-      MachineStateName extends string = string,
-      StateName extends MachineStateName = MachineStateName,
-      Action = any,
-      Event = any,
-      Substates = any,
-      Final extends boolean = boolean
-    > = State<MachineStateName, StateName, Action, Event, Substates, Final>;
 
     export type EventDef<
       MachineStateName extends string,
@@ -431,8 +390,8 @@ export namespace Superstate {
       MachineStateName extends string,
       StateName extends MachineStateName,
       StateAction extends Superstate.Actions.Action,
-      StateDef_ extends Superstate.State.Def<MachineStateName>,
-      Substate extends QQ.Substate<any, any, any>,
+      StateDef_ extends Superstate.States.Def<MachineStateName>,
+      Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean
     > = {
@@ -458,7 +417,7 @@ export namespace Superstate {
         name: Name;
         factory: infer Factory;
       }
-        ? Factory extends MachineFactory<infer SubstateState>
+        ? Factory extends Factories.MachineFactory<infer SubstateState>
           ? MachineInstance<
               SubstateState,
               DeepFlatState<SubstateState>,
@@ -480,11 +439,7 @@ export namespace Superstate {
       condition: null;
     }
 
-    export interface Substate<
-      Name extends string,
-      Factory extends AnyMachineFactory,
-      Transition extends SubstateFinalTransition<any, any, any>
-    > {
+    export interface Substate<Name, Factory, Transition> {
       name: Name;
       factory: Factory;
       transitions: Transition[];
@@ -658,7 +613,7 @@ export namespace Superstate {
           // Get all substates
           | (Substate extends {
               sub: { name: infer SubstateName };
-              state: infer SubstateState extends QQ.AnyState;
+              state: infer SubstateState extends States.AnyState;
             }
               ? true extends IsActionable<SubstateState>
                 ? {
@@ -712,15 +667,19 @@ export namespace Superstate {
    * by events.
    */
   export namespace Transitions {
+    /**
+     * The transition type placeholder. It's used where the shape of
+     * a transition isn't important or known.
+     */
+    export type AnyTransition = Transition<any, any, any, any, any>;
+
     export interface Transition<
-      EventName extends string,
-      MachineStateName extends string,
-      FromStateName extends MachineStateName,
-      ToStateName extends MachineStateName,
-      Condition extends string | null,
-      Action extends Superstate.Transitions.Action | null
+      EventName,
+      FromStateName,
+      ToStateName,
+      Condition,
+      Action
     > {
-      // TODO: Rename to event?
       event: EventName;
       condition: Condition;
       from: FromStateName;
@@ -822,7 +781,6 @@ export namespace Superstate {
     >
       ? Transition<
           EventName,
-          MachineStateName,
           FromStateName,
           ToStateName,
           Condition extends "" ? null : Condition,
@@ -836,7 +794,6 @@ export namespace Superstate {
         >
       ? Transition<
           EventName,
-          MachineStateName,
           FromStateName,
           ToStateName,
           Condition extends "" ? null : Condition,
@@ -845,13 +802,19 @@ export namespace Superstate {
       : never;
   }
 
-  export namespace State {
+  export namespace States {
     /**
      * The state def.
      */
     export type Def<MachineStateName extends string> =
       | Transitions.Def<MachineStateName>
       | Actions.Def;
+
+    /**
+     * The state type placeholder. It's used where the shape of a state isn't
+     * important or known.
+     */
+    export type AnyState = QQ.State<any, any, any, any, any>;
   }
 
   export namespace Builder {
@@ -862,7 +825,7 @@ export namespace Superstate {
     export interface Head<
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
-      MachineState extends QQ.AnyState<MachineStateName> = never
+      MachineState extends States.AnyState = never
     > {
       state: StateFn<
         true,
@@ -876,7 +839,7 @@ export namespace Superstate {
     export interface Tail<
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
-      MachineState extends QQ.AnyState<MachineStateName> = never
+      MachineState extends States.AnyState = never
     > {
       state: StateFn<
         false,
@@ -899,7 +862,7 @@ export namespace Superstate {
       MachineStateName extends string,
       StateAction extends Actions.Action = never,
       StateTransitionDef extends Transitions.Def<MachineStateName> = never,
-      Substate extends QQ.Substate<any, any, any> = never
+      Substate extends Substates.AnySubstate = never
     > {
       enter<ActionNameDef extends Actions.NameDef>(
         name: ActionNameDef
@@ -944,8 +907,8 @@ export namespace Superstate {
 
       sub<
         SubstateName extends string,
-        SubstateFactory extends QQ.AnyMachineFactory,
-        TrasitionDef extends SubstateFactory extends QQ.AnyMachineFactory<
+        SubstateFactory extends Factories.AnyFactory,
+        TrasitionDef extends SubstateFactory extends Factories.MachineFactory<
           infer State
         >
           ? State extends { name: infer FinalName extends string; final: true }
@@ -973,7 +936,7 @@ export namespace Superstate {
       MachineStateName extends string,
       StateAction extends Actions.Action,
       StateTransitionDef extends Transitions.Def<MachineStateName> = never,
-      Substate extends QQ.Substate<any, any, any> = never
+      Substate extends Substates.AnySubstate = never
     > {
       ($: StateFnGeneratorBuilder<MachineStateName>): StateFnGeneratorBuilder<
         MachineStateName,
@@ -986,15 +949,15 @@ export namespace Superstate {
     export type BuilderChainResult<
       MachineStateName extends string,
       ChainStateName extends MachineStateName,
-      MachineState extends QQ.AnyState<MachineStateName>,
+      MachineState extends States.AnyState,
       StateName extends ChainStateName,
       StateAction extends Actions.Action,
-      StateDef_ extends State.Def<MachineStateName>,
-      Substate extends QQ.Substate<any, any, any>,
+      StateDef_ extends States.Def<MachineStateName>,
+      Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean
     > = Exclude<ChainStateName, StateName> extends never
-      ? QQ.MachineFactory<
+      ? Factories.MachineFactory<
           | MachineState
           | QQ.BuilderChainState<
               MachineStateName,
@@ -1026,7 +989,7 @@ export namespace Superstate {
       Final extends boolean,
       MachineStateName extends string,
       ChainStateName extends MachineStateName = MachineStateName,
-      MachineState extends QQ.AnyState<MachineStateName> = never
+      MachineState extends States.AnyState = never
     > {
       <StateName extends ChainStateName>(name: StateName): BuilderChainResult<
         MachineStateName,
@@ -1044,7 +1007,7 @@ export namespace Superstate {
         StateName extends ChainStateName,
         StateAction extends Actions.Action,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
-        Substate extends QQ.Substate<any, any, any>
+        Substate extends Substates.AnySubstate
       >(
         name: StateName,
         generator: StateFnGenerator<
@@ -1067,7 +1030,7 @@ export namespace Superstate {
 
       <
         StateName extends ChainStateName,
-        StateDef_ extends State.Def<MachineStateName>
+        StateDef_ extends States.Def<MachineStateName>
       >(
         name: StateName,
         transitions: StateDef_ | StateDef_[]
@@ -1086,9 +1049,9 @@ export namespace Superstate {
       <
         StateName extends ChainStateName,
         StateAction extends Actions.Action,
-        StateDef extends State.Def<MachineStateName>,
+        StateDef extends States.Def<MachineStateName>,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
-        Substate extends QQ.Substate<any, any, any>
+        Substate extends Substates.AnySubstate
       >(
         name: StateName,
         transitions: StateDef | StateDef[],
@@ -1110,5 +1073,42 @@ export namespace Superstate {
         Final
       >;
     }
+  }
+
+  /**
+   * The factories namespace. It contains all the types related to factories,
+   * the entity that creates statechart instances.
+   */
+  export namespace Factories {
+    /**
+     * The factory type placeholder. It's used where the shape of
+     * a factory isn't important or known.
+     */
+    export type AnyFactory = MachineFactory<any>;
+
+    export interface MachineFactory<State extends States.AnyState> {
+      /** The statechart name. Used for visualization and debugging. */
+      name: string;
+
+      /** The available states. */
+      states: State[];
+
+      host(
+        ...args: Superstate.Actions.BindingArgs<State>
+      ): QQ.MachineInstance<
+        State,
+        QQ.DeepFlatState<State>,
+        QQ.DeepFlatEvent<State, State>,
+        never
+      >;
+    }
+  }
+
+  /**
+   * The substates namespace. It contains all the types related to substates,
+   * the entity that represents a nested statechart relation to the parent.
+   */
+  export namespace Substates {
+    export type AnySubstate = QQ.Substate<any, any, any>;
   }
 }
