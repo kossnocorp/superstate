@@ -360,11 +360,11 @@ export namespace Superstate {
       off(): void;
     }
 
-    export interface State<StateName, Action, Transition, Substates, Final> {
+    export interface State<StateName, Action, Transition, Substates_, Final> {
       name: StateName;
       actions: Action[];
       transitions: Transition[];
-      sub: Substates;
+      sub: Substates_;
       final: Final;
     }
 
@@ -805,6 +805,14 @@ export namespace Superstate {
     }
       ? State & { sub: Substates.InstanceSubstatesMap<Substate> }
       : never;
+
+    export type BuilderState = QQ.State<
+      any,
+      any,
+      any,
+      Substates.BuilderSubstatesMap<any>,
+      any
+    >;
   }
 
   export namespace Builder {
