@@ -1,14 +1,105 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`QMermaid > generate > Machine > generates a mermaid diagram from a machine 1`] = `
+exports[`Mermaid > toMermaid > generates a simple mermaid diagram from a statechart 1`] = `
 "%% Generated with Superstate
 stateDiagram-v2
 	state "sound" as sound {
 		[*] --> sound.stopped
-		sound.playing --> sound.paused: sound.pause
-		sound.playing --> sound.stopped: sound.stop
-		sound.paused --> sound.playing: sound.play
-		sound.paused --> sound.stopped: sound.stop
-		sound.stopped --> sound.playing: sound.play
+		sound.stopped --> sound.playing : play
+		sound.playing --> sound.paused : pause
+		sound.playing --> sound.stopped : stop
+		sound.paused --> sound.playing : play
+		sound.paused --> sound.stopped : stop
+		state "stopped" as sound.stopped
+		state "playing" as sound.playing
+		state "paused" as sound.paused
+	}"
+`;
+
+exports[`Mermaid > toMermaid > includes the state actions on the diagram 1`] = `
+"%% Generated with Superstate
+stateDiagram-v2
+	state "switch" as switch {
+		[*] --> switch.off
+		switch.off --> switch.on : toggle
+		switch.on --> switch.off : toggle
+		state "off\\nentry / turnOff\\nexit / turnOn" as switch.off
+		state "on" as switch.on
+	}"
+`;
+
+exports[`Mermaid > toMermaid > includes the transition actions and conditions on the diagram 1`] = `
+"%% Generated with Superstate
+stateDiagram-v2
+	state "pc" as pc {
+		[*] --> pc.off
+		pc.off --> pc.on : press\\ndo / on
+		pc.sleep --> pc.off : press\\nif [long]\\ndo / off
+		pc.sleep --> pc.on : press\\ndo / on
+		pc.sleep --> pc.on : restart\\ndo / restart
+		pc.on --> pc.off : press\\nif [long]\\ndo / off
+		pc.on --> pc.sleep : press\\ndo / sleep
+		pc.on --> pc.on : restart\\ndo / restart
+		state "off" as pc.off
+		state "sleep" as pc.sleep
+		state "on" as pc.on
+	}"
+`;
+
+exports[`Mermaid > toMermaid > renders parallel states 1`] = `
+"%% Generated with Superstate
+stateDiagram-v2
+	state "meatPie" as meatPie {
+		[*] --> meatPie.packed
+		meatPie.packed --> meatPie.unpacked : unpack
+		meatPie.unpacked.expire.expired --> meatPie.wasted : throwAway
+		meatPie.unpacked.heat.thawed --> meatPie.cooked : cook
+		meatPie.cooked.finished --> meatPie.finished : finish
+		state "packed" as meatPie.packed
+		state "unpacked" as meatPie.unpacked {
+			state "expire" as meatPie.unpacked.expire {
+				[*] --> meatPie.unpacked.expire.fresh
+				meatPie.unpacked.expire.fresh --> meatPie.unpacked.expire.expired : expire
+				state "fresh" as meatPie.unpacked.expire.fresh
+				state "expired" as meatPie.unpacked.expire.expired
+			}
+			--
+			state "heat" as meatPie.unpacked.heat {
+				[*] --> meatPie.unpacked.heat.frozen
+				meatPie.unpacked.heat.frozen --> meatPie.unpacked.heat.thawed : thaw
+				state "frozen" as meatPie.unpacked.heat.frozen
+				state "thawed" as meatPie.unpacked.heat.thawed
+			}
+		}
+		state "cooked" as meatPie.cooked {
+			[*] --> meatPie.cooked.siting
+			meatPie.cooked.siting --> meatPie.cooked.finished : eat
+			state "siting" as meatPie.cooked.siting
+			state "finished" as meatPie.cooked.finished
+		}
+		state "finished" as meatPie.finished
+		state "wasted" as meatPie.wasted
+	}"
+`;
+
+exports[`Mermaid > toMermaid > renders substates 1`] = `
+"%% Generated with Superstate
+stateDiagram-v2
+	state "pc" as pc {
+		[*] --> pc.off
+		pc.off --> pc.on : pushPower\\ndo / turnOn
+		pc.on --> pc.off : pushPower\\ndo / turnOff
+		pc.on.terminated --> pc.off : shutdown
+		state "off" as pc.off
+		state "on\\nentry / boot" as pc.on {
+			[*] --> pc.on.running
+			pc.on.running --> pc.on.terminated : terminate
+			pc.on.running --> pc.on.sleeping : sleep\\ndo / sleep
+			pc.on.sleeping --> pc.on.running : wake\\ndo / wake
+			pc.on.sleeping --> pc.on.terminated : terminate
+			state "running" as pc.on.running
+			state "sleeping" as pc.on.sleeping
+			state "terminated\\nentry / terminate" as pc.on.terminated
+		}
 	}"
 `;
