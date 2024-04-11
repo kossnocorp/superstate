@@ -27,7 +27,6 @@ build: prepare-build
 	@env BABEL_ENV=esm npx babel src --config-file ./babel.config.lib.json --source-root src --out-dir lib --extensions .mjs,.ts --out-file-extension .mjs --quiet
 	@env BABEL_ENV=cjs npx babel src --config-file ./babel.config.lib.json --source-root src --out-dir lib --extensions .mjs,.ts --out-file-extension .js --quiet
 	@node copy.mjs
-	@rm -rf lib/mermaid
 	@rm -rf lib/types.*js
 	@make build-mts
 	@rm lib/types.d.mts

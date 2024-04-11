@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "allowJs": true
   },
-  "exclude": ["src/mermaid/index.ts"]
+  "exclude": []
 }

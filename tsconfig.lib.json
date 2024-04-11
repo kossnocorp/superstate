@@ -9,5 +9,5 @@
     "emitDeclarationOnly": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["**/tysts.ts", "**/tests.ts", "src/mermaid"]
+  "exclude": ["**/tysts.ts", "**/tests.ts"]
 }
