@@ -1011,6 +1011,69 @@ import { superstate } from ".";
   });
 }
 
+// MARK: Factory
+{
+  type OSState = "running" | "sleeping" | "terminated";
+
+  const osState = superstate<OSState>("running")
+    .state("running", [
+      "terminate() -> terminated",
+      "sleep() -> sleep! -> sleeping",
+    ])
+    .state("sleeping", [
+      "wake() -> wake! -> running",
+      "terminate() -> terminated",
+    ])
+    .final("terminated", "-> terminate!");
+
+  type PCState = "on" | "off";
+
+  const pcState = superstate<PCState>("pc")
+    .state("off", "power() -> turnOn! -> on")
+    .state("on", ($) =>
+      $.enter("blip!")
+        .on("power() -> turnOff! -> off")
+        .sub("os", osState, "terminated -> shutdown() -> off")
+    );
+
+  //! The name must be a string
+  pcState.name satisfies string;
+
+  //! The properties must be correct
+  pcState.states.forEach((state) => {
+    state.name satisfies PCState;
+    state.final satisfies false;
+    state.initial satisfies boolean;
+
+    //! The actions must be of the correct type
+    state.actions.forEach((action) => {
+      action.name satisfies "blip";
+    });
+
+    if (state.name === "on") {
+      //! The substate must be a substate
+      state.sub.os.name satisfies "os";
+      const os = state.sub.os.factory.host({
+        running: {
+          "sleep() -> sleep!": () => {},
+        },
+        sleeping: {
+          "wake() -> wake!": () => {},
+        },
+        terminated: {
+          "-> terminate!": () => {},
+        },
+      });
+      os.state.name satisfies OSState;
+    }
+
+    //! The transitions must be of the correct type
+    state.transitions.forEach((transition) => {
+      transition.event satisfies "power";
+    });
+  });
+}
+
 // MARK: Documentation examples:
 {
   //! README.md:

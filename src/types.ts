@@ -407,25 +407,9 @@ export namespace Superstate {
         StateName,
         StateDef_ extends EventDef<any, any, any> ? StateDef_ : never
       >[];
-      sub: SubstateMap<Substate>;
+      sub: Substates.BuilderSubstatesMap<Substate>;
       initial: Initial;
       final: Final;
-    };
-
-    export type SubstateMap<_Substate extends Substate<any, any, any>> = {
-      [Name in _Substate["name"]]: _Substate extends {
-        name: Name;
-        factory: infer Factory;
-      }
-        ? Factory extends Factories.MachineFactory<infer SubstateState>
-          ? MachineInstance<
-              SubstateState,
-              DeepFlatState<SubstateState>,
-              DeepFlatEvent<SubstateState, SubstateState>,
-              _Substate
-            >
-          : never
-        : never;
     };
 
     export interface SubstateFinalTransition<
@@ -815,6 +799,12 @@ export namespace Superstate {
      * important or known.
      */
     export type AnyState = QQ.State<any, any, any, any, any>;
+
+    export type BuilderStateToInstance<State extends AnyState> = State extends {
+      sub: Substates.BuilderSubstatesMap<infer Substate>;
+    }
+      ? State & { sub: Substates.InstanceSubstatesMap<Substate> }
+      : never;
   }
 
   export namespace Builder {
@@ -958,16 +948,18 @@ export namespace Superstate {
       Final extends boolean
     > = Exclude<ChainStateName, StateName> extends never
       ? Factories.MachineFactory<
-          | MachineState
-          | QQ.BuilderChainState<
-              MachineStateName,
-              StateName,
-              StateAction,
-              StateDef_,
-              Substate,
-              Initial,
-              Final
-            >
+          States.BuilderStateToInstance<
+            | MachineState
+            | QQ.BuilderChainState<
+                MachineStateName,
+                StateName,
+                StateAction,
+                StateDef_,
+                Substate,
+                Initial,
+                Final
+              >
+          >
         >
       : Tail<
           MachineStateName,
@@ -1110,5 +1102,26 @@ export namespace Superstate {
    */
   export namespace Substates {
     export type AnySubstate = QQ.Substate<any, any, any>;
+
+    export type BuilderSubstatesMap<Substate extends AnySubstate> = Record<
+      Substate["name"],
+      Substate
+    >;
+
+    export type InstanceSubstatesMap<Substate extends AnySubstate> = {
+      [Name in Substate["name"]]: Substate extends {
+        name: Name;
+        factory: infer Factory;
+      }
+        ? Factory extends Factories.MachineFactory<infer SubstateState>
+          ? QQ.MachineInstance<
+              SubstateState,
+              QQ.DeepFlatState<SubstateState>,
+              QQ.DeepFlatEvent<SubstateState, SubstateState>,
+              Substate
+            >
+          : never
+        : never;
+    };
   }
 }
