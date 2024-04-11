@@ -20,8 +20,8 @@ export function toMermaid<State extends Superstate.States.AnyState>(
 /**
  * Generates Mermaid state lines from the statechart factory.
  *
- * @param factory - The machine to generate the diagram from.
- * @param parentName - The parent machine name.
+ * @param factory - The statechart factory to generate the diagram from.
+ * @param parentName - The parent name path.
  *
  * @returns Mermaid state lines.
  */
@@ -57,7 +57,7 @@ function toStatechartLines<State extends Superstate.States.AnyState>(
  * @returns Mermaid transition lines for the given states.
  */
 function toTransitionLines(
-  states: Superstate.States.AnyState[],
+  states: Superstate.States.BuilderState[],
   formatName: FormatName
 ) {
   const lines: string[] = [];
@@ -72,7 +72,7 @@ function toTransitionLines(
 
     const substates = Object.entries(state.sub);
     if (substates.length === 1) {
-      for (const transition of substates[0][1].transitions) {
+      for (const transition of substates[0]![1].transitions) {
         lines.push(
           `${formatName(state.name)}.${transition.from} --> ${formatName(
             transition.to
@@ -95,7 +95,7 @@ function toTransitionLines(
 }
 
 function toStateLines(
-  states: Superstate.States.AnyState[],
+  states: Superstate.States.BuilderState[],
   statechartName: string,
   formatName: FormatName
 ) {
@@ -116,7 +116,7 @@ function toStateLines(
     } else if (substates.length === 1) {
       lines.push(
         ...toStatechartLines(
-          substates[0][1].factory,
+          substates[0]![1].factory,
           statechartName,
           state.name,
           nameWithActions.join("\\n")
