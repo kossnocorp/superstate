@@ -91,7 +91,6 @@ describe("Mermaid", () => {
       type MeatPieState =
         | "packed"
         | "unpacked"
-        | "thawed"
         | "cooked"
         | "finished"
         | "wasted";
