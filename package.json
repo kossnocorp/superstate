@@ -1,6 +1,6 @@
 {
   "name": "superstate",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "",
   "main": "index.js",
   "module": "index.mjs",
@@ -9,13 +9,21 @@
     ".": {
       "require": {
         "types": "./index.d.ts",
-        "browser": "./adapter/web/index.js",
-        "default": "./adapter/admin/index.js"
+        "default": "./index.js"
       },
       "import": {
         "types": "./index.d.mts",
-        "browser": "./adapter/web/index.mjs",
-        "default": "./adapter/admin/index.mjs"
+        "default": "./index.mjs"
+      }
+    },
+    "./mermaid": {
+      "require": {
+        "types": "./mermaid/index.d.ts",
+        "default": "./mermaid/index.js"
+      },
+      "import": {
+        "types": "./mermaid/index.d.mts",
+        "default": "./mermaid/index.mjs"
       }
     }
   },

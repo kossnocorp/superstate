@@ -1122,6 +1122,91 @@ instance.off();
 instance.send("play()");
 ```
 
+### Mermaid
+
+Superstate comes with Mermaid support, allowing you to visualize a statechart as a diagram.
+
+#### `toMermaid`
+
+The method renders the passed statechart as a Mermaid diagram code:
+
+```ts
+import { superstate } from "superstate";
+import { toMermaid } from "superstate/mermaid";
+
+type VolumeState = "low" | "medium" | "high";
+
+const volumeState = superstate<VolumeState>("volume")
+  .state("low", "up() -> medium")
+  .state("medium", ["up() -> high", "down() -> low"])
+  .state("high", "down() -> medium");
+
+type PlayerState = "stopped" | "playing" | "paused";
+
+const playerState = superstate<PlayerState>("player")
+  .state("stopped", "play() -> playing")
+  .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
+    $.sub("volume", volumeState)
+  )
+  .state("paused", ["play() -> playing", "stop() -> stopped"]);
+
+const mermaid = toMermaid(playerState);
+```
+
+Here's the `mermaid` result:
+
+```
+%% Generated with Superstate
+stateDiagram-v2
+	state "player" as player {
+		[*] --> player.stopped
+		player.stopped --> player.playing : play
+		player.playing --> player.paused : pause
+		player.playing --> player.stopped : stop
+		player.paused --> player.playing : play
+		player.paused --> player.stopped : stop
+		state "stopped" as player.stopped
+		state "playing" as player.playing {
+			[*] --> player.playing.low
+			player.playing.low --> player.playing.medium : up
+			player.playing.medium --> player.playing.high : up
+			player.playing.medium --> player.playing.low : down
+			player.playing.high --> player.playing.medium : down
+			state "low" as player.playing.low
+			state "medium" as player.playing.medium
+			state "high" as player.playing.high
+		}
+		state "paused" as player.paused
+	}
+```
+
+Which can be rendered as a diagram [using the Mermaid library](https://mermaid.live/edit#pako:eNqdk7FuwyAQhl_lhJSlijN0ZOhUqQ-QsXRA4WqjxhhhqBVFfvcCNirEpK06cbr7_uP4gSs5DQIJJbsdvKBCwy0KmKTt4Og0mtH6BFNxeZa8NbxvPh-ZYjamgBF95hc0jAAfYYnhGurMvj68QdM8rdnDaAetUSy1MpdjYZGqBRoTBZ1KOc3d6PUeDsFvdNqOQohKemn0x0E2cK1zcigdPLOoNCO30u9YgGmK1dONq2v9cB6mRGwrNUGPQrreD-z0HeFKVLSdbLv_KcMwFMQwqTvS2PqncXNtMi4cvmJabkpClz5Vei3dCMJAVTwWIjzfXGN8HaVmSXlsJns_g-m5FP7X-VsFr7Ad9sgI9aHg5oMRpgLHnR2OF3Ui1BqHe-K0-P6GhL7z84jzF6NHX40):
+
+```mermaid
+%% Generated with Superstate
+stateDiagram-v2
+	state "player" as player {
+		[*] --> player.stopped
+		player.stopped --> player.playing : play
+		player.playing --> player.paused : pause
+		player.playing --> player.stopped : stop
+		player.paused --> player.playing : play
+		player.paused --> player.stopped : stop
+		state "stopped" as player.stopped
+		state "playing" as player.playing {
+			[*] --> player.playing.low
+			player.playing.low --> player.playing.medium : up
+			player.playing.medium --> player.playing.high : up
+			player.playing.medium --> player.playing.low : down
+			player.playing.high --> player.playing.medium : down
+			state "low" as player.playing.low
+			state "medium" as player.playing.medium
+			state "high" as player.playing.high
+		}
+		state "paused" as player.paused
+	}
+```
+
 ## Acknowledgments
 
 Special thanks to [Eric Vicenti](https://github.com/ericvicenti) for donating the npm package name `superstate` to this project.
