@@ -7,6 +7,8 @@ export function superstate(name) {
     const self = {
       name,
 
+      states,
+
       // MARK: host
       host(bindings_) {
         bindings = bindings_ || {};
