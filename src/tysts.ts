@@ -1,6 +1,6 @@
-import { superstate } from ".";
+import { Superstate, superstate } from ".";
 
-// MARK: Simple machine
+//#region Simple machine
 {
   type PlayerState = "stopped" | "playing" | "paused";
 
@@ -252,8 +252,9 @@ import { superstate } from ".";
       state.name satisfies "paused" | "playing";
   }
 }
+//#endregion
 
-// MARK: Multiple event targets
+//#region Multiple event targets
 {
   type LightState = "off" | "on";
 
@@ -275,8 +276,9 @@ import { superstate } from ".";
     update.transition.to satisfies "off" | "on";
   });
 }
+//#endregion
 
-// MARK: Final states
+//#region Final states
 {
   type CassetteState = "stopped" | "playing" | "ejected";
 
@@ -305,8 +307,9 @@ import { superstate } from ".";
   // @ts-expect-error
   player.finalized = false;
 }
+//#endregion
 
-// MARK: Conditions
+//#region Conditions
 {
   type PCState = "on" | "sleep" | "off";
 
@@ -378,8 +381,9 @@ import { superstate } from ".";
   //! Allows to subscribe to events without conditions
   pc.on("press()", () => {});
 }
+//#endregion
 
-// MARK: Only-conditional events
+//#region Only-conditional events
 {
   type CatState = "boxed" | "alive" | "dead";
 
@@ -427,8 +431,9 @@ import { superstate } from ".";
   // @ts-expect-error
   cat.on("reveal()", () => {});
 }
+//#endregion
 
-// MARK: Substates
+//#region Substates
 {
   type TeaState = "water" | "steeping" | "ready" | "finished";
 
@@ -598,8 +603,9 @@ import { superstate } from ".";
     if (state) state.name satisfies "clear" | "ready";
   }
 }
+//#endregion
 
-// MARK: Parallel states
+//#region Parallel states
 {
   type ExpireState = "fresh" | "expired";
 
@@ -670,8 +676,9 @@ import { superstate } from ".";
   // @ts-expect-error
   meatPie.in("unpacked.eat.thawed");
 }
+//#endregion
 
-// MARK: State actions
+//#region State actions
 {
   type SwitchState = "off" | "on";
 
@@ -784,8 +791,9 @@ import { superstate } from ".";
     },
   });
 }
+//#endregion
 
-// MARK: Transition actions
+//#region Transition actions
 {
   type ButtonState = "off" | "on";
 
@@ -904,8 +912,9 @@ import { superstate } from ".";
     },
   });
 }
+//#endregion
 
-// MARK: Substate actions
+//#region Substate actions
 {
   type OSState = "running" | "sleeping" | "terminated";
 
@@ -1010,8 +1019,80 @@ import { superstate } from ".";
     },
   });
 }
+//#endregion
 
-// MARK: Factory
+//#region Context
+{
+  type SignUpFormState = "credentials" | "profile" | "done";
+
+  interface SignUpInitial {
+    ref: string;
+  }
+
+  interface SignUpCredentials extends SignUpInitial {
+    email: string;
+    password: string;
+  }
+
+  interface SignUpComplete extends SignUpCredentials {
+    fullName: string;
+    company: string;
+  }
+
+  const formState = superstate<SignUpFormState>("signUp")
+    .state("credentials", "submit() -> profile", ($) =>
+      $.context<SignUpInitial>()
+    )
+    .state("profile", "submit() -> done", ($) => $.context<SignUpCredentials>())
+    .final("done", ($) => $.context<SignUpComplete>());
+
+  //! It requires to include the initial context when hosting
+  const form = formState.host({
+    context: {
+      ref: "topbar",
+    },
+  });
+
+  //! The context must be included
+  // @ts-expect-error
+  formState.host();
+  // @ts-expect-error
+  formState.host({});
+
+  //! The context must be correct
+  formState.host({
+    context: {
+      // @ts-expect-error
+      nope: "nah",
+    },
+  });
+
+  //! It requires to include the context assignment when sending an event
+  form.send("submit()", {
+    ref: "topbar",
+    email: "koss@nocorp.me",
+    password: "123456",
+  });
+
+  //! It allows to omit the context fields from the previous state
+  form.send("submit()", {
+    email: "koss@nocorp.me",
+    password: "123456",
+  });
+  form.send("submit()", {
+    fullName: "Sasha Koss",
+    password: "No Corp",
+  });
+
+  //! It should not allow to send invalid context
+  // @ts-expect-error
+  form.send("submit()", {
+    nope: "nah",
+  });
+}
+//#endregion
+
+//#region Factory
 {
   type OSState = "running" | "sleeping" | "terminated";
 
@@ -1073,8 +1154,9 @@ import { superstate } from ".";
     });
   });
 }
+//#endregion
 
-// MARK: Documentation examples:
+//#region Documentation examples:
 {
   //! README.md:
 
@@ -1845,5 +1927,6 @@ import { superstate } from ".";
     }
   }
 }
+//#endregion
 
 export function assertExtends<Type>(_value: Type) {}
