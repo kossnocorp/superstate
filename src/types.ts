@@ -145,6 +145,7 @@ export namespace Superstate {
       next: States.AnyState;
       event: AnyTransition;
       nested: boolean;
+      context: Contexts.Constrint | null;
     }
 
     export interface FlatStateConstraint {
@@ -166,16 +167,36 @@ export namespace Superstate {
           ? Event extends {
               event: infer EventName extends string;
               condition: infer Condition extends string | null;
+              from: infer FromName extends string;
             }
-            ? {
-                key: `${Prefix}${EventName}`;
-                wildcard: `${Prefix}*`;
-                condition: Condition;
-                event: Event;
-                next: MatchNextState<AllState, AllState, EventName, Condition>;
-                final: false;
-                nested: Prefix extends "" ? false : true;
-              }
+            ? MatchNextState<
+                AllState,
+                AllState,
+                EventName,
+                Condition
+              > extends infer NextState
+              ? {
+                  key: `${Prefix}${EventName}`;
+                  wildcard: `${Prefix}*`;
+                  condition: Condition;
+                  event: Event;
+                  next: NextState;
+                  final: false;
+                  nested: Prefix extends "" ? false : true;
+                  context: NextState extends {
+                    [Contexts.ContextBrand]: infer Context;
+                  }
+                    ? AllState extends {
+                        name: FromName;
+                        [Contexts.ContextBrand]: infer FromContext;
+                      }
+                      ? // TODO: Create type
+                        Omit<Context, keyof FromContext> &
+                          Partial<Omit<FromContext, keyof Context>>
+                      : never
+                    : never;
+                }
+              : never
             : never
           : never)
       // Now we add the substate events
@@ -223,6 +244,7 @@ export namespace Superstate {
                                   >;
                                   final: true;
                                   nested: true;
+                                  context: null; // TODO: context
                                 }
                               : never
                             : never)
@@ -282,6 +304,33 @@ export namespace Superstate {
       readonly state: MachineState;
 
       readonly finalized: boolean;
+
+      send<
+        Key extends FlatEvent extends {
+          key: infer Key extends string;
+          condition: null;
+          final: false;
+        }
+          ? Key
+          : never,
+        Context extends FlatEvent extends {
+          key: Key;
+          condition: null;
+          final: false;
+          context: infer Context extends Contexts.Constrint;
+        }
+          ? Context
+          : never
+      >(
+        name: `${Key}()`,
+        context: Context
+      ): FlatEvent extends {
+        key: Key;
+        condition: null;
+        next: infer Next;
+      }
+        ? Next | null
+        : never;
 
       send<
         Key extends FlatEvent extends {
@@ -393,7 +442,8 @@ export namespace Superstate {
       StateDef_ extends Superstate.States.Def<MachineStateName>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
-      Final extends boolean
+      Final extends boolean,
+      Context
     > = {
       name: StateName;
       actions: Array<
@@ -410,6 +460,7 @@ export namespace Superstate {
       sub: Substates.BuilderSubstatesMap<Substate>;
       initial: Initial;
       final: Final;
+      [Contexts.ContextBrand]: Context;
     };
 
     export interface SubstateFinalTransition<
@@ -515,22 +566,31 @@ export namespace Superstate {
      * used to create a host.
      */
     export type BindingArgs<State extends { name: string }> =
-      true extends IsActionable<State>
+      true extends HasBindingArgs<State>
         ? [
             Binding<State> extends infer Binding_ extends BindingConstraint
-              ? BindingMap<Binding_>
+              ? BindingMap<Contexts.InitialContext<State>, Binding_>
               : never
           ]
         : [];
 
-    export type BindingMap<Binding_ extends BindingConstraint> = {
+    export type HasBindingArgs<State> = true extends IsActionable<State>
+      ? true
+      : true extends Contexts.HasInitialContext<State>
+      ? true
+      : false;
+
+    export type BindingMap<
+      InitialContext,
+      Binding_ extends BindingConstraint
+    > = { context: InitialContext } & {
       [StateName in Binding_["state"]]: {
         [Key in Binding_ extends { state: StateName }
           ? Binding_["key"]
           : never]: Binding_ extends {
           sub: infer SubstateBinding extends BindingConstraint;
         }
-          ? BindingMap<SubstateBinding>
+          ? BindingMap<never, SubstateBinding>
           : BindingFn;
       };
     };
@@ -860,15 +920,25 @@ export namespace Superstate {
       MachineStateName extends string,
       StateAction extends Actions.Action = never,
       StateTransitionDef extends Transitions.Def<MachineStateName> = never,
-      Substate extends Substates.AnySubstate = never
+      Substate extends Substates.AnySubstate = never,
+      Context = never
     > {
+      context<AssignedContext>(): StateFnGeneratorBuilder<
+        MachineStateName,
+        StateAction,
+        StateTransitionDef,
+        Substate,
+        AssignedContext
+      >;
+
       enter<ActionNameDef extends Actions.NameDef>(
         name: ActionNameDef
       ): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction | Actions.FromNameDef<"enter", ActionNameDef>,
         StateTransitionDef,
-        Substate
+        Substate,
+        Context
       >;
 
       exit<NameDef extends Actions.NameDef>(
@@ -877,7 +947,8 @@ export namespace Superstate {
         MachineStateName,
         StateAction | Actions.FromNameDef<"exit", NameDef>,
         StateTransitionDef,
-        Substate
+        Substate,
+        Context
       >;
 
       on<Def extends Transitions.Def<MachineStateName>>(
@@ -886,7 +957,8 @@ export namespace Superstate {
         MachineStateName,
         StateAction,
         StateTransitionDef | Def,
-        Substate
+        Substate,
+        Context
       >;
 
       if<
@@ -900,7 +972,8 @@ export namespace Superstate {
         StateAction,
         | StateTransitionDef
         | Transitions.CaseDefToDef<MachineStateName, EventName, Def>,
-        Substate
+        Substate,
+        Context
       >;
 
       sub<
@@ -926,7 +999,8 @@ export namespace Superstate {
             SubstateName,
             SubstateFactory,
             QQ.SubstateFinalTransitionFromDef<TrasitionDef>
-          >
+          >,
+        Context
       >;
     }
 
@@ -934,13 +1008,15 @@ export namespace Superstate {
       MachineStateName extends string,
       StateAction extends Actions.Action,
       StateTransitionDef extends Transitions.Def<MachineStateName> = never,
-      Substate extends Substates.AnySubstate = never
+      Substate extends Substates.AnySubstate = never,
+      Context = never
     > {
       ($: StateFnGeneratorBuilder<MachineStateName>): StateFnGeneratorBuilder<
         MachineStateName,
         StateAction,
         StateTransitionDef,
-        Substate
+        Substate,
+        Context
       >;
     }
 
@@ -953,7 +1029,8 @@ export namespace Superstate {
       StateDef_ extends States.Def<MachineStateName>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
-      Final extends boolean
+      Final extends boolean,
+      Context
     > = Exclude<ChainStateName, StateName> extends never
       ? Factories.MachineFactory<
           States.BuilderStateToInstance<
@@ -965,7 +1042,8 @@ export namespace Superstate {
                 StateDef_,
                 Substate,
                 Initial,
-                Final
+                Final,
+                Context
               >
           >
         >
@@ -980,7 +1058,8 @@ export namespace Superstate {
               StateDef_,
               Substate,
               Initial,
-              Final
+              Final,
+              Context
             >
         >;
 
@@ -1000,21 +1079,24 @@ export namespace Superstate {
         never,
         never,
         Initial,
-        Final
+        Final,
+        never
       >;
 
       <
         StateName extends ChainStateName,
         StateAction extends Actions.Action,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
-        Substate extends Substates.AnySubstate
+        Substate extends Substates.AnySubstate,
+        Context
       >(
         name: StateName,
         generator: StateFnGenerator<
           MachineStateName,
           StateAction,
           StateTransitionDef,
-          Substate
+          Substate,
+          Context
         >
       ): BuilderChainResult<
         MachineStateName,
@@ -1025,7 +1107,8 @@ export namespace Superstate {
         StateTransitionDef,
         Substate,
         Initial,
-        Final
+        Final,
+        Context
       >;
 
       <
@@ -1043,7 +1126,8 @@ export namespace Superstate {
         StateDef_,
         never,
         Initial,
-        Final
+        Final,
+        never
       >;
 
       <
@@ -1051,7 +1135,8 @@ export namespace Superstate {
         StateAction extends Actions.Action,
         StateDef extends States.Def<MachineStateName>,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
-        Substate extends Substates.AnySubstate
+        Substate extends Substates.AnySubstate,
+        Context
       >(
         name: StateName,
         transitions: StateDef | StateDef[],
@@ -1059,7 +1144,8 @@ export namespace Superstate {
           MachineStateName,
           StateAction,
           StateTransitionDef,
-          Substate
+          Substate,
+          Context
         >
       ): BuilderChainResult<
         MachineStateName,
@@ -1070,7 +1156,8 @@ export namespace Superstate {
         StateDef | StateTransitionDef,
         Substate,
         Initial,
-        Final
+        Final,
+        Context
       >;
     }
   }
@@ -1131,5 +1218,42 @@ export namespace Superstate {
           : never
         : never;
     };
+  }
+
+  /**
+   * The contexts namespace. It contains all the types related to contexts,
+   * the entity that represents the freeform data passing from state to state.
+   */
+  export namespace Contexts {
+    /**
+     * Context constraint.
+     */
+    export type Constrint = Record<string, any>;
+
+    /**
+     * Resolves true if the state has initial context.
+     */
+    export type HasInitialContext<State> = InitialContext<State> extends never
+      ? false
+      : true;
+
+    /**
+     * Resolves the initial state context.
+     */
+    export type InitialContext<State> = State extends {
+      initial: true;
+      [ContextBrand]: infer Context;
+    }
+      ? Context extends never
+        ? never
+        : keyof Context extends never
+        ? never
+        : Context
+      : never;
+
+    /**
+     * The context brand symbol used to brand state with the context type.
+     */
+    export declare const ContextBrand: unique symbol;
   }
 }
