@@ -131,9 +131,7 @@ export namespace Superstate {
           condition: EventCondition;
           to: infer ToName;
         }
-        ? AllState extends { name: ToName }
-          ? AllState
-          : never
+        ? States.FilterState<AllState, ToName>
         : never
       : never;
 
@@ -145,7 +143,7 @@ export namespace Superstate {
       next: States.AnyState;
       event: AnyTransition;
       nested: boolean;
-      context: Contexts.Constrint | null;
+      context: Contexts.Constraint | null;
     }
 
     export interface FlatStateConstraint {
@@ -175,27 +173,24 @@ export namespace Superstate {
                 EventName,
                 Condition
               > extends infer NextState
-              ? {
-                  key: `${Prefix}${EventName}`;
-                  wildcard: `${Prefix}*`;
-                  condition: Condition;
-                  event: Event;
-                  next: NextState;
-                  final: false;
-                  nested: Prefix extends "" ? false : true;
-                  context: NextState extends {
-                    [Contexts.ContextBrand]: infer Context;
-                  }
-                    ? AllState extends {
-                        name: FromName;
-                        [Contexts.ContextBrand]: infer FromContext;
-                      }
-                      ? // TODO: Create type
-                        Omit<Context, keyof FromContext> &
-                          Partial<Omit<FromContext, keyof Context>>
-                      : never
-                    : never;
-                }
+              ? NextState extends { name: infer NextStateName extends string }
+                ? {
+                    [Name in NextStateName]: {
+                      key: `${Prefix}${EventName}`;
+                      wildcard: `${Prefix}*`;
+                      condition: Condition;
+                      event: Event;
+                      next: NextState;
+                      final: false;
+                      nested: Prefix extends "" ? false : true;
+                      context: Contexts.EventContext<
+                        AllState,
+                        FromName,
+                        NextState
+                      >;
+                    };
+                  }[NextStateName]
+                : never
               : never
             : never
           : never)
@@ -313,17 +308,26 @@ export namespace Superstate {
         }
           ? Key
           : never,
+        ToStateName extends FlatEvent extends {
+          key: Key;
+          condition: null;
+          final: false;
+          next: { name: infer StateName extends string };
+        }
+          ? StateName
+          : never,
         Context extends FlatEvent extends {
           key: Key;
           condition: null;
           final: false;
-          context: infer Context extends Contexts.Constrint;
+          context: infer Context;
+          next: { name: ToStateName };
         }
           ? Context
           : never
       >(
-        name: `${Key}()`,
-        context: Context
+        name: `${Key}() -> ${ToStateName}`,
+        context: NoInfer<Context>
       ): FlatEvent extends {
         key: Key;
         condition: null;
@@ -336,6 +340,7 @@ export namespace Superstate {
         Key extends FlatEvent extends {
           key: infer Key extends string;
           condition: null;
+          context: null;
           final: false;
         }
           ? Key
@@ -345,6 +350,7 @@ export namespace Superstate {
       ): FlatEvent extends {
         key: Key;
         condition: null;
+        context: null;
         next: infer Next;
       }
         ? Next | null
@@ -354,12 +360,15 @@ export namespace Superstate {
         Key extends FlatEvent extends {
           key: infer Key extends string;
           final: false;
+          condition: string;
+          context: null;
         }
           ? Key
           : never,
         Condition extends FlatEvent extends {
           key: Key;
           condition: infer Condition extends string;
+          context: null;
         }
           ? Condition
           : null
@@ -369,6 +378,7 @@ export namespace Superstate {
       ): FlatEvent extends {
         key: Key;
         condition: Condition;
+        context: null;
         next: infer Next;
       }
         ? Next | null
@@ -407,14 +417,6 @@ export namespace Superstate {
       ): MatchTargetState<FlatState, Target> | undefined;
 
       off(): void;
-    }
-
-    export interface State<StateName, Action, Transition, Substates_, Final> {
-      name: StateName;
-      actions: Action[];
-      transitions: Transition[];
-      sub: Substates_;
-      final: Final;
     }
 
     export type EventDef<
@@ -849,6 +851,14 @@ export namespace Superstate {
   }
 
   export namespace States {
+    export interface State<StateName, Action, Transition, Substates_, Final> {
+      name: StateName;
+      actions: Action[];
+      transitions: Transition[];
+      sub: Substates_;
+      final: Final;
+    }
+
     /**
      * The state def.
      */
@@ -860,7 +870,7 @@ export namespace Superstate {
      * The state type placeholder. It's used where the shape of a state isn't
      * important or known.
      */
-    export type AnyState = QQ.State<any, any, any, any, any>;
+    export type AnyState = State<any, any, any, any, any>;
 
     export type BuilderStateToInstance<State extends AnyState> = State extends {
       sub: Substates.BuilderSubstatesMap<infer Substate>;
@@ -868,13 +878,20 @@ export namespace Superstate {
       ? State & { sub: Substates.InstanceSubstatesMap<Substate> }
       : never;
 
-    export type BuilderState = QQ.State<
+    export type BuilderState = State<
       any,
       any,
       any,
       Substates.BuilderSubstatesMap<any>,
       any
     >;
+
+    /**
+     * Filters out the state by the state name.
+     */
+    export type FilterState<State, Name> = State extends { name: Name }
+      ? State
+      : never;
   }
 
   export namespace Builder {
@@ -1032,7 +1049,7 @@ export namespace Superstate {
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean,
-      Context
+      Context extends Contexts.Constraint | null
     > = Exclude<ChainStateName, StateName> extends never
       ? Factories.MachineFactory<
           States.BuilderStateToInstance<
@@ -1082,7 +1099,7 @@ export namespace Superstate {
         never,
         Initial,
         Final,
-        never
+        null
       >;
 
       <
@@ -1090,7 +1107,7 @@ export namespace Superstate {
         StateAction extends Actions.Action,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
         Substate extends Substates.AnySubstate,
-        Context
+        Context extends Contexts.Constraint | null = null
       >(
         name: StateName,
         generator: StateFnGenerator<
@@ -1129,7 +1146,7 @@ export namespace Superstate {
         never,
         Initial,
         Final,
-        never
+        null
       >;
 
       <
@@ -1138,7 +1155,7 @@ export namespace Superstate {
         StateDef extends States.Def<MachineStateName>,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
         Substate extends Substates.AnySubstate,
-        Context
+        Context extends Contexts.Constraint | null = null
       >(
         name: StateName,
         transitions: StateDef | StateDef[],
@@ -1230,7 +1247,7 @@ export namespace Superstate {
     /**
      * Context constraint.
      */
-    export type Constrint = Record<string, any>;
+    export type Constraint = Record<string, any>;
 
     /**
      * Resolves true if the state has initial context.
@@ -1257,6 +1274,47 @@ export namespace Superstate {
      * The context brand symbol used to brand state with the context type.
      */
     export declare const ContextBrand: unique symbol;
+
+    /**
+     * Minimal context payload required to move from one state to another.
+     */
+    export type EventContext<
+      AllState extends States.AnyState,
+      FromName,
+      NextState
+    > = NextState extends {
+      [Contexts.ContextBrand]: infer Context;
+    }
+      ? AllState extends {
+          name: FromName;
+          [Contexts.ContextBrand]: infer FromContext;
+        }
+        ? MinimalContext<Context, FromContext> extends infer EventContext
+          ? keyof EventContext extends never
+            ? null
+            : EventContext
+          : never
+        : null // TODO: Figure out why changing this to never breaks the types
+      : never;
+
+    /**
+     * Minimal context required when transitioning from one state to another.
+     */
+    type MinimalContext<Context, FromContext> = Context extends never
+      ? never
+      : Pick<Context, RequiredKeys<Context, FromContext>> &
+          Partial<Omit<Context, RequiredKeys<Context, FromContext>>>;
+
+    /**
+     * Context keys required when transitioning from one state to another.
+     */
+    type RequiredKeys<Context, FromContext> = {
+      [Key in keyof Context]: Key extends keyof FromContext
+        ? Context[Key] extends FromContext[Key]
+          ? never
+          : Key
+        : Key;
+    }[keyof Context];
   }
 
   /**
@@ -1271,5 +1329,17 @@ export namespace Superstate {
       Type,
       { [Key in keyof Type]: Type[Key] extends never ? never : Key }[keyof Type]
     >;
+
+    /**
+     * Makes given keys partial.
+     */
+    export type PartialKeys<Type, Keys> = Keys extends keyof Type
+      ? Omit<Type, Keys> & Partial<Pick<Type, Keys>>
+      : never;
+
+    /**
+     * Turns never to null.
+     */
+    export type NullIfNever<Type> = Type extends never ? null : Type;
   }
 }
