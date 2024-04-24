@@ -583,17 +583,19 @@ export namespace Superstate {
     export type BindingMap<
       InitialContext,
       Binding_ extends BindingConstraint
-    > = { context: InitialContext } & {
-      [StateName in Binding_["state"]]: {
-        [Key in Binding_ extends { state: StateName }
-          ? Binding_["key"]
-          : never]: Binding_ extends {
-          sub: infer SubstateBinding extends BindingConstraint;
-        }
-          ? BindingMap<never, SubstateBinding>
-          : BindingFn;
-      };
-    };
+    > = Utils.OmitNever<
+      { context: InitialContext } & {
+        [StateName in Binding_["state"]]: {
+          [Key in Binding_ extends { state: StateName }
+            ? Binding_["key"]
+            : never]: Binding_ extends {
+            sub: infer SubstateBinding extends BindingConstraint;
+          }
+            ? BindingMap<never, SubstateBinding>
+            : BindingFn;
+        };
+      }
+    >;
 
     /**
      * The binding constrain type.
@@ -1255,5 +1257,19 @@ export namespace Superstate {
      * The context brand symbol used to brand state with the context type.
      */
     export declare const ContextBrand: unique symbol;
+  }
+
+  /**
+   * Utils namespace. Contains everything that is not directly related to
+   * the core types.
+   */
+  export namespace Utils {
+    /**
+     * Omits never fields.
+     */
+    export type OmitNever<Type> = Pick<
+      Type,
+      { [Key in keyof Type]: Type[Key] extends never ? never : Key }[keyof Type]
+    >;
   }
 }
