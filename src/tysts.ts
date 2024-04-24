@@ -40,6 +40,28 @@ import { Superstate, superstate } from ".";
   // @ts-expect-error
   player.send("nope()");
 
+  // TODO: Remove debug code vvvvvv
+
+  type TestAllState = typeof player extends Superstate.QQ.MachineInstance<
+    infer State,
+    infer FlatState,
+    infer FlatEvent,
+    any
+  >
+    ? State
+    : never;
+
+  type TestFlatEvent = typeof player extends Superstate.QQ.MachineInstance<
+    infer State,
+    infer FlatState,
+    infer FlatEvent,
+    any
+  >
+    ? FlatEvent
+    : never;
+
+  // TODO: Remove debug code ^^^^^^
+
   //! It returns the next state or null
   {
     const nextState = player.send("play()");
@@ -1068,27 +1090,122 @@ import { Superstate, superstate } from ".";
   });
 
   //! It requires to include the context assignment when sending an event
-  form.send("submit()", {
+  form.send("submit() -> profile", {
     ref: "topbar",
     email: "koss@nocorp.me",
     password: "123456",
   });
 
   //! It allows to omit the context fields from the previous state
-  form.send("submit()", {
+  form.send("submit() -> profile", {
     email: "koss@nocorp.me",
     password: "123456",
   });
-  form.send("submit()", {
+  form.send("submit() -> done", {
     fullName: "Sasha Koss",
-    password: "No Corp",
+    company: "No Corp",
   });
+
+  // TODO: Remove debug code vvvvvv
+
+  type TestAllState = typeof form extends Superstate.QQ.MachineInstance<
+    infer State,
+    infer FlatState,
+    infer FlatEvent,
+    any
+  >
+    ? State
+    : never;
+
+  type TestFlatEvent = typeof form extends Superstate.QQ.MachineInstance<
+    infer State,
+    infer FlatState,
+    infer FlatEvent,
+    any
+  >
+    ? FlatEvent
+    : never;
+
+  type TestContext1 = Superstate.Contexts.EventContext<
+    TestAllState,
+    "credentials",
+    Superstate.States.FilterState<TestAllState, "profile">
+  >;
+
+  type TestContext2 = Superstate.Contexts.EventContext<
+    TestAllState,
+    "profile",
+    Superstate.States.FilterState<TestAllState, "done">
+  >;
+
+  // TODO: Remove debug code ^^^^^^
+
+  //! It should not allow omitting incomaptible context fields
+  {
+    type SignUpFormState = "credentials" | "profile";
+
+    interface SignUpInitial {
+      ref: string | null;
+    }
+
+    interface SignUpCredentials {
+      ref: string;
+      email: string;
+      password: string;
+    }
+
+    const formState = superstate<SignUpFormState>("signUp")
+      .state("credentials", "submit() -> profile", ($) =>
+        $.context<SignUpInitial>()
+      )
+      .state("profile", ($) => $.context<SignUpCredentials>());
+
+    const form = formState.host({
+      context: {
+        ref: null,
+      },
+    });
+
+    // TODO: Remove debug code vvvvvv
+
+    type Test = typeof form extends Superstate.QQ.MachineInstance<
+      infer State,
+      infer FlatState,
+      infer FlatEvent,
+      any
+    >
+      ? FlatEvent
+      : never;
+
+    // TODO: Remove debug code ^^^^^^
+
+    form.send("submit() -> profile", {
+      ref: "hello",
+      email: "koss@nocorp.me",
+      password: "123456",
+    });
+
+    //! ref is required while it's optional on SignUpInitial
+    // @ts-expect-error
+    form.send("submit() -> profile", {
+      email: "koss@nocorp.me",
+      password: "123456",
+    });
+
+    //! null can't be a valid payload
+    // @ts-expect-error
+    form.send("submit() -> profile", null);
+  }
 
   //! It should not allow to send invalid context
   // @ts-expect-error
-  form.send("submit()", {
+  form.send("submit() -> profile", {
     nope: "nah",
   });
+
+  //! null can't be a valid payload
+  // @ts-expect-error
+  form.send("submit() -> profile", null);
 }
 //#endregion
 
