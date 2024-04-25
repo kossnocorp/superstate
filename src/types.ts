@@ -71,11 +71,20 @@ export namespace Superstate {
      */
     export type BindingArgs<State extends { name: string }> =
       true extends HasBindingArgs<State>
-        ? [
-            Binding<State> extends infer Binding_ extends BindingConstraint
-              ? BindingMap<Contexts.InitialContext<State>, Binding_>
-              : never
-          ]
+        ? Binding<State> extends infer Binding_ extends BindingConstraint
+          ? BindingMap<
+              Contexts.InitialContext<State>,
+              Binding_
+            > extends infer Map
+            ?
+                | [Map]
+                | ("context" extends keyof Map
+                    ? Utils.RequiredKeys<Map["context"]> extends never
+                      ? [] | [{}]
+                      : never
+                    : never)
+            : never
+          : never
         : [];
 
     export type HasBindingArgs<State> = true extends IsActionable<State>
@@ -1432,7 +1441,7 @@ export namespace Superstate {
     /**
      * Makes given keys partial.
      */
-    export type PartialKeys<Type, Keys> = Keys extends keyof Type
+    export type PartializeKeys<Type, Keys> = Keys extends keyof Type
       ? Omit<Type, Keys> & Partial<Pick<Type, Keys>>
       : never;
 
@@ -1440,6 +1449,53 @@ export namespace Superstate {
      * Turns never to null.
      */
     export type NullIfNever<Type> = Type extends never ? null : Type;
+
+    /**
+     * Resolves required keys.
+     */
+    export type RequiredKeys<Type> = Exclude<
+      {
+        [Key in keyof Type]: Type[Key] extends never
+          ? never
+          : RequiredKey<Type, Key> extends true
+          ? Key
+          : never;
+      }[keyof Type],
+      undefined
+    >;
+
+    /**
+     * Resolves true if the passed key is a required field of the passed model.
+     */
+    export type RequiredKey<Model, Key extends keyof Model> = StaticKey<
+      Model,
+      Key
+    > extends true
+      ? Partial<Pick<Model, Key>> extends Pick<Model, Key>
+        ? false
+        : true
+      : false;
+
+    /**
+     * Resolves true if the given key is statically defined in the given type.
+     */
+    export type StaticKey<
+      Model,
+      Key extends keyof Model
+    > = Key extends keyof WithoutIndexed<Model> ? true : false;
+
+    /**
+     * Removes indexed fields leaving only statically defined.
+     */
+    export type WithoutIndexed<Model> = {
+      [Key in keyof Model as string extends Key
+        ? never
+        : number extends Key
+        ? never
+        : symbol extends Key
+        ? never
+        : Key]: Model[Key];
+    };
   }
   //#endregion
 }

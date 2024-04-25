@@ -1326,6 +1326,10 @@ import { Superstate, superstate } from ".";
     //! It allows to omit passing optional context
     const form = formState.host();
 
+    //! Allows passing empty context
+    formState.host({});
+    formState.host({ context: {} });
+
     // TODO: Remove debug code vvvvvv
 
     type TestEvent = typeof form extends Superstate.Instances.Instance<
