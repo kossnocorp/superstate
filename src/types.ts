@@ -375,6 +375,15 @@ export namespace Superstate {
         ? States.FilterState<AllState, ToName>
         : never
       : never;
+
+    /**
+     * Resolves transition type from state.
+     */
+    export type FromState<State> = State extends {
+      transitions: Array<infer Transition extends Transitions.AnyTransition>;
+    }
+      ? Transition
+      : never;
   }
   //#endregion
 
@@ -1192,6 +1201,12 @@ export namespace Superstate {
       nested: boolean;
     }
 
+    export interface TransitionConstraint {
+      transition: Transitions.AnyTransition;
+      next: States.AnyState;
+      context: Contexts.Constraint | null;
+    }
+
     export interface TraitsConstraint {
       state: StateConstraint;
       event: EventConstraint;
@@ -1199,44 +1214,26 @@ export namespace Superstate {
 
     export interface Traits<AllState extends States.AnyState> {
       state: State<AllState>;
-      event: Event<AllState, AllState>;
+      event: Event<AllState>;
     }
 
     export type Event<
       MachineState extends States.AnyState,
-      AllState extends States.AnyState,
       Prefix extends string | "" = ""
     > =
       // First we get the root level events
-      | (MachineState extends {
-          transitions: Array<
-            infer Transition extends Transitions.AnyTransition
-          >;
-        }
+      | (Transition<MachineState> extends infer Transition extends TransitionConstraint
           ? Transition extends Transition
-            ? Transitions.MatchNextState<
-                AllState,
-                AllState,
-                Transition["event"],
-                Transition["condition"]
-              > extends infer NextState extends States.AnyState
-              ? NextState extends NextState
-                ? {
-                    key: `${Prefix}${Transition["event"]}`;
-                    wildcard: `${Prefix}*`;
-                    condition: Transition["condition"];
-                    event: Transition;
-                    next: NextState;
-                    final: false;
-                    nested: Prefix extends "" ? false : true;
-                    context: Contexts.EventContext<
-                      AllState,
-                      Transition["from"],
-                      NextState
-                    >;
-                  }
-                : never
-              : never
+            ? {
+                key: `${Prefix}${Transition["transition"]["event"]}`;
+                wildcard: `${Prefix}*`;
+                condition: Transition["transition"]["condition"];
+                event: Transition["transition"];
+                next: Transition["next"];
+                final: false;
+                nested: Prefix extends "" ? false : true;
+                context: Transition["context"];
+              }
             : never
           : never)
       // Now we add the substate events
@@ -1257,7 +1254,6 @@ export namespace Superstate {
                     ?
                         | Event<
                             SubstateState,
-                            SubstateState,
                             `${Prefix}${StateName}.${SubstateName}.`
                           >
                         // Add final transitions
@@ -1276,9 +1272,10 @@ export namespace Superstate {
                                   wildcard: `${Prefix}*`;
                                   event: Transition;
                                   condition: null;
+                                  // TODO: Migrate to the approach used for the root level and get rid of MatchNextState
                                   next: Transitions.MatchNextState<
-                                    AllState,
-                                    AllState,
+                                    MachineState,
+                                    MachineState,
                                     EventName,
                                     null
                                   >;
@@ -1332,6 +1329,23 @@ export namespace Superstate {
               }[keyof Substates]
             : never
           : never);
+
+    export type Transition<State extends States.AnyState> =
+      Transitions.FromState<State> extends infer Transition extends Transitions.AnyTransition
+        ? Transition extends Transition
+          ? States.FilterState<State, Transition["to"]> extends infer NextState
+            ? {
+                transition: Transition;
+                next: NextState;
+                context: Contexts.EventContext<
+                  State,
+                  Transition["from"],
+                  NextState
+                >;
+              }
+            : never
+          : never
+        : never;
   }
   //#endregion
 
