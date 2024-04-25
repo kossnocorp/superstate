@@ -1229,6 +1229,10 @@ import { Superstate, superstate } from ".";
     //! null can't be a valid payload
     // @ts-expect-error
     form.send("submit() -> profile", null);
+
+    //! Empty object can't be a valid payload
+    // @ts-expect-error
+    form.send("submit() -> profile", {});
   }
 
   //! It should not allow to send invalid context
@@ -1240,6 +1244,10 @@ import { Superstate, superstate } from ".";
   //! null can't be a valid payload
   // @ts-expect-error
   form.send("submit() -> profile", null);
+
+  //! Empty object can't be a valid payload
+  // @ts-expect-error
+  form.send("submit() -> profile", {});
 }
 //#endregion
 

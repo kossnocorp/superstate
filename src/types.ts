@@ -475,7 +475,7 @@ export namespace Superstate {
       StateAction extends Actions.Action = never,
       StateTransitionDef extends Transitions.Def<MachineStateName> = never,
       Substate extends Substates.AnySubstate = never,
-      Context = never
+      Context = null
     > {
       context<AssignedContext>(): StateFnGeneratorBuilder<
         MachineStateName,
@@ -567,7 +567,7 @@ export namespace Superstate {
       StateAction extends Actions.Action,
       StateTransitionDef extends Transitions.Def<MachineStateName> = never,
       Substate extends Substates.AnySubstate = never,
-      Context = never
+      Context = null
     > {
       ($: StateFnGeneratorBuilder<MachineStateName>): StateFnGeneratorBuilder<
         MachineStateName,
@@ -588,7 +588,7 @@ export namespace Superstate {
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean,
-      Context extends Contexts.Constraint | null
+      Context
     > = Exclude<ChainStateName, StateName> extends never
       ? Factories.MachineFactory<
           States.BuilderStateToInstance<
@@ -680,7 +680,7 @@ export namespace Superstate {
         StateAction extends Actions.Action,
         StateTransitionDef extends Transitions.Def<MachineStateName>,
         Substate extends Substates.AnySubstate,
-        Context extends Contexts.Constraint | null = null
+        Context
       >(
         name: StateName,
         generator: StateFnGenerator<
