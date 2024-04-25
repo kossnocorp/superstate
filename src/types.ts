@@ -1209,35 +1209,31 @@ export namespace Superstate {
     > =
       // First we get the root level events
       | (MachineState extends {
-          transitions: Array<infer Event>;
+          transitions: Array<infer Event extends Transitions.AnyTransition>;
         }
-          ? Event extends {
-              event: infer EventName extends string;
-              condition: infer Condition extends string | null;
-              from: infer FromName extends string;
-            }
+          ? Event extends Event
             ? Transitions.MatchNextState<
                 AllState,
                 AllState,
-                EventName,
-                Condition
+                Event["event"],
+                Event["condition"]
               > extends infer NextState extends States.AnyState
-              ? {
-                  [Name in NextState["name"]]: {
-                    key: `${Prefix}${EventName}`;
+              ? NextState extends NextState
+                ? {
+                    key: `${Prefix}${Event["event"]}`;
                     wildcard: `${Prefix}*`;
-                    condition: Condition;
+                    condition: Event["condition"];
                     event: Event;
                     next: NextState;
                     final: false;
                     nested: Prefix extends "" ? false : true;
                     context: Contexts.EventContext<
                       AllState,
-                      FromName,
+                      Event["from"],
                       NextState
                     >;
-                  };
-                }[NextState["name"]]
+                  }
+                : never
               : never
             : never
           : never)
