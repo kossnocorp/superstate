@@ -178,7 +178,7 @@ To send an event with a condition, use the `send` method:
 const pc = pcState.host();
 
 // Send the long press event:
-const nextState = pc.send("press()", "long");
+const nextState = pc.send("press(long)");
 
 // The next state is "off":
 if (nextState) nextState.name satisfies "off";
@@ -1071,7 +1071,7 @@ instance.on("playing", () => console.log("Playing!"));
 instance.send("play()");
 ```
 
-The first argument is the event name. Guarded events may receive the condition as the second argument or as part of the event name:
+The first argument is the event name. Guarded events receive the condition as part of the event name:
 
 ```ts
 const instance = pcMachine.host();
@@ -1082,9 +1082,6 @@ instance.on("press(long)", () => console.log("Pressed long"));
 instance.send("press()");
 
 // Will trigger the listener and print "Pressed long":
-instance.send("press()", "long");
-
-// Same as above:
 instance.send("press(long)");
 ```
 
