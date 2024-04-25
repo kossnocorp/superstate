@@ -42,7 +42,7 @@ import { Superstate, superstate } from ".";
 
   // TODO: Remove debug code vvvvvv
 
-  type TestAllState = typeof player extends Superstate.QQ.MachineInstance<
+  type TestAllState = typeof player extends Superstate.Instances.Instance<
     infer State,
     infer FlatState,
     infer FlatEvent,
@@ -51,7 +51,7 @@ import { Superstate, superstate } from ".";
     ? State
     : never;
 
-  type TestFlatEvent = typeof player extends Superstate.QQ.MachineInstance<
+  type TestFlatEvent = typeof player extends Superstate.Instances.Instance<
     infer State,
     infer FlatState,
     infer FlatEvent,
@@ -1108,7 +1108,7 @@ import { Superstate, superstate } from ".";
 
   // TODO: Remove debug code vvvvvv
 
-  type TestAllState = typeof form extends Superstate.QQ.MachineInstance<
+  type TestAllState = typeof form extends Superstate.Instances.Instance<
     infer State,
     infer FlatState,
     infer FlatEvent,
@@ -1117,7 +1117,7 @@ import { Superstate, superstate } from ".";
     ? State
     : never;
 
-  type TestFlatEvent = typeof form extends Superstate.QQ.MachineInstance<
+  type TestFlatEvent = typeof form extends Superstate.Instances.Instance<
     infer State,
     infer FlatState,
     infer FlatEvent,
@@ -1168,7 +1168,7 @@ import { Superstate, superstate } from ".";
 
     // TODO: Remove debug code vvvvvv
 
-    type Test = typeof form extends Superstate.QQ.MachineInstance<
+    type Test = typeof form extends Superstate.Instances.Instance<
       infer State,
       infer FlatState,
       infer FlatEvent,
