@@ -221,7 +221,7 @@ export namespace Superstate {
    * the entity that trigger state transitions.
    */
   export namespace Events {
-    // TODO: Move stuff from Transitions
+    // [TODO] Move stuff from Transitions
   }
   //#endregion
 
@@ -311,7 +311,7 @@ export namespace Superstate {
       EventName extends string,
       Def_ extends CaseDef<MachineStateName>
     > = Def_ extends Def_
-      ? // TODO: Try to optimize it to `${EventName}${Def}`
+      ? // [TODO] Try to optimize it to `${EventName}${Def}`
         Def_ extends EventCaseDef<
           infer ToState extends MachineStateName,
           infer Condition
@@ -371,8 +371,8 @@ export namespace Superstate {
      * Resolves the next state for the transition.
      */
     export type MatchNextState<
-      MachineState extends States.AnyState, // TODO: Cut it
-      AllState extends States.AnyState, // TODO: Cut it
+      MachineState extends States.AnyState, // [TODO] Cut it
+      AllState extends States.AnyState, // [TODO] Cut it
       EventName,
       EventCondition extends string | null
     > = MachineState extends { transitions: Array<infer Transition> }
@@ -865,7 +865,7 @@ export namespace Superstate {
      */
     export interface OnListener<
       Traits extends Traits.TraitsConstraint,
-      Target extends Targets.On<Traits> // TODO: Simplify it
+      Target extends Targets.On<Traits> // [TODO] Simplify it
     > {
       (
         target: Target extends "**"
@@ -1267,7 +1267,7 @@ export namespace Superstate {
                                   wildcard: `${Prefix}*`;
                                   transition: Transition;
                                   condition: null;
-                                  // TODO: Migrate to the approach used for the root level and get rid of MatchNextState
+                                  // [TODO] Migrate to the approach used for the root level and get rid of MatchNextState
                                   next: Transitions.MatchNextState<
                                     MachineState,
                                     MachineState,
@@ -1276,7 +1276,7 @@ export namespace Superstate {
                                   >;
                                   final: true;
                                   nested: true;
-                                  context: null; // TODO: context
+                                  context: null; // [TODO] context
                                 }
                               : never
                             : never)

@@ -40,7 +40,7 @@ import { Superstate, superstate } from ".";
   // @ts-expect-error
   player.send("nope()");
 
-  // TODO: Remove debug code vvvvvv
+  // [TODO] Remove debug code vvvvvv
 
   type TestAllState = typeof player extends Superstate.Instances.Instance<
     infer State,
@@ -58,7 +58,7 @@ import { Superstate, superstate } from ".";
     ? Traits["event"]
     : never;
 
-  // TODO: Remove debug code ^^^^^^
+  // [TODO] Remove debug code ^^^^^^
 
   //! It returns the next state or null
   {
@@ -361,7 +361,7 @@ import { Superstate, superstate } from ".";
       nextState.name satisfies "off";
     }
 
-    // TODO: Remove debug code vvvvvv
+    // [TODO] Remove debug code vvvvvv
     type TestEvent = typeof pc extends Superstate.Instances.Instance<
       infer State,
       infer Traits,
@@ -372,7 +372,7 @@ import { Superstate, superstate } from ".";
 
     type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
-    // TODO: Remove debug code ^^^^^^
+    // [TODO] Remove debug code ^^^^^^
   }
 
   //! Allows to send short condition
@@ -1121,7 +1121,7 @@ import { Superstate, superstate } from ".";
       company: "No Corp",
     });
 
-    // TODO: Remove debug code vvvvvv
+    // [TODO] Remove debug code vvvvvv
 
     type TestAllState = typeof form extends Superstate.Instances.Instance<
       infer State,
@@ -1170,7 +1170,7 @@ import { Superstate, superstate } from ".";
 
     type TestSend1 = Superstate.Listeners.Send<TestEvent>;
 
-    // TODO: Remove debug code ^^^^^^
+    // [TODO] Remove debug code ^^^^^^
 
     //! It should not allow to send invalid context
     form.send("submit() -> profile", {
@@ -1219,7 +1219,7 @@ import { Superstate, superstate } from ".";
         },
       });
 
-      // TODO: Remove debug code vvvvvv
+      // [TODO] Remove debug code vvvvvv
 
       type TestAllState = typeof form extends Superstate.Instances.Instance<
         infer State,
@@ -1260,7 +1260,7 @@ import { Superstate, superstate } from ".";
 
       type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
-      // TODO: Remove debug code ^^^^^^
+      // [TODO] Remove debug code ^^^^^^
 
       form.send("submit() -> profile", {
         ref: "hello",
@@ -1330,7 +1330,7 @@ import { Superstate, superstate } from ".";
     formState.host({});
     formState.host({ context: {} });
 
-    // TODO: Remove debug code vvvvvv
+    // [TODO] Remove debug code vvvvvv
 
     type TestEvent = typeof form extends Superstate.Instances.Instance<
       infer State,
@@ -1342,7 +1342,7 @@ import { Superstate, superstate } from ".";
 
     type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
-    // TODO: Remove debug code ^^^^^^
+    // [TODO] Remove debug code ^^^^^^
 
     //! It allows to send context with guarded events
     form.send("submit(error) -> credentials", {
