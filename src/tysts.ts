@@ -44,8 +44,7 @@ import { Superstate, superstate } from ".";
 
   type TestAllState = typeof player extends Superstate.Instances.Instance<
     infer State,
-    infer FlatState,
-    infer FlatEvent,
+    infer Traits,
     any
   >
     ? State
@@ -53,11 +52,10 @@ import { Superstate, superstate } from ".";
 
   type TestFlatEvent = typeof player extends Superstate.Instances.Instance<
     infer State,
-    infer FlatState,
-    infer FlatEvent,
+    infer Traits,
     any
   >
-    ? FlatEvent
+    ? Traits["event"]
     : never;
 
   // TODO: Remove debug code ^^^^^^
@@ -1110,8 +1108,7 @@ import { Superstate, superstate } from ".";
 
   type TestAllState = typeof form extends Superstate.Instances.Instance<
     infer State,
-    infer FlatState,
-    infer FlatEvent,
+    infer Traits,
     any
   >
     ? State
@@ -1119,11 +1116,10 @@ import { Superstate, superstate } from ".";
 
   type TestFlatEvent = typeof form extends Superstate.Instances.Instance<
     infer State,
-    infer FlatState,
-    infer FlatEvent,
+    infer Traits,
     any
   >
-    ? FlatEvent
+    ? Traits["event"]
     : never;
 
   type TestContext1 = Superstate.Contexts.EventContext<
@@ -1170,11 +1166,10 @@ import { Superstate, superstate } from ".";
 
     type Test = typeof form extends Superstate.Instances.Instance<
       infer State,
-      infer FlatState,
-      infer FlatEvent,
+      infer Traits,
       any
     >
-      ? FlatEvent
+      ? Traits["event"]
       : never;
 
     // TODO: Remove debug code ^^^^^^
