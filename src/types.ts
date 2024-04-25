@@ -776,12 +776,7 @@ export namespace Superstate {
 
       host(
         ...args: Superstate.Actions.BindingArgs<State>
-      ): Instances.Instance<
-        State,
-        Traits.State<State>,
-        Traits.Event<State, State>,
-        never
-      >;
+      ): Instances.Instance<State, Traits.Traits<State>, never>;
     }
   }
   //#endregion
@@ -794,19 +789,18 @@ export namespace Superstate {
   export namespace Instances {
     export interface Instance<
       MachineState,
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint,
+      Traits extends Traits.TraitsConstraint,
       AsSubstate
-    > extends Listeners.API<FlatState, FlatEvent> {
+    > extends Listeners.API<Traits> {
       readonly sub: AsSubstate;
 
       readonly state: MachineState;
 
       readonly finalized: boolean;
 
-      in<Target extends Targets.State<FlatState>>(
+      in<Target extends Targets.State<Traits["state"]>>(
         target: Target | Target[]
-      ): Targets.MatchState<FlatState, Target> | undefined;
+      ): Targets.MatchState<Traits["state"], Target> | undefined;
     }
   }
   //#endregion
@@ -821,13 +815,10 @@ export namespace Superstate {
      * Instances API. Provides functions to subscribe, send, and unsubscribe
      * from events and state updates.
      */
-    export interface API<
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint
-    > {
-      on: Listeners.On<FlatState, FlatEvent>;
+    export interface API<Traits extends Traits.TraitsConstraint> {
+      on: Listeners.On<Traits>;
 
-      send: Listeners.Send<FlatEvent>;
+      send: Listeners.Send<Traits["event"]>;
 
       off(): void;
     }
@@ -844,13 +835,10 @@ export namespace Superstate {
     /**
      * Function that subscribes to event and state updates.
      */
-    export interface On<
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint
-    > {
-      <Target extends Targets.On<FlatState, FlatEvent>>(
+    export interface On<Traits extends Traits.TraitsConstraint> {
+      <Target extends Targets.On<Traits>>(
         target: Target | Target[],
-        listener: OnListener<FlatState, FlatEvent, Target>
+        listener: OnListener<Traits, Target>
       ): Off;
     }
 
@@ -858,24 +846,23 @@ export namespace Superstate {
      * Listener function that is triggered on the event or state update.
      */
     export interface OnListener<
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint,
-      Target extends Targets.On<FlatState, FlatEvent> // TODO: Simplify it
+      Traits extends Traits.TraitsConstraint,
+      Target extends Targets.On<Traits> // TODO: Simplify it
     > {
       (
         target: Target extends "**"
-          ? Updates.DeepWildcardUpdate<FlatState, FlatEvent>
+          ? Updates.DeepWildcardUpdate<Traits>
           : Target extends Targets.WildcardConstraint
-          ? Updates.WildcardUpdate<FlatState, FlatEvent, Target>
+          ? Updates.WildcardUpdate<Traits["state"], Traits["event"], Target>
           : Target extends
               | Array<infer TargetString extends string>
               | infer TargetString extends string
           ? Targets.MatchState<
-              FlatState,
+              Traits["state"],
               TargetString
             > extends infer MatchedState
             ? Targets.MatchEvent<
-                FlatEvent,
+                Traits["event"],
                 TargetString
               > extends infer MatchedEvent
               ?
@@ -1016,15 +1003,12 @@ export namespace Superstate {
     /**
      * String representing listener target.
      */
-    export type On<
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint
-    > =
+    export type On<Traits extends Traits.TraitsConstraint> =
       | "*"
-      | (true extends FlatState["nested"] ? "**" : never)
-      | State<FlatState>
-      | FlatState["wildcard"]
-      | Event<FlatEvent>;
+      | (true extends Traits["state"]["nested"] ? "**" : never)
+      | State<Traits["state"]>
+      | Traits["state"]["wildcard"]
+      | Event<Traits["event"]>;
 
     /**
      * String representing state.
@@ -1077,21 +1061,20 @@ export namespace Superstate {
    * transitions.
    */
   export namespace Updates {
-    export type DeepWildcardUpdate<
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint
-    > = StateUpdate<FlatState["state"]> | EventUpdate<FlatEvent["event"]>;
+    export type DeepWildcardUpdate<Traits extends Traits.TraitsConstraint> =
+      | StateUpdate<Traits["state"]["state"]>
+      | EventUpdate<Traits["event"]["event"]>;
 
     export type WildcardUpdate<
-      FlatState extends Traits.StateConstraint,
-      FlatEvent extends Traits.EventConstraint,
+      State extends Traits.StateConstraint,
+      Event extends Traits.EventConstraint,
       Target extends Targets.WildcardConstraint
     > =
-      | (FlatState extends { wildcard: Target }
-          ? StateUpdate<FlatState["state"]>
+      | (State extends { wildcard: Target }
+          ? StateUpdate<State["state"]>
           : never)
-      | (FlatEvent extends { wildcard: Target }
-          ? EventUpdate<FlatEvent["event"]>
+      | (Event extends { wildcard: Target }
+          ? EventUpdate<Event["event"]>
           : never);
 
     export interface StateUpdate<_State extends { name: string }> {
@@ -1136,8 +1119,7 @@ export namespace Superstate {
         ? Factory extends Factories.MachineFactory<infer SubstateState>
           ? Instances.Instance<
               SubstateState,
-              Traits.State<SubstateState>,
-              Traits.Event<SubstateState, SubstateState>,
+              Traits.Traits<SubstateState>,
               Substate
             >
           : never
@@ -1211,13 +1193,13 @@ export namespace Superstate {
     }
 
     export interface TraitsConstraint {
-      State: StateConstraint;
-      Event: EventConstraint;
+      state: StateConstraint;
+      event: EventConstraint;
     }
 
     export interface Traits<AllState extends States.AnyState> {
-      State: State<AllState>;
-      Event: Event<AllState, AllState>;
+      state: State<AllState>;
+      event: Event<AllState, AllState>;
     }
 
     export type Event<
