@@ -1221,25 +1221,23 @@ export namespace Superstate {
                 AllState,
                 EventName,
                 Condition
-              > extends infer NextState
-              ? NextState extends { name: infer NextStateName extends string }
-                ? {
-                    [Name in NextStateName]: {
-                      key: `${Prefix}${EventName}`;
-                      wildcard: `${Prefix}*`;
-                      condition: Condition;
-                      event: Event;
-                      next: NextState;
-                      final: false;
-                      nested: Prefix extends "" ? false : true;
-                      context: Contexts.EventContext<
-                        AllState,
-                        FromName,
-                        NextState
-                      >;
-                    };
-                  }[NextStateName]
-                : never
+              > extends infer NextState extends States.AnyState
+              ? {
+                  [Name in NextState["name"]]: {
+                    key: `${Prefix}${EventName}`;
+                    wildcard: `${Prefix}*`;
+                    condition: Condition;
+                    event: Event;
+                    next: NextState;
+                    final: false;
+                    nested: Prefix extends "" ? false : true;
+                    context: Contexts.EventContext<
+                      AllState,
+                      FromName,
+                      NextState
+                    >;
+                  };
+                }[NextState["name"]]
               : never
             : never
           : never)
@@ -1401,7 +1399,7 @@ export namespace Superstate {
     /**
      * Minimal context required when transitioning from one state to another.
      */
-    type MinimalContext<Context, FromContext> = Context extends never
+    export type MinimalContext<Context, FromContext> = Context extends never
       ? never
       : Pick<Context, RequiredKeys<Context, FromContext>> &
           Partial<Omit<Context, RequiredKeys<Context, FromContext>>>;
@@ -1409,9 +1407,9 @@ export namespace Superstate {
     /**
      * Context keys required when transitioning from one state to another.
      */
-    type RequiredKeys<Context, FromContext> = {
+    export type RequiredKeys<Context, FromContext> = {
       [Key in keyof Context]: Key extends keyof FromContext
-        ? Context[Key] extends FromContext[Key]
+        ? FromContext[Key] extends Context[Key]
           ? never
           : Key
         : Key;
