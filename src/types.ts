@@ -1209,27 +1209,29 @@ export namespace Superstate {
     > =
       // First we get the root level events
       | (MachineState extends {
-          transitions: Array<infer Event extends Transitions.AnyTransition>;
+          transitions: Array<
+            infer Transition extends Transitions.AnyTransition
+          >;
         }
-          ? Event extends Event
+          ? Transition extends Transition
             ? Transitions.MatchNextState<
                 AllState,
                 AllState,
-                Event["event"],
-                Event["condition"]
+                Transition["event"],
+                Transition["condition"]
               > extends infer NextState extends States.AnyState
               ? NextState extends NextState
                 ? {
-                    key: `${Prefix}${Event["event"]}`;
+                    key: `${Prefix}${Transition["event"]}`;
                     wildcard: `${Prefix}*`;
-                    condition: Event["condition"];
-                    event: Event;
+                    condition: Transition["condition"];
+                    event: Transition;
                     next: NextState;
                     final: false;
                     nested: Prefix extends "" ? false : true;
                     context: Contexts.EventContext<
                       AllState,
-                      Event["from"],
+                      Transition["from"],
                       NextState
                     >;
                   }
@@ -1389,7 +1391,7 @@ export namespace Superstate {
             ? null
             : EventContext
           : never
-        : null // TODO: Figure out why changing this to never breaks the types
+        : never
       : never;
 
     /**
