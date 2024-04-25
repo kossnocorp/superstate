@@ -1043,154 +1043,69 @@ import { Superstate, superstate } from ".";
 
 //#region Context
 {
-  type SignUpFormState = "credentials" | "profile" | "done";
-
-  interface SignUpInitial {
-    ref: string;
-  }
-
-  interface SignUpCredentials extends SignUpInitial {
-    email: string;
-    password: string;
-  }
-
-  interface SignUpComplete extends SignUpCredentials {
-    fullName: string;
-    company: string;
-  }
-
-  const formState = superstate<SignUpFormState>("signUp")
-    .state("credentials", "submit() -> profile", ($) =>
-      $.context<SignUpInitial>()
-    )
-    .state("profile", "submit() -> done", ($) => $.context<SignUpCredentials>())
-    .final("done", ($) => $.context<SignUpComplete>());
-
-  //! It requires to include the initial context when hosting
-  const form = formState.host({
-    context: {
-      ref: "topbar",
-    },
-  });
-
-  //! The context must be included
-  // @ts-expect-error
-  formState.host();
-  // @ts-expect-error
-  formState.host({});
-
-  //! The context must be correct
-  formState.host({
-    context: {
-      // @ts-expect-error
-      nope: "nah",
-    },
-  });
-
-  //! It requires to include the context assignment when sending an event
-  form.send("submit() -> profile", {
-    ref: "topbar",
-    email: "koss@nocorp.me",
-    password: "123456",
-  });
-
-  //! It allows to omit the context fields from the previous state
-  form.send("submit() -> profile", {
-    email: "koss@nocorp.me",
-    password: "123456",
-  });
-  form.send("submit() -> done", {
-    fullName: "Sasha Koss",
-    company: "No Corp",
-  });
-
-  // TODO: Remove debug code vvvvvv
-
-  type TestAllState = typeof form extends Superstate.Instances.Instance<
-    infer State,
-    infer Traits,
-    any
-  >
-    ? State
-    : never;
-
-  type TestFlatEvent = typeof form extends Superstate.Instances.Instance<
-    infer State,
-    infer Traits,
-    any
-  >
-    ? Traits["event"]
-    : never;
-
-  type TestMatchNext = Superstate.Transitions.MatchNextState<
-    TestAllState,
-    TestAllState,
-    "submit",
-    null
-  >;
-
-  type TestContext1 = Superstate.Contexts.EventContext<
-    TestAllState,
-    "credentials",
-    Superstate.States.FilterState<TestAllState, "profile">
-  >;
-
-  type TestContext2 = Superstate.Contexts.EventContext<
-    TestAllState,
-    "profile",
-    Superstate.States.FilterState<TestAllState, "done">
-  >;
-
-  type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
-    SignUpCredentials,
-    SignUpInitial
-  >;
-
-  type TestMinimalContext2 = Superstate.Contexts.MinimalContext<
-    SignUpComplete,
-    SignUpCredentials
-  >;
-
-  // TODO: Remove debug code ^^^^^^
-
-  //! It should not allow to send invalid context
-  // @ts-expect-error
-  form.send("submit() -> profile", {
-    nope: "nah",
-  });
-
-  //! null can't be a valid payload
-  // @ts-expect-error
-  form.send("submit() -> profile", null);
-
-  //! Empty object can't be a valid payload
-  // @ts-expect-error
-  form.send("submit() -> profile", {});
-
-  //! It should not allow omitting incomaptible context fields
+  //! Simple context
   {
-    type SignUpFormState = "credentials" | "profile";
+    type SignUpFormState = "credentials" | "profile" | "done";
 
     interface SignUpInitial {
-      ref: string | null;
+      ref: string;
     }
 
-    interface SignUpCredentials {
-      ref: string;
+    interface SignUpCredentials extends SignUpInitial {
       email: string;
       password: string;
+    }
+
+    interface SignUpComplete extends SignUpCredentials {
+      fullName: string;
+      company: string;
     }
 
     const formState = superstate<SignUpFormState>("signUp")
       .state("credentials", "submit() -> profile", ($) =>
         $.context<SignUpInitial>()
       )
-      .state("profile", ($) => $.context<SignUpCredentials>());
+      .state("profile", "submit() -> done", ($) =>
+        $.context<SignUpCredentials>()
+      )
+      .final("done", ($) => $.context<SignUpComplete>());
 
+    //! It requires to include the initial context when hosting
     const form = formState.host({
       context: {
-        ref: null,
+        ref: "topbar",
       },
+    });
+
+    //! The context must be included
+    // @ts-expect-error
+    formState.host();
+    // @ts-expect-error
+    formState.host({});
+
+    //! The context must be correct
+    formState.host({
+      context: {
+        // @ts-expect-error
+        nope: "nah",
+      },
+    });
+
+    //! It requires to include the context assignment when sending an event
+    form.send("submit() -> profile", {
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+    });
+
+    //! It allows to omit the context fields from the previous state
+    form.send("submit() -> profile", {
+      email: "koss@nocorp.me",
+      password: "123456",
+    });
+    form.send("submit() -> done", {
+      fullName: "Sasha Koss",
+      company: "No Corp",
     });
 
     // TODO: Remove debug code vvvvvv
@@ -1203,7 +1118,7 @@ import { Superstate, superstate } from ".";
       ? State
       : never;
 
-    type TestEvent = typeof form extends Superstate.Instances.Instance<
+    type TestFlatEvent = typeof form extends Superstate.Instances.Instance<
       infer State,
       infer Traits,
       any
@@ -1211,10 +1126,23 @@ import { Superstate, superstate } from ".";
       ? Traits["event"]
       : never;
 
+    type TestMatchNext = Superstate.Transitions.MatchNextState<
+      TestAllState,
+      TestAllState,
+      "submit",
+      null
+    >;
+
     type TestContext1 = Superstate.Contexts.EventContext<
       TestAllState,
       "credentials",
       Superstate.States.FilterState<TestAllState, "profile">
+    >;
+
+    type TestContext2 = Superstate.Contexts.EventContext<
+      TestAllState,
+      "profile",
+      Superstate.States.FilterState<TestAllState, "done">
     >;
 
     type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
@@ -1222,29 +1150,17 @@ import { Superstate, superstate } from ".";
       SignUpInitial
     >;
 
-    type TestRequiredKeys1 = Superstate.Contexts.RequiredKeys<
-      SignUpCredentials,
-      SignUpInitial
-    >;
-
-    type TestRequiredKeys2 = Superstate.Contexts.RequiredKeys<
-      { hello: "world"; world: "hello" },
-      { world: "hello" }
+    type TestMinimalContext2 = Superstate.Contexts.MinimalContext<
+      SignUpComplete,
+      SignUpCredentials
     >;
 
     // TODO: Remove debug code ^^^^^^
 
-    form.send("submit() -> profile", {
-      ref: "hello",
-      email: "koss@nocorp.me",
-      password: "123456",
-    });
-
-    //! ref is required while it's optional on SignUpInitial
+    //! It should not allow to send invalid context
     // @ts-expect-error
     form.send("submit() -> profile", {
-      email: "koss@nocorp.me",
-      password: "123456",
+      nope: "nah",
     });
 
     //! null can't be a valid payload
@@ -1254,7 +1170,175 @@ import { Superstate, superstate } from ".";
     //! Empty object can't be a valid payload
     // @ts-expect-error
     form.send("submit() -> profile", {});
+
+    //! It should not allow omitting incomaptible context fields
+    {
+      type SignUpFormState = "credentials" | "profile";
+
+      interface SignUpInitial {
+        ref: string | null;
+      }
+
+      interface SignUpCredentials {
+        ref: string;
+        email: string;
+        password: string;
+      }
+
+      const formState = superstate<SignUpFormState>("signUp")
+        .state("credentials", "submit() -> profile", ($) =>
+          $.context<SignUpInitial>()
+        )
+        .state("profile", ($) => $.context<SignUpCredentials>());
+
+      const form = formState.host({
+        context: {
+          ref: null,
+        },
+      });
+
+      // TODO: Remove debug code vvvvvv
+
+      type TestAllState = typeof form extends Superstate.Instances.Instance<
+        infer State,
+        infer Traits,
+        any
+      >
+        ? State
+        : never;
+
+      type TestEvent = typeof form extends Superstate.Instances.Instance<
+        infer State,
+        infer Traits,
+        any
+      >
+        ? Traits["event"]
+        : never;
+
+      type TestContext1 = Superstate.Contexts.EventContext<
+        TestAllState,
+        "credentials",
+        Superstate.States.FilterState<TestAllState, "profile">
+      >;
+
+      type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
+        SignUpCredentials,
+        SignUpInitial
+      >;
+
+      type TestRequiredKeys1 = Superstate.Contexts.RequiredKeys<
+        SignUpCredentials,
+        SignUpInitial
+      >;
+
+      type TestRequiredKeys2 = Superstate.Contexts.RequiredKeys<
+        { hello: "world"; world: "hello" },
+        { world: "hello" }
+      >;
+
+      type TestSend1 = Superstate.Traits.Send<TestEvent>;
+
+      // TODO: Remove debug code ^^^^^^
+
+      form.send("submit() -> profile", {
+        ref: "hello",
+        email: "koss@nocorp.me",
+        password: "123456",
+      });
+
+      //! ref is required while it's optional on SignUpInitial
+      // @ts-expect-error
+      form.send("submit() -> profile", {
+        email: "koss@nocorp.me",
+        password: "123456",
+      });
+
+      //! null can't be a valid payload
+      // @ts-expect-error
+      form.send("submit() -> profile", null);
+
+      //! Empty object can't be a valid payload
+      // @ts-expect-error
+      form.send("submit() -> profile", {});
+    }
   }
+
+  //#region Context/conditions
+  {
+    type SignUpFormState = "credentials" | "profile" | "done";
+
+    interface SignUpInitial {
+      email?: string;
+      password?: string;
+    }
+
+    interface ErrorFields {
+      error?: string;
+    }
+
+    interface SignUpCredentials extends ErrorFields {
+      email: string;
+      password: string;
+      fullName?: string;
+      company?: string;
+    }
+
+    interface SignUpComplete extends ErrorFields {
+      email: string;
+      password: string;
+      fullName: string;
+      company: string;
+    }
+
+    const formState = superstate<SignUpFormState>("signUp")
+      .state(
+        "credentials",
+        ["submit(error) -> credentials", "submit() -> profile"],
+        ($) => $.context<SignUpInitial>()
+      )
+      .state("profile", ["submit(error) -> profile", "submit() -> done"], ($) =>
+        $.context<SignUpCredentials>()
+      )
+      .final("done", ($) => $.context<SignUpComplete>());
+
+    //! It allows to omit passing optional context
+    const form = formState.host();
+
+    //! It allows to send context with guarded events
+    form.send("submit(error) -> credentials", {
+      email: "",
+      password: "123456",
+      error: "The email is missing",
+    });
+
+    //! It allows to send context unguarded events
+    form.send("submit() -> profile", {
+      fullName: "Sasha Koss",
+      company: "No Corp",
+    });
+
+    //! It should not allow incorrect context
+    // @ts-expect-error
+    form.send("submit(error) -> credentials", {
+      nope: "nah",
+    });
+
+    //! It should not allow null
+    // @ts-expect-error
+    form.send("submit(error) -> credentials", null);
+
+    //! It should not allow empty context
+    // @ts-expect-error
+    form.send("submit(error) -> credentials", {});
+
+    //! It should not context from another state
+    // @ts-expect-error
+    form.send("submit(error) -> credentials", {
+      fullName: "Sasha Koss",
+      company: "No Corp",
+    });
+  }
+  //#endregion
 }
 //#endregion
 
