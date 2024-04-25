@@ -1134,6 +1134,16 @@ import { Superstate, superstate } from ".";
     Superstate.States.FilterState<TestAllState, "done">
   >;
 
+  type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
+    SignUpCredentials,
+    SignUpInitial
+  >;
+
+  type TestMinimalContext2 = Superstate.Contexts.MinimalContext<
+    SignUpComplete,
+    SignUpCredentials
+  >;
+
   // TODO: Remove debug code ^^^^^^
 
   //! It should not allow omitting incomaptible context fields
@@ -1164,13 +1174,42 @@ import { Superstate, superstate } from ".";
 
     // TODO: Remove debug code vvvvvv
 
-    type Test = typeof form extends Superstate.Instances.Instance<
+    type TestAllState = typeof form extends Superstate.Instances.Instance<
+      infer State,
+      infer Traits,
+      any
+    >
+      ? State
+      : never;
+
+    type TestEvent = typeof form extends Superstate.Instances.Instance<
       infer State,
       infer Traits,
       any
     >
       ? Traits["event"]
       : never;
+
+    type TestContext1 = Superstate.Contexts.EventContext<
+      TestAllState,
+      "credentials",
+      Superstate.States.FilterState<TestAllState, "profile">
+    >;
+
+    type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
+      SignUpCredentials,
+      SignUpInitial
+    >;
+
+    type TestRequiredKeys1 = Superstate.Contexts.RequiredKeys<
+      SignUpCredentials,
+      SignUpInitial
+    >;
+
+    type TestRequiredKeys2 = Superstate.Contexts.RequiredKeys<
+      { hello: "world"; world: "hello" },
+      { world: "hello" }
+    >;
 
     // TODO: Remove debug code ^^^^^^
 
