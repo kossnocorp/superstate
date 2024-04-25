@@ -366,8 +366,8 @@ export namespace Superstate {
       AllState extends States.AnyState, // TODO: Cut it
       EventName,
       EventCondition extends string | null
-    > = MachineState extends { transitions: Array<infer Event> }
-      ? Event extends {
+    > = MachineState extends { transitions: Array<infer Transition> }
+      ? Transition extends {
           event: EventName;
           condition: EventCondition;
           to: infer ToName;
@@ -889,6 +889,8 @@ export namespace Superstate {
 
     //#endregion
 
+    //#region Listeners/send
+
     /**
      * Function that sends events.
      */
@@ -896,34 +898,33 @@ export namespace Superstate {
       <
         Key extends FlatEvent extends {
           key: infer Key extends string;
-          condition: null;
           final: false;
         }
           ? Key
           : never,
+        Condition extends FlatEvent extends {
+          condition: infer Condition;
+        }
+          ? Condition
+          : null,
         ToStateName extends FlatEvent extends {
-          key: Key;
-          condition: null;
-          final: false;
           next: { name: infer StateName extends string };
         }
           ? StateName
           : never,
         Context extends FlatEvent extends {
-          key: Key;
-          condition: null;
-          final: false;
           context: infer Context;
-          next: { name: ToStateName };
         }
           ? Context
           : never
       >(
-        name: `${Key}() -> ${ToStateName}`,
+        name: `${Key}(${Condition extends null
+          ? ""
+          : Condition}) -> ${ToStateName}`,
         context: NoInfer<Context>
       ): FlatEvent extends {
         key: Key;
-        condition: null;
+        condition: Condition;
         next: infer Next;
       }
         ? Next | null
@@ -1000,6 +1001,8 @@ export namespace Superstate {
         ? Next | null
         : never;
     }
+
+    //#endregion
   }
   //#endregion
 
@@ -1052,7 +1055,7 @@ export namespace Superstate {
       Target
     > = Target extends `${infer Key}()`
       ? FlatEvent extends { key: Key }
-        ? FlatEvent["event"]
+        ? FlatEvent["transition"]
         : never
       : never;
 
@@ -1072,7 +1075,7 @@ export namespace Superstate {
   export namespace Updates {
     export type DeepWildcardUpdate<Traits extends Traits.TraitsConstraint> =
       | StateUpdate<Traits["state"]["state"]>
-      | EventUpdate<Traits["event"]["event"]>;
+      | EventUpdate<Traits["event"]["transition"]>;
 
     export type WildcardUpdate<
       State extends Traits.StateConstraint,
@@ -1083,7 +1086,7 @@ export namespace Superstate {
           ? StateUpdate<State["state"]>
           : never)
       | (Event extends { wildcard: Target }
-          ? EventUpdate<Event["event"]>
+          ? EventUpdate<Event["transition"]>
           : never);
 
     export interface StateUpdate<_State extends { name: string }> {
@@ -1189,7 +1192,7 @@ export namespace Superstate {
       condition: string | null;
       final: boolean;
       next: States.AnyState;
-      event: Transitions.AnyTransition;
+      transition: Transitions.AnyTransition;
       nested: boolean;
       context: Contexts.Constraint | null;
     }
@@ -1228,7 +1231,7 @@ export namespace Superstate {
                 key: `${Prefix}${Transition["transition"]["event"]}`;
                 wildcard: `${Prefix}*`;
                 condition: Transition["transition"]["condition"];
-                event: Transition["transition"];
+                transition: Transition["transition"];
                 next: Transition["next"];
                 final: false;
                 nested: Prefix extends "" ? false : true;
@@ -1270,7 +1273,7 @@ export namespace Superstate {
                               ? {
                                   key: `${Prefix}${EventName}`;
                                   wildcard: `${Prefix}*`;
-                                  event: Transition;
+                                  transition: Transition;
                                   condition: null;
                                   // TODO: Migrate to the approach used for the root level and get rid of MatchNextState
                                   next: Transitions.MatchNextState<
