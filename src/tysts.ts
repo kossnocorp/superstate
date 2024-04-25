@@ -360,6 +360,19 @@ import { Superstate, superstate } from ".";
     if (nextState) {
       nextState.name satisfies "off";
     }
+
+    // TODO: Remove debug code vvvvvv
+    type TestEvent = typeof pc extends Superstate.Instances.Instance<
+      infer State,
+      infer Traits,
+      any
+    >
+      ? Traits["event"]
+      : never;
+
+    type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
+
+    // TODO: Remove debug code ^^^^^^
   }
 
   //! Allows to send short condition
@@ -1118,7 +1131,7 @@ import { Superstate, superstate } from ".";
       ? State
       : never;
 
-    type TestFlatEvent = typeof form extends Superstate.Instances.Instance<
+    type TestEvent = typeof form extends Superstate.Instances.Instance<
       infer State,
       infer Traits,
       any
@@ -1155,6 +1168,8 @@ import { Superstate, superstate } from ".";
       SignUpCredentials
     >;
 
+    type TestSend1 = Superstate.Listeners.Send<TestEvent>;
+
     // TODO: Remove debug code ^^^^^^
 
     //! It should not allow to send invalid context
@@ -1170,6 +1185,13 @@ import { Superstate, superstate } from ".";
     //! Empty object can't be a valid payload
     // @ts-expect-error
     form.send("submit() -> profile", {});
+
+    //! Should not accept wrong context
+    // @ts-expect-error
+    form.send("submit() -> profile", {
+      fullName: "Sasha Koss",
+      company: "No Corp",
+    });
 
     //! It should not allow omitting incomaptible context fields
     {
@@ -1236,7 +1258,7 @@ import { Superstate, superstate } from ".";
         { world: "hello" }
       >;
 
-      type TestSend1 = Superstate.Traits.Send<TestEvent>;
+      type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
       // TODO: Remove debug code ^^^^^^
 
@@ -1267,13 +1289,13 @@ import { Superstate, superstate } from ".";
   {
     type SignUpFormState = "credentials" | "profile" | "done";
 
-    interface SignUpInitial {
-      email?: string;
-      password?: string;
-    }
-
     interface ErrorFields {
       error?: string;
+    }
+
+    interface SignUpInitial extends ErrorFields {
+      email?: string;
+      password?: string;
     }
 
     interface SignUpCredentials extends ErrorFields {
@@ -1304,6 +1326,20 @@ import { Superstate, superstate } from ".";
     //! It allows to omit passing optional context
     const form = formState.host();
 
+    // TODO: Remove debug code vvvvvv
+
+    type TestEvent = typeof form extends Superstate.Instances.Instance<
+      infer State,
+      infer Traits,
+      any
+    >
+      ? Traits["event"]
+      : never;
+
+    type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
+
+    // TODO: Remove debug code ^^^^^^
+
     //! It allows to send context with guarded events
     form.send("submit(error) -> credentials", {
       email: "",
@@ -1312,10 +1348,13 @@ import { Superstate, superstate } from ".";
     });
 
     //! It allows to send context unguarded events
-    form.send("submit() -> profile", {
+    form.send("submit() -> done", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
+
+    //! It should allow empty context as it's a self-transition
+    form.send("submit(error) -> profile", {});
 
     //! It should not allow incorrect context
     // @ts-expect-error
@@ -1326,10 +1365,6 @@ import { Superstate, superstate } from ".";
     //! It should not allow null
     // @ts-expect-error
     form.send("submit(error) -> credentials", null);
-
-    //! It should not allow empty context
-    // @ts-expect-error
-    form.send("submit(error) -> credentials", {});
 
     //! It should not context from another state
     // @ts-expect-error
