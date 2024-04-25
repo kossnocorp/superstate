@@ -2,505 +2,7 @@
  * The root Superstate namespace. It contains all the Superstate types.
  */
 export namespace Superstate {
-  /**
-   * Temp namespace.
-   */
-  export namespace QQ {
-    export type AnyTransition<
-      EventName extends string = string,
-      MachineStateName extends string = string,
-      FromStateName extends MachineStateName = MachineStateName
-    > = Transitions.Transition<
-      EventName,
-      FromStateName,
-      any,
-      string | null,
-      Transitions.Action | null
-    >;
-
-    export type AnyMachineFactory<MachineState extends States.AnyState = any> =
-      Factories.MachineFactory<MachineState>;
-
-    export interface Off {
-      (): void;
-    }
-
-    export type OnTarget<
-      FlatState extends FlatStateConstraint,
-      FlatEvent extends FlatEventConstraint
-    > =
-      | "*"
-      | (true extends FlatState["nested"] ? "**" : never)
-      | StateTarget<FlatState>
-      | FlatState["wildcard"]
-      | EventTarget<FlatEvent>;
-
-    export type StateTarget<FlatState extends FlatStateConstraint> =
-      FlatState["key"];
-
-    export type MatchTargetState<
-      FlatState extends FlatStateConstraint,
-      Target extends string
-    > = FlatState extends { key: Target } ? FlatState["state"] : never;
-
-    export type EventTarget<FlatEvent extends FlatEventConstraint> =
-      FlatEvent extends {
-        key: infer Key extends string;
-        condition: infer Condition extends string | null;
-      }
-        ? `${Key}(${Condition extends null ? "" : Condition})`
-        : never;
-
-    export type MatchTargetEvent<
-      FlatEvent extends FlatEventConstraint,
-      Target extends string
-    > = Target extends `${infer Key}()`
-      ? FlatEvent extends { key: Key }
-        ? FlatEvent["event"]
-        : never
-      : never;
-
-    export type DeepWildcardEvent<
-      FlatState extends FlatStateConstraint,
-      FlatEvent extends FlatEventConstraint
-    > = StateUpdate<FlatState["state"]> | EventUpdate<FlatEvent["event"]>;
-
-    type WildcardConstraint = `${string}*`;
-
-    export type WildcardEvent<
-      FlatState extends FlatStateConstraint,
-      FlatEvent extends FlatEventConstraint,
-      Target extends WildcardConstraint
-    > =
-      | (FlatState extends { wildcard: Target }
-          ? StateUpdate<FlatState["state"]>
-          : never)
-      | (FlatEvent extends { wildcard: Target }
-          ? EventUpdate<FlatEvent["event"]>
-          : never);
-
-    export interface StateUpdate<_State extends { name: string }> {
-      type: "state";
-      state: _State;
-    }
-
-    export interface EventUpdate<Transition> {
-      type: "event";
-      transition: Transition;
-    }
-
-    export interface OnListener<
-      FlatState extends FlatStateConstraint,
-      FlatEvent extends FlatEventConstraint,
-      Target extends OnTarget<FlatState, FlatEvent> // TODO: Simplify it
-    > {
-      (
-        target: Target extends "**"
-          ? DeepWildcardEvent<FlatState, FlatEvent>
-          : Target extends WildcardConstraint
-          ? WildcardEvent<FlatState, FlatEvent, Target>
-          : Target extends
-              | Array<infer TargetString extends string>
-              | infer TargetString extends string
-          ? MatchTargetState<FlatState, TargetString> extends infer MatchedState
-            ? MatchTargetEvent<
-                FlatEvent,
-                TargetString
-              > extends infer MatchedEvent
-              ?
-                  | (MatchedState extends { name: string }
-                      ? StateUpdate<MatchedState>
-                      : never)
-                  | (MatchedEvent extends never
-                      ? never
-                      : EventUpdate<MatchedEvent>)
-              : never
-            : never
-          : never
-      ): void;
-    }
-
-    export type MatchNextState<
-      MachineState extends States.AnyState, // TODO: Cut it
-      AllState extends States.AnyState, // TODO: Cut it
-      EventName,
-      EventCondition extends string | null
-    > = MachineState extends { transitions: Array<infer Event> }
-      ? Event extends {
-          event: EventName;
-          condition: EventCondition;
-          to: infer ToName;
-        }
-        ? States.FilterState<AllState, ToName>
-        : never
-      : never;
-
-    export interface FlatEventConstraint {
-      key: string;
-      wildcard: WildcardConstraint;
-      condition: string | null;
-      final: boolean;
-      next: States.AnyState;
-      event: AnyTransition;
-      nested: boolean;
-      context: Contexts.Constraint | null;
-    }
-
-    export interface FlatStateConstraint {
-      key: string;
-      wildcard: WildcardConstraint;
-      state: States.AnyState;
-      nested: boolean;
-    }
-
-    export type DeepFlatEvent<
-      MachineState extends States.AnyState,
-      AllState extends States.AnyState,
-      Prefix extends string | "" = ""
-    > =
-      // First we get the root level events
-      | (MachineState extends {
-          transitions: Array<infer Event>;
-        }
-          ? Event extends {
-              event: infer EventName extends string;
-              condition: infer Condition extends string | null;
-              from: infer FromName extends string;
-            }
-            ? MatchNextState<
-                AllState,
-                AllState,
-                EventName,
-                Condition
-              > extends infer NextState
-              ? NextState extends { name: infer NextStateName extends string }
-                ? {
-                    [Name in NextStateName]: {
-                      key: `${Prefix}${EventName}`;
-                      wildcard: `${Prefix}*`;
-                      condition: Condition;
-                      event: Event;
-                      next: NextState;
-                      final: false;
-                      nested: Prefix extends "" ? false : true;
-                      context: Contexts.EventContext<
-                        AllState,
-                        FromName,
-                        NextState
-                      >;
-                    };
-                  }[NextStateName]
-                : never
-              : never
-            : never
-          : never)
-      // Now we add the substate events
-      | (MachineState extends {
-          name: infer StateName extends string;
-          sub: infer Substates extends Record<string, any>;
-        }
-          ? // Here we prevent the infinite recursion when Substates is uknown and
-            // keyof Substates resolves to `string | number | symbol`:
-            // > Type instantiation is excessively deep and possibly infinite.
-            keyof Substates extends string
-            ? {
-                [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-                  sub: infer AsSubstate;
-                  state: infer SubstateState extends States.AnyState;
-                }
-                  ? SubstateName extends string
-                    ?
-                        | DeepFlatEvent<
-                            SubstateState,
-                            SubstateState,
-                            `${Prefix}${StateName}.${SubstateName}.`
-                          >
-                        // Add final transitions
-                        | (AsSubstate extends Substate<
-                            any,
-                            any,
-                            infer Transition
-                          >
-                            ? Transition extends SubstateFinalTransition<
-                                infer EventName,
-                                any,
-                                any
-                              >
-                              ? {
-                                  key: `${Prefix}${EventName}`;
-                                  wildcard: `${Prefix}*`;
-                                  event: Transition;
-                                  condition: null;
-                                  next: MatchNextState<
-                                    AllState,
-                                    AllState,
-                                    EventName,
-                                    null
-                                  >;
-                                  final: true;
-                                  nested: true;
-                                  context: null; // TODO: context
-                                }
-                              : never
-                            : never)
-                    : never
-                  : never;
-              }[keyof Substates]
-            : never
-          : never);
-
-    export type DeepFlatState<
-      MachineState extends States.AnyState,
-      Prefix extends string | "" = ""
-    > =
-      // First we get the root level states
-      | (MachineState extends {
-          name: infer Name extends string;
-        }
-          ? {
-              key: `${Prefix}${Name}`;
-              wildcard: `${Prefix}*`;
-              state: MachineState;
-              nested: Prefix extends "" ? false : true;
-            }
-          : never)
-      // Now we add the substates
-      | (MachineState extends {
-          name: infer StateName extends string;
-          sub: infer Substates extends Record<string, any>;
-        }
-          ? // Here we prevent the infinite recursion when Substates is uknown and
-            // keyof Substates resolves to `string | number | symbol`:
-            // > Type instantiation is excessively deep and possibly infinite.
-            keyof Substates extends string
-            ? {
-                [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-                  state: infer SubstateState extends States.AnyState;
-                }
-                  ? SubstateName extends string
-                    ? DeepFlatState<
-                        SubstateState,
-                        `${Prefix}${StateName}.${SubstateName}.`
-                      >
-                    : never
-                  : never;
-              }[keyof Substates]
-            : never
-          : never);
-
-    export interface MachineInstance<
-      MachineState,
-      FlatState extends FlatStateConstraint,
-      FlatEvent extends FlatEventConstraint,
-      AsSubstate
-    > {
-      readonly sub: AsSubstate;
-
-      readonly state: MachineState;
-
-      readonly finalized: boolean;
-
-      send<
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          condition: null;
-          final: false;
-        }
-          ? Key
-          : never,
-        ToStateName extends FlatEvent extends {
-          key: Key;
-          condition: null;
-          final: false;
-          next: { name: infer StateName extends string };
-        }
-          ? StateName
-          : never,
-        Context extends FlatEvent extends {
-          key: Key;
-          condition: null;
-          final: false;
-          context: infer Context;
-          next: { name: ToStateName };
-        }
-          ? Context
-          : never
-      >(
-        name: `${Key}() -> ${ToStateName}`,
-        context: NoInfer<Context>
-      ): FlatEvent extends {
-        key: Key;
-        condition: null;
-        next: infer Next;
-      }
-        ? Next | null
-        : never;
-
-      send<
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          condition: null;
-          context: null;
-          final: false;
-        }
-          ? Key
-          : never
-      >(
-        name: `${Key}()`
-      ): FlatEvent extends {
-        key: Key;
-        condition: null;
-        context: null;
-        next: infer Next;
-      }
-        ? Next | null
-        : never;
-
-      send<
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          final: false;
-          condition: string;
-          context: null;
-        }
-          ? Key
-          : never,
-        Condition extends FlatEvent extends {
-          key: Key;
-          condition: infer Condition extends string;
-          context: null;
-        }
-          ? Condition
-          : null
-      >(
-        name: `${Key}()`,
-        condition: Condition
-      ): FlatEvent extends {
-        key: Key;
-        condition: Condition;
-        context: null;
-        next: infer Next;
-      }
-        ? Next | null
-        : never;
-
-      send<
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          final: false;
-        }
-          ? Key
-          : never,
-        Condition extends FlatEvent extends {
-          key: Key;
-          condition: infer Condition;
-        }
-          ? Condition
-          : null
-      >(
-        name: Condition extends string ? `${Key}(${Condition})` : never
-      ): FlatEvent extends {
-        key: Key;
-        condition: Condition;
-        next: infer Next;
-      }
-        ? Next | null
-        : never;
-
-      on<Target extends OnTarget<FlatState, FlatEvent>>(
-        target: Target | Target[],
-        listener: OnListener<FlatState, FlatEvent, Target>
-      ): Off;
-
-      in<Target extends StateTarget<FlatState>>(
-        target: Target | Target[]
-      ): MatchTargetState<FlatState, Target> | undefined;
-
-      off(): void;
-    }
-
-    export type EventDef<
-      MachineStateName extends string,
-      EventName extends string,
-      Condition extends string
-    > =
-      | `${EventName}() -> ${MachineStateName}`
-      | `${EventName}(${Condition}) -> ${MachineStateName}`;
-
-    /**
-     * Infers the entry state name from the machine state.
-     */
-    export type EntryStateName<State> = State extends {
-      name: infer Name;
-      props: { entry: true };
-    }
-      ? Name
-      : never;
-
-    export type BuilderChainState<
-      MachineStateName extends string,
-      StateName extends MachineStateName,
-      StateAction extends Superstate.Actions.Action,
-      StateDef_ extends Superstate.States.Def<MachineStateName>,
-      Substate extends Substates.AnySubstate,
-      Initial extends boolean,
-      Final extends boolean,
-      Context
-    > = {
-      name: StateName;
-      actions: Array<
-        | (StateDef_ extends Superstate.Actions.Def
-            ? Superstate.Actions.FromDef<StateDef_>
-            : never)
-        | StateAction
-      >;
-      transitions: Transitions.FromDef<
-        MachineStateName,
-        StateName,
-        StateDef_ extends EventDef<any, any, any> ? StateDef_ : never
-      >[];
-      sub: Substates.BuilderSubstatesMap<Substate>;
-      initial: Initial;
-      final: Final;
-      [Contexts.ContextBrand]: Context;
-    };
-
-    export interface SubstateFinalTransition<
-      EventName extends string,
-      ChildFromStateName extends string,
-      MachineToStateName extends string
-    > {
-      event: EventName;
-      from: ChildFromStateName;
-      to: MachineToStateName;
-      condition: null;
-    }
-
-    export interface Substate<Name, Factory, Transition> {
-      name: Name;
-      factory: Factory;
-      transitions: Transition[];
-    }
-
-    export type SubstateFinalTransitionDef<
-      ParentMachineName extends string,
-      ChildFinalStateName extends string,
-      TransitionName extends string
-    > = `${ChildFinalStateName} -> ${TransitionName}() -> ${ParentMachineName}`;
-
-    export type SubstateFinalTransitionFromDef<
-      Def extends SubstateFinalTransitionDef<any, any, any>
-    > =
-      Def extends `${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
-        ? {
-            event: EventName;
-            from: ChildFromStateName;
-            to: MachineToStateName;
-            condition: null;
-          }
-        : never;
-  }
-
+  //#region Actions
   /**
    * The actions namespace. It contains all the types related to actions,
    * the entity that defines invoked function when entering or exiting a state
@@ -702,13 +204,19 @@ export namespace Superstate {
               : never)
       : never;
   }
+  //#endregion
 
+  //#region Events
   /**
    * The events namespace. It contains all the types related to events,
    * the entity that trigger state transitions.
    */
-  export namespace Events {}
+  export namespace Events {
+    // TODO: Move stuff from Transitions
+  }
+  //#endregion
 
+  //#region Transitions
   /**
    * The transitions namespace. It contains all the types related to
    * transitions, the entity that defines the state transition triggered
@@ -743,7 +251,8 @@ export namespace Superstate {
       | EventDefWithAction<MachineStateName>;
 
     /**
-     * The transition def.
+     * Event string definition. Describes the event that triggers
+     * the transition, the condition and the next state.
      */
     export type EventDef<
       MachineStateName extends string,
@@ -822,7 +331,7 @@ export namespace Superstate {
       MachineStateName extends string,
       FromStateName extends MachineStateName,
       Def_ extends Def<MachineStateName>
-    > = Def_ extends Transitions.EventDef<
+    > = Def_ extends EventDef<
       infer ToStateName extends MachineStateName,
       infer EventName,
       infer Condition
@@ -848,8 +357,28 @@ export namespace Superstate {
           { type: "transition"; name: Action }
         >
       : never;
-  }
 
+    /**
+     * Resolves the next state for the transition.
+     */
+    export type MatchNextState<
+      MachineState extends States.AnyState, // TODO: Cut it
+      AllState extends States.AnyState, // TODO: Cut it
+      EventName,
+      EventCondition extends string | null
+    > = MachineState extends { transitions: Array<infer Event> }
+      ? Event extends {
+          event: EventName;
+          condition: EventCondition;
+          to: infer ToName;
+        }
+        ? States.FilterState<AllState, ToName>
+        : never
+      : never;
+  }
+  //#endregion
+
+  //#region States
   export namespace States {
     export interface State<StateName, Action, Transition, Substates_, Final> {
       name: StateName;
@@ -893,7 +422,13 @@ export namespace Superstate {
       ? State
       : never;
   }
+  //#endregion
 
+  //#region Builder
+  /**
+   * Builder namespace. Contains all the types related to the statechart builder
+   * that creates the statechart instance.
+   */
   export namespace Builder {
     export interface Machine {
       <MachineStateName extends string>(name: string): Head<MachineStateName>;
@@ -1002,7 +537,11 @@ export namespace Superstate {
           infer State
         >
           ? State extends { name: infer FinalName extends string; final: true }
-            ? QQ.SubstateFinalTransitionDef<MachineStateName, FinalName, any>
+            ? Substates.SubstateFinalTransitionDef<
+                MachineStateName,
+                FinalName,
+                any
+              >
             : never
           : never = never
       >(
@@ -1014,10 +553,10 @@ export namespace Superstate {
         StateAction,
         StateTransitionDef,
         | Substate
-        | QQ.Substate<
+        | Substates.Substate<
             SubstateName,
             SubstateFactory,
-            QQ.SubstateFinalTransitionFromDef<TrasitionDef>
+            Substates.SubstateFinalTransitionFromDef<TrasitionDef>
           >,
         Context
       >;
@@ -1054,7 +593,7 @@ export namespace Superstate {
       ? Factories.MachineFactory<
           States.BuilderStateToInstance<
             | MachineState
-            | QQ.BuilderChainState<
+            | State<
                 MachineStateName,
                 StateName,
                 StateAction,
@@ -1070,7 +609,7 @@ export namespace Superstate {
           MachineStateName,
           Exclude<ChainStateName, StateName>,
           | MachineState
-          | QQ.BuilderChainState<
+          | State<
               MachineStateName,
               StateName,
               StateAction,
@@ -1081,6 +620,40 @@ export namespace Superstate {
               Context
             >
         >;
+
+    /**
+     * Builder state. It constructs the state object from the builder chain
+     * types.
+     */
+    export type State<
+      MachineStateName extends string,
+      StateName extends MachineStateName,
+      StateAction extends Superstate.Actions.Action,
+      StateDef_ extends Superstate.States.Def<MachineStateName>,
+      Substate extends Substates.AnySubstate,
+      Initial extends boolean,
+      Final extends boolean,
+      Context
+    > = {
+      name: StateName;
+      actions: Array<
+        | (StateDef_ extends Superstate.Actions.Def
+            ? Superstate.Actions.FromDef<StateDef_>
+            : never)
+        | StateAction
+      >;
+      transitions: Transitions.FromDef<
+        MachineStateName,
+        StateName,
+        StateDef_ extends Transitions.EventDef<any, any, any>
+          ? StateDef_
+          : never
+      >[];
+      sub: Substates.BuilderSubstatesMap<Substate>;
+      initial: Initial;
+      final: Final;
+      [Contexts.ContextBrand]: Context;
+    };
 
     export interface StateFn<
       Initial extends boolean,
@@ -1180,7 +753,9 @@ export namespace Superstate {
       >;
     }
   }
+  //#endregion
 
+  //#region Factories
   /**
    * The factories namespace. It contains all the types related to factories,
    * the entity that creates statechart instances.
@@ -1201,21 +776,352 @@ export namespace Superstate {
 
       host(
         ...args: Superstate.Actions.BindingArgs<State>
-      ): QQ.MachineInstance<
+      ): Instances.Instance<
         State,
-        QQ.DeepFlatState<State>,
-        QQ.DeepFlatEvent<State, State>,
+        Traits.State<State>,
+        Traits.Event<State, State>,
         never
       >;
     }
   }
+  //#endregion
 
+  //#region Instances
+  /**
+   * Instances namespace. Contains all the types related to hosted statechart
+   * instances. Such as functions, return types, the instance itself, etc.
+   */
+  export namespace Instances {
+    export interface Instance<
+      MachineState,
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint,
+      AsSubstate
+    > extends Listeners.API<FlatState, FlatEvent> {
+      readonly sub: AsSubstate;
+
+      readonly state: MachineState;
+
+      readonly finalized: boolean;
+
+      in<Target extends Targets.State<FlatState>>(
+        target: Target | Target[]
+      ): Targets.MatchState<FlatState, Target> | undefined;
+    }
+  }
+  //#endregion
+
+  //#region Listeners
+  /**
+   * Listeners namespace. It contains all the types related to listeners,
+   * the {@link Instances} event system.
+   */
+  export namespace Listeners {
+    /**
+     * Instances API. Provides functions to subscribe, send, and unsubscribe
+     * from events and state updates.
+     */
+    export interface API<
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint
+    > {
+      on: Listeners.On<FlatState, FlatEvent>;
+
+      send: Listeners.Send<FlatEvent>;
+
+      off(): void;
+    }
+
+    /**
+     * Function returned from the subscription function.
+     */
+    export interface Off {
+      (): void;
+    }
+
+    //#region Listeners/on
+
+    /**
+     * Function that subscribes to event and state updates.
+     */
+    export interface On<
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint
+    > {
+      <Target extends Targets.On<FlatState, FlatEvent>>(
+        target: Target | Target[],
+        listener: OnListener<FlatState, FlatEvent, Target>
+      ): Off;
+    }
+
+    /**
+     * Listener function that is triggered on the event or state update.
+     */
+    export interface OnListener<
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint,
+      Target extends Targets.On<FlatState, FlatEvent> // TODO: Simplify it
+    > {
+      (
+        target: Target extends "**"
+          ? Updates.DeepWildcardUpdate<FlatState, FlatEvent>
+          : Target extends Targets.WildcardConstraint
+          ? Updates.WildcardUpdate<FlatState, FlatEvent, Target>
+          : Target extends
+              | Array<infer TargetString extends string>
+              | infer TargetString extends string
+          ? Targets.MatchState<
+              FlatState,
+              TargetString
+            > extends infer MatchedState
+            ? Targets.MatchEvent<
+                FlatEvent,
+                TargetString
+              > extends infer MatchedEvent
+              ?
+                  | (MatchedState extends { name: string }
+                      ? Updates.StateUpdate<MatchedState>
+                      : never)
+                  | (MatchedEvent extends never
+                      ? never
+                      : Updates.EventUpdate<MatchedEvent>)
+              : never
+            : never
+          : never
+      ): void;
+    }
+
+    //#endregion
+
+    /**
+     * Function that sends events.
+     */
+    export interface Send<FlatEvent extends Traits.EventConstraint> {
+      <
+        Key extends FlatEvent extends {
+          key: infer Key extends string;
+          condition: null;
+          final: false;
+        }
+          ? Key
+          : never,
+        ToStateName extends FlatEvent extends {
+          key: Key;
+          condition: null;
+          final: false;
+          next: { name: infer StateName extends string };
+        }
+          ? StateName
+          : never,
+        Context extends FlatEvent extends {
+          key: Key;
+          condition: null;
+          final: false;
+          context: infer Context;
+          next: { name: ToStateName };
+        }
+          ? Context
+          : never
+      >(
+        name: `${Key}() -> ${ToStateName}`,
+        context: NoInfer<Context>
+      ): FlatEvent extends {
+        key: Key;
+        condition: null;
+        next: infer Next;
+      }
+        ? Next | null
+        : never;
+
+      <
+        Key extends FlatEvent extends {
+          key: infer Key extends string;
+          condition: null;
+          context: null;
+          final: false;
+        }
+          ? Key
+          : never
+      >(
+        name: `${Key}()`
+      ): FlatEvent extends {
+        key: Key;
+        condition: null;
+        context: null;
+        next: infer Next;
+      }
+        ? Next | null
+        : never;
+
+      <
+        Key extends FlatEvent extends {
+          key: infer Key extends string;
+          final: false;
+          condition: string;
+          context: null;
+        }
+          ? Key
+          : never,
+        Condition extends FlatEvent extends {
+          key: Key;
+          condition: infer Condition extends string;
+          context: null;
+        }
+          ? Condition
+          : null
+      >(
+        name: `${Key}()`,
+        condition: Condition
+      ): FlatEvent extends {
+        key: Key;
+        condition: Condition;
+        context: null;
+        next: infer Next;
+      }
+        ? Next | null
+        : never;
+
+      <
+        Key extends FlatEvent extends {
+          key: infer Key extends string;
+          final: false;
+        }
+          ? Key
+          : never,
+        Condition extends FlatEvent extends {
+          key: Key;
+          condition: infer Condition;
+        }
+          ? Condition
+          : null
+      >(
+        name: Condition extends string ? `${Key}(${Condition})` : never
+      ): FlatEvent extends {
+        key: Key;
+        condition: Condition;
+        next: infer Next;
+      }
+        ? Next | null
+        : never;
+    }
+  }
+  //#endregion
+
+  //#region Targets
+  /**
+   * Targets namespace. It contains all the types related to targets, the string
+   * representation of the state or events.
+   */
+  export namespace Targets {
+    /**
+     * String representing listener target.
+     */
+    export type On<
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint
+    > =
+      | "*"
+      | (true extends FlatState["nested"] ? "**" : never)
+      | State<FlatState>
+      | FlatState["wildcard"]
+      | Event<FlatEvent>;
+
+    /**
+     * String representing state.
+     */
+    export type State<FlatState extends Traits.StateConstraint> =
+      FlatState["key"];
+
+    /**
+     * String representing event.
+     */
+    export type Event<FlatEvent extends Traits.EventConstraint> =
+      FlatEvent extends {
+        key: infer Key extends string;
+        condition: infer Condition extends string | null;
+      }
+        ? `${Key}(${Condition extends null ? "" : Condition})`
+        : never;
+
+    /**
+     * Matches the target state.
+     */
+    export type MatchState<
+      FlatState extends Traits.StateConstraint,
+      Target extends string
+    > = FlatState extends { key: Target } ? FlatState["state"] : never;
+
+    /**
+     * Matches the target event.
+     */
+    export type MatchEvent<
+      FlatEvent extends Traits.EventConstraint,
+      Target
+    > = Target extends `${infer Key}()`
+      ? FlatEvent extends { key: Key }
+        ? FlatEvent["event"]
+        : never
+      : never;
+
+    /**
+     * String constraint for wildcard targets.
+     */
+    export type WildcardConstraint = `${string}*`;
+  }
+  //#endregion
+
+  //#region Updates
+  /**
+   * Updates namespaces. It contains all the types related to updates,
+   * the entity representing the listener payload that is sent during
+   * transitions.
+   */
+  export namespace Updates {
+    export type DeepWildcardUpdate<
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint
+    > = StateUpdate<FlatState["state"]> | EventUpdate<FlatEvent["event"]>;
+
+    export type WildcardUpdate<
+      FlatState extends Traits.StateConstraint,
+      FlatEvent extends Traits.EventConstraint,
+      Target extends Targets.WildcardConstraint
+    > =
+      | (FlatState extends { wildcard: Target }
+          ? StateUpdate<FlatState["state"]>
+          : never)
+      | (FlatEvent extends { wildcard: Target }
+          ? EventUpdate<FlatEvent["event"]>
+          : never);
+
+    export interface StateUpdate<_State extends { name: string }> {
+      type: "state";
+      state: _State;
+    }
+
+    export interface EventUpdate<Transition> {
+      type: "event";
+      transition: Transition;
+    }
+  }
+  //#endregion
+
+  //#region Substates
   /**
    * The substates namespace. It contains all the types related to substates,
    * the entity that represents a nested statechart relation to the parent.
    */
   export namespace Substates {
-    export type AnySubstate = QQ.Substate<any, any, any>;
+    export type AnySubstate = Substate<any, any, any>;
+
+    /**
+     * Substate type.
+     */
+    export interface Substate<Name, Factory, Transition> {
+      name: Name;
+      factory: Factory;
+      transitions: Transition[];
+    }
 
     export type BuilderSubstatesMap<Substate extends AnySubstate> = Record<
       Substate["name"],
@@ -1228,17 +1134,230 @@ export namespace Superstate {
         factory: infer Factory;
       }
         ? Factory extends Factories.MachineFactory<infer SubstateState>
-          ? QQ.MachineInstance<
+          ? Instances.Instance<
               SubstateState,
-              QQ.DeepFlatState<SubstateState>,
-              QQ.DeepFlatEvent<SubstateState, SubstateState>,
+              Traits.State<SubstateState>,
+              Traits.Event<SubstateState, SubstateState>,
               Substate
             >
           : never
         : never;
     };
-  }
 
+    /**
+     * Transition from a final substate state to the parent statechart state.
+     */
+    export interface FinalTransition<
+      EventName extends string,
+      ChildFromStateName extends string,
+      MachineToStateName extends string
+    > {
+      event: EventName;
+      from: ChildFromStateName;
+      to: MachineToStateName;
+      condition: null;
+    }
+
+    /**
+     * String representation of the final substate transition.
+     */
+    export type SubstateFinalTransitionDef<
+      ParentMachineName extends string,
+      ChildFinalStateName extends string,
+      TransitionName extends string
+    > = `${ChildFinalStateName} -> ${TransitionName}() -> ${ParentMachineName}`;
+
+    /**
+     * Constructs the final substate transition from the transition def.
+     */
+    export type SubstateFinalTransitionFromDef<
+      Def extends SubstateFinalTransitionDef<any, any, any>
+    > =
+      Def extends `${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
+        ? {
+            event: EventName;
+            from: ChildFromStateName;
+            to: MachineToStateName;
+            condition: null;
+          }
+        : never;
+  }
+  //#endregion
+
+  //#region Traits
+  /**
+   * Trains namespaces. It contains all the types related to traits, statechart
+   * traits that define the behavior of the statechart: available states,
+   * events, their properties. They simplify types by flattening the source
+   * statechart definition.
+   */
+  export namespace Traits {
+    export interface EventConstraint {
+      key: string;
+      wildcard: Targets.WildcardConstraint;
+      condition: string | null;
+      final: boolean;
+      next: States.AnyState;
+      event: Transitions.AnyTransition;
+      nested: boolean;
+      context: Contexts.Constraint | null;
+    }
+
+    export interface StateConstraint {
+      key: string;
+      wildcard: Targets.WildcardConstraint;
+      state: States.AnyState;
+      nested: boolean;
+    }
+
+    export interface TraitsConstraint {
+      State: StateConstraint;
+      Event: EventConstraint;
+    }
+
+    export interface Traits<AllState extends States.AnyState> {
+      State: State<AllState>;
+      Event: Event<AllState, AllState>;
+    }
+
+    export type Event<
+      MachineState extends States.AnyState,
+      AllState extends States.AnyState,
+      Prefix extends string | "" = ""
+    > =
+      // First we get the root level events
+      | (MachineState extends {
+          transitions: Array<infer Event>;
+        }
+          ? Event extends {
+              event: infer EventName extends string;
+              condition: infer Condition extends string | null;
+              from: infer FromName extends string;
+            }
+            ? Transitions.MatchNextState<
+                AllState,
+                AllState,
+                EventName,
+                Condition
+              > extends infer NextState
+              ? NextState extends { name: infer NextStateName extends string }
+                ? {
+                    [Name in NextStateName]: {
+                      key: `${Prefix}${EventName}`;
+                      wildcard: `${Prefix}*`;
+                      condition: Condition;
+                      event: Event;
+                      next: NextState;
+                      final: false;
+                      nested: Prefix extends "" ? false : true;
+                      context: Contexts.EventContext<
+                        AllState,
+                        FromName,
+                        NextState
+                      >;
+                    };
+                  }[NextStateName]
+                : never
+              : never
+            : never
+          : never)
+      // Now we add the substate events
+      | (MachineState extends {
+          name: infer StateName extends string;
+          sub: infer Substates extends Record<string, any>;
+        }
+          ? // Here we prevent the infinite recursion when Substates is uknown and
+            // keyof Substates resolves to `string | number | symbol`:
+            // > Type instantiation is excessively deep and possibly infinite.
+            keyof Substates extends string
+            ? {
+                [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+                  sub: infer AsSubstate;
+                  state: infer SubstateState extends States.AnyState;
+                }
+                  ? SubstateName extends string
+                    ?
+                        | Event<
+                            SubstateState,
+                            SubstateState,
+                            `${Prefix}${StateName}.${SubstateName}.`
+                          >
+                        // Add final transitions
+                        | (AsSubstate extends Substates.Substate<
+                            any,
+                            any,
+                            infer Transition
+                          >
+                            ? Transition extends Substates.FinalTransition<
+                                infer EventName,
+                                any,
+                                any
+                              >
+                              ? {
+                                  key: `${Prefix}${EventName}`;
+                                  wildcard: `${Prefix}*`;
+                                  event: Transition;
+                                  condition: null;
+                                  next: Transitions.MatchNextState<
+                                    AllState,
+                                    AllState,
+                                    EventName,
+                                    null
+                                  >;
+                                  final: true;
+                                  nested: true;
+                                  context: null; // TODO: context
+                                }
+                              : never
+                            : never)
+                    : never
+                  : never;
+              }[keyof Substates]
+            : never
+          : never);
+
+    export type State<
+      MachineState extends States.AnyState,
+      Prefix extends string | "" = ""
+    > =
+      // First we get the root level states
+      | (MachineState extends {
+          name: infer Name extends string;
+        }
+          ? {
+              key: `${Prefix}${Name}`;
+              wildcard: `${Prefix}*`;
+              state: MachineState;
+              nested: Prefix extends "" ? false : true;
+            }
+          : never)
+      // Now we add the substates
+      | (MachineState extends {
+          name: infer StateName extends string;
+          sub: infer Substates extends Record<string, any>;
+        }
+          ? // Here we prevent the infinite recursion when Substates is uknown and
+            // keyof Substates resolves to `string | number | symbol`:
+            // > Type instantiation is excessively deep and possibly infinite.
+            keyof Substates extends string
+            ? {
+                [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+                  state: infer SubstateState extends States.AnyState;
+                }
+                  ? SubstateName extends string
+                    ? State<
+                        SubstateState,
+                        `${Prefix}${StateName}.${SubstateName}.`
+                      >
+                    : never
+                  : never;
+              }[keyof Substates]
+            : never
+          : never);
+  }
+  //#endregion
+
+  //#region Contexts
   /**
    * The contexts namespace. It contains all the types related to contexts,
    * the entity that represents the freeform data passing from state to state.
@@ -1316,7 +1435,9 @@ export namespace Superstate {
         : Key;
     }[keyof Context];
   }
+  //#endregion
 
+  //#region Utils
   /**
    * Utils namespace. Contains everything that is not directly related to
    * the core types.
@@ -1342,4 +1463,5 @@ export namespace Superstate {
      */
     export type NullIfNever<Type> = Type extends never ? null : Type;
   }
+  //#endregion
 }
