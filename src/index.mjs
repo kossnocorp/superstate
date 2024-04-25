@@ -158,10 +158,9 @@ export function superstate(name) {
       },
 
       // MARK: send
-      send(eventSignature, argCondition) {
-        const [path, eventName, signatureCondition] =
+      send(eventSignature) {
+        const [path, eventName, condition] =
           parseEventSignature(eventSignature);
-        const condition = argCondition || signatureCondition;
 
         // It's a substate
         if (path.length) {

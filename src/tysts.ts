@@ -355,7 +355,7 @@ import { Superstate, superstate } from ".";
 
   //! Allows to send an event with the condition
   {
-    const nextState = pc.send("press()", "long");
+    const nextState = pc.send("press(long)");
     //! It properly infers the next state
     if (nextState) {
       nextState.name satisfies "off";
@@ -430,8 +430,8 @@ import { Superstate, superstate } from ".";
   const cat = catMachine.host();
 
   //! Allows to send conditional exit events
-  cat.send("reveal()", "lucky");
-  cat.send("reveal()", "unlucky");
+  cat.send("reveal(lucky)");
+  cat.send("reveal(unlucky)");
 
   //! The condition is undefined
   // @ts-expect-error
@@ -1173,8 +1173,8 @@ import { Superstate, superstate } from ".";
     // TODO: Remove debug code ^^^^^^
 
     //! It should not allow to send invalid context
-    // @ts-expect-error
     form.send("submit() -> profile", {
+      // @ts-expect-error
       nope: "nah",
     });
 
@@ -1187,8 +1187,8 @@ import { Superstate, superstate } from ".";
     form.send("submit() -> profile", {});
 
     //! Should not accept wrong context
-    // @ts-expect-error
     form.send("submit() -> profile", {
+      // @ts-expect-error
       fullName: "Sasha Koss",
       company: "No Corp",
     });
@@ -1357,8 +1357,8 @@ import { Superstate, superstate } from ".";
     form.send("submit(error) -> profile", {});
 
     //! It should not allow incorrect context
-    // @ts-expect-error
     form.send("submit(error) -> credentials", {
+      // @ts-expect-error
       nope: "nah",
     });
 
@@ -1367,8 +1367,8 @@ import { Superstate, superstate } from ".";
     form.send("submit(error) -> credentials", null);
 
     //! It should not context from another state
-    // @ts-expect-error
     form.send("submit(error) -> credentials", {
+      // @ts-expect-error
       fullName: "Sasha Koss",
       company: "No Corp",
     });
@@ -1514,7 +1514,7 @@ import { Superstate, superstate } from ".";
 
     {
       // Send the long press event:
-      const nextState = pc.send("press()", "long");
+      const nextState = pc.send("press(long)");
 
       // The next state is "off":
       if (nextState) nextState.name satisfies "off";
@@ -2188,9 +2188,6 @@ import { Superstate, superstate } from ".";
         instance.send("press()");
 
         // Will trigger the listener and print "Pressed long":
-        instance.send("press()", "long");
-
-        // Same as above:
         instance.send("press(long)");
       }
 

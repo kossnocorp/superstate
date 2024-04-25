@@ -898,28 +898,18 @@ export namespace Superstate {
       <
         S extends Signature extends {
           event: string;
-          condition: string;
           context: Contexts.Constraint;
         }
           ? Signature
           : never,
         Event extends S extends {
           event: infer Event;
-          condition: string;
           context: Contexts.Constraint;
         }
           ? Event
           : never,
-        Condition extends S extends {
-          event: Event;
-          condition: infer Condition;
-          context: Contexts.Constraint;
-        }
-          ? Condition
-          : never,
         Context extends S extends {
           event: Event;
-          condition: Condition;
           context: infer Context;
         }
           ? Context
@@ -929,7 +919,6 @@ export namespace Superstate {
         context: NoInfer<Context>
       ): S extends {
         event: Event;
-        condition: null;
         context: Context;
         return: infer Return;
       }
@@ -939,68 +928,6 @@ export namespace Superstate {
       <
         S extends Signature extends {
           event: string;
-          condition: null;
-          context: Contexts.Constraint;
-        }
-          ? Signature
-          : never,
-        Event extends S extends {
-          event: infer Event;
-          condition: null;
-          context: Contexts.Constraint;
-        }
-          ? Event
-          : never,
-        Context extends S extends {
-          event: Event;
-          condition: null;
-          context: infer Context;
-        }
-          ? Context
-          : never
-      >(
-        event: Event,
-        context: NoInfer<Context>
-      ): S extends {
-        event: Event;
-        condition: null;
-        context: Context;
-        return: infer Return;
-      }
-        ? Return
-        : never;
-
-      <
-        S extends Signature extends {
-          event: string;
-          condition: string;
-          context: null;
-        }
-          ? Signature
-          : never,
-        Event extends S["event"],
-        Condition extends S extends {
-          event: Event;
-          condition: infer Condition;
-        }
-          ? Condition
-          : never
-      >(
-        event: Event,
-        condition: Condition
-      ): S extends {
-        event: Event;
-        condition: Condition;
-        context: null;
-        return: infer Return;
-      }
-        ? Return
-        : never;
-
-      <
-        S extends Signature extends {
-          event: string;
-          condition: null;
           context: null;
         }
           ? Signature
@@ -1030,31 +957,14 @@ export namespace Superstate {
 
     export interface SendSingaturePlain<Event extends Traits.EventConstraint> {
       event: `${Event["key"]}()`;
-      condition: null;
       context: null;
       return: Event["next"] | null;
     }
 
-    export type SendSingatureWithCondition<
-      Event extends Traits.EventConstraint
-    > =
-      | SendSingatureWithConditionJoined<Event>
-      | SendSingatureWithConditionSeparated<Event>;
-
-    export interface SendSingatureWithConditionJoined<
+    export interface SendSingatureWithCondition<
       Event extends Traits.EventConstraint
     > {
       event: `${Event["key"]}(${Event["condition"]})`;
-      condition: null;
-      context: null;
-      return: Event["next"] | null;
-    }
-
-    export interface SendSingatureWithConditionSeparated<
-      Event extends Traits.EventConstraint
-    > {
-      event: `${Event["key"]}()`;
-      condition: Event["condition"];
       context: null;
       return: Event["next"] | null;
     }
@@ -1063,31 +973,14 @@ export namespace Superstate {
       Event extends Traits.EventConstraint
     > {
       event: `${Event["key"]}() -> ${Event["transition"]["to"]}`;
-      condition: null;
       context: Event["context"];
       return: Event["next"] | null;
     }
 
-    export type SendSingatureWithConditionAndContext<
-      Event extends Traits.EventConstraint
-    > =
-      | SendSingatureWithConditionJoinedAndContext<Event>
-      | SendSingatureWithConditionSeparatedAndContext<Event>;
-
-    export interface SendSingatureWithConditionJoinedAndContext<
+    export interface SendSingatureWithConditionAndContext<
       Event extends Traits.EventConstraint
     > {
       event: `${Event["key"]}(${Event["condition"]}) -> ${Event["transition"]["to"]}`;
-      condition: null;
-      context: Event["context"];
-      return: Event["next"] | null;
-    }
-
-    export interface SendSingatureWithConditionSeparatedAndContext<
-      Event extends Traits.EventConstraint
-    > {
-      event: `${Event["key"]}() -> ${Event["transition"]["to"]}`;
-      condition: Event["condition"];
       context: Event["context"];
       return: Event["next"] | null;
     }

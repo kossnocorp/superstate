@@ -90,11 +90,11 @@ describe("Superstate", () => {
           pc.send("press()");
           pc.send("press()");
           expect(pc.state.name).toBe("sleep");
-          pc.send("press()", "long");
+          pc.send("press(long)");
           expect(pc.state.name).toBe("off");
           pc.send("press()");
           expect(pc.state.name).toBe("on");
-          pc.send("press()", "long");
+          pc.send("press(long)");
           expect(pc.state.name).toBe("off");
         });
 
@@ -294,11 +294,11 @@ describe("Superstate", () => {
               pc.send("press()");
               pc.send("press()");
               expect(pc.state.name).toBe("sleep");
-              pc.send("press()", "long");
+              pc.send("press(long)");
               expect(pc.state.name).toBe("off");
               pc.send("press()");
               expect(pc.state.name).toBe("on");
-              pc.send("press()", "long");
+              pc.send("press(long)");
               expect(pc.state.name).toBe("off");
             });
           });
@@ -344,11 +344,11 @@ describe("Superstate", () => {
             pc.send("press()");
             pc.send("press()");
             expect(pc.state.name).toBe("sleep");
-            pc.send("press()", "long");
+            pc.send("press(long)");
             expect(pc.state.name).toBe("off");
             pc.send("press()");
             expect(pc.state.name).toBe("on");
-            pc.send("press()", "long");
+            pc.send("press(long)");
             expect(pc.state.name).toBe("off");
           });
 
@@ -367,11 +367,11 @@ describe("Superstate", () => {
             pc.send("press()");
             pc.send("press()");
             expect(pc.state.name).toBe("sleep");
-            pc.send("press()", "long");
+            pc.send("press(long)");
             expect(pc.state.name).toBe("off");
             pc.send("press()");
             expect(pc.state.name).toBe("on");
-            pc.send("press()", "long");
+            pc.send("press(long)");
             expect(pc.state.name).toBe("off");
           });
 
@@ -824,11 +824,11 @@ describe("Superstate", () => {
           pc.send("press()");
           pc.send("press()");
           expect(pc.state.name).toBe("sleep");
-          pc.send("press()", "long");
+          pc.send("press(long)");
           expect(pc.state.name).toBe("off");
           pc.send("press()");
           expect(pc.state.name).toBe("on");
-          pc.send("press()", "long");
+          pc.send("press(long)");
           expect(pc.state.name).toBe("off");
         });
 
@@ -854,11 +854,11 @@ describe("Superstate", () => {
           pc.send("press()");
           pc.send("press()");
           expect(pc.state.name).toBe("sleep");
-          pc.send("press()", "double");
+          pc.send("press(double)");
           expect(pc.state.name).toBe("restarting");
           pc.send("restarted()");
           expect(pc.state.name).toBe("on");
-          pc.send("press()", "long");
+          pc.send("press(long)");
           expect(pc.state.name).toBe("off");
         });
 
@@ -871,7 +871,7 @@ describe("Superstate", () => {
             .state("dead");
 
           const cat = catState.host();
-          cat.send("reveal()", "lucky");
+          cat.send("reveal(lucky)");
           expect(cat.state.name).toBe("alive");
         });
 
