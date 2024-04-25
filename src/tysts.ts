@@ -1122,6 +1122,13 @@ import { Superstate, superstate } from ".";
     ? Traits["event"]
     : never;
 
+  type TestMatchNext = Superstate.Transitions.MatchNextState<
+    TestAllState,
+    TestAllState,
+    "submit",
+    null
+  >;
+
   type TestContext1 = Superstate.Contexts.EventContext<
     TestAllState,
     "credentials",
@@ -1145,6 +1152,20 @@ import { Superstate, superstate } from ".";
   >;
 
   // TODO: Remove debug code ^^^^^^
+
+  //! It should not allow to send invalid context
+  // @ts-expect-error
+  form.send("submit() -> profile", {
+    nope: "nah",
+  });
+
+  //! null can't be a valid payload
+  // @ts-expect-error
+  form.send("submit() -> profile", null);
+
+  //! Empty object can't be a valid payload
+  // @ts-expect-error
+  form.send("submit() -> profile", {});
 
   //! It should not allow omitting incomaptible context fields
   {
@@ -1234,20 +1255,6 @@ import { Superstate, superstate } from ".";
     // @ts-expect-error
     form.send("submit() -> profile", {});
   }
-
-  //! It should not allow to send invalid context
-  // @ts-expect-error
-  form.send("submit() -> profile", {
-    nope: "nah",
-  });
-
-  //! null can't be a valid payload
-  // @ts-expect-error
-  form.send("submit() -> profile", null);
-
-  //! Empty object can't be a valid payload
-  // @ts-expect-error
-  form.send("submit() -> profile", {});
 }
 //#endregion
 
