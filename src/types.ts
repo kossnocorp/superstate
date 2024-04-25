@@ -827,7 +827,7 @@ export namespace Superstate {
     export interface API<Traits extends Traits.TraitsConstraint> {
       on: Listeners.On<Traits>;
 
-      send: Listeners.Send<Traits["event"]>;
+      send: Listeners.Send<SendSingature<Traits["event"]>>;
 
       off(): void;
     }
@@ -894,112 +894,202 @@ export namespace Superstate {
     /**
      * Function that sends events.
      */
-    export interface Send<FlatEvent extends Traits.EventConstraint> {
+    export interface Send<Signature> {
       <
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          final: false;
+        S extends Signature extends {
+          event: string;
+          condition: string;
+          context: Contexts.Constraint;
         }
-          ? Key
+          ? Signature
           : never,
-        Condition extends FlatEvent extends {
+        Event extends S extends {
+          event: infer Event;
+          condition: string;
+          context: Contexts.Constraint;
+        }
+          ? Event
+          : never,
+        Condition extends S extends {
+          event: Event;
           condition: infer Condition;
+          context: Contexts.Constraint;
         }
           ? Condition
-          : null,
-        ToStateName extends FlatEvent extends {
-          next: { name: infer StateName extends string };
-        }
-          ? StateName
           : never,
-        Context extends FlatEvent extends {
+        Context extends S extends {
+          event: Event;
+          condition: Condition;
           context: infer Context;
         }
           ? Context
           : never
       >(
-        name: `${Key}(${Condition extends null
-          ? ""
-          : Condition}) -> ${ToStateName}`,
+        event: Event,
         context: NoInfer<Context>
-      ): FlatEvent extends {
-        key: Key;
-        condition: Condition;
-        next: infer Next;
+      ): S extends {
+        event: Event;
+        condition: null;
+        context: Context;
+        return: infer Return;
       }
-        ? Next | null
+        ? Return
         : never;
 
       <
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
+        S extends Signature extends {
+          event: string;
           condition: null;
-          context: null;
-          final: false;
+          context: Contexts.Constraint;
         }
-          ? Key
+          ? Signature
+          : never,
+        Event extends S extends {
+          event: infer Event;
+          condition: null;
+          context: Contexts.Constraint;
+        }
+          ? Event
+          : never,
+        Context extends S extends {
+          event: Event;
+          condition: null;
+          context: infer Context;
+        }
+          ? Context
           : never
       >(
-        name: `${Key}()`
-      ): FlatEvent extends {
-        key: Key;
+        event: Event,
+        context: NoInfer<Context>
+      ): S extends {
+        event: Event;
         condition: null;
-        context: null;
-        next: infer Next;
+        context: Context;
+        return: infer Return;
       }
-        ? Next | null
+        ? Return
         : never;
 
       <
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          final: false;
+        S extends Signature extends {
+          event: string;
           condition: string;
           context: null;
         }
-          ? Key
+          ? Signature
           : never,
-        Condition extends FlatEvent extends {
-          key: Key;
-          condition: infer Condition extends string;
-          context: null;
-        }
-          ? Condition
-          : null
-      >(
-        name: `${Key}()`,
-        condition: Condition
-      ): FlatEvent extends {
-        key: Key;
-        condition: Condition;
-        context: null;
-        next: infer Next;
-      }
-        ? Next | null
-        : never;
-
-      <
-        Key extends FlatEvent extends {
-          key: infer Key extends string;
-          final: false;
-        }
-          ? Key
-          : never,
-        Condition extends FlatEvent extends {
-          key: Key;
+        Event extends S["event"],
+        Condition extends S extends {
+          event: Event;
           condition: infer Condition;
         }
           ? Condition
-          : null
+          : never
       >(
-        name: Condition extends string ? `${Key}(${Condition})` : never
-      ): FlatEvent extends {
-        key: Key;
+        event: Event,
+        condition: Condition
+      ): S extends {
+        event: Event;
         condition: Condition;
-        next: infer Next;
+        context: null;
+        return: infer Return;
       }
-        ? Next | null
+        ? Return
         : never;
+
+      <
+        S extends Signature extends {
+          event: string;
+          condition: null;
+          context: null;
+        }
+          ? Signature
+          : never,
+        Event extends S extends {
+          event: infer Event;
+        }
+          ? Event
+          : never
+      >(
+        event: Event
+      ): S extends { event: Event; return: infer Return } ? Return : never;
+    }
+
+    export type SendSingature<Event extends Traits.EventConstraint> =
+      Event extends Event
+        ? Event["final"] extends false
+          ? Event["context"] extends null
+            ? Event["condition"] extends null
+              ? SendSingaturePlain<Event>
+              : SendSingatureWithCondition<Event>
+            : Event["condition"] extends null
+            ? SendSingatureWithContext<Event>
+            : SendSingatureWithConditionAndContext<Event>
+          : never
+        : never;
+
+    export interface SendSingaturePlain<Event extends Traits.EventConstraint> {
+      event: `${Event["key"]}()`;
+      condition: null;
+      context: null;
+      return: Event["next"] | null;
+    }
+
+    export type SendSingatureWithCondition<
+      Event extends Traits.EventConstraint
+    > =
+      | SendSingatureWithConditionJoined<Event>
+      | SendSingatureWithConditionSeparated<Event>;
+
+    export interface SendSingatureWithConditionJoined<
+      Event extends Traits.EventConstraint
+    > {
+      event: `${Event["key"]}(${Event["condition"]})`;
+      condition: null;
+      context: null;
+      return: Event["next"] | null;
+    }
+
+    export interface SendSingatureWithConditionSeparated<
+      Event extends Traits.EventConstraint
+    > {
+      event: `${Event["key"]}()`;
+      condition: Event["condition"];
+      context: null;
+      return: Event["next"] | null;
+    }
+
+    export interface SendSingatureWithContext<
+      Event extends Traits.EventConstraint
+    > {
+      event: `${Event["key"]}() -> ${Event["transition"]["to"]}`;
+      condition: null;
+      context: Event["context"];
+      return: Event["next"] | null;
+    }
+
+    export type SendSingatureWithConditionAndContext<
+      Event extends Traits.EventConstraint
+    > =
+      | SendSingatureWithConditionJoinedAndContext<Event>
+      | SendSingatureWithConditionSeparatedAndContext<Event>;
+
+    export interface SendSingatureWithConditionJoinedAndContext<
+      Event extends Traits.EventConstraint
+    > {
+      event: `${Event["key"]}(${Event["condition"]}) -> ${Event["transition"]["to"]}`;
+      condition: null;
+      context: Event["context"];
+      return: Event["next"] | null;
+    }
+
+    export interface SendSingatureWithConditionSeparatedAndContext<
+      Event extends Traits.EventConstraint
+    > {
+      event: `${Event["key"]}() -> ${Event["transition"]["to"]}`;
+      condition: Event["condition"];
+      context: Event["context"];
+      return: Event["next"] | null;
     }
 
     //#endregion
