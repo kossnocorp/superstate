@@ -1141,7 +1141,6 @@ import { Superstate, superstate } from ".";
 
     type TestMatchNext = Superstate.Transitions.MatchNextState<
       TestAllState,
-      TestAllState,
       "submit",
       null
     >;
@@ -1377,6 +1376,125 @@ import { Superstate, superstate } from ".";
       company: "No Corp",
     });
   }
+  //#endregion
+
+  //#region Context/substates
+  {
+    interface ErrorFields {
+      error?: string;
+    }
+
+    type FormState = "pending" | "errored" | "complete";
+
+    function createFormState<FormFields>() {
+      type Context = FormFields & ErrorFields;
+
+      return superstate<FormState>("form")
+        .state("pending", ($) =>
+          $.context<Context>().on([
+            "submit(error) -> errored",
+            "submit() -> complete",
+          ])
+        )
+        .state("errored", ($) =>
+          $.context<Context>().on([
+            "submit(error) -> errored",
+            "submit() -> complete",
+          ])
+        )
+        .final("complete", ($) => $.context<Context>());
+    }
+
+    type SignUpState = "credentials" | "profile" | "done";
+
+    interface CredentialsFields {
+      email: string;
+      password: string;
+    }
+
+    interface ProfileFields {
+      fullName: string;
+      company: string;
+    }
+
+    const credentialsState = createFormState<CredentialsFields>();
+
+    const profileState = createFormState<ProfileFields>();
+
+    const signUpState = superstate<SignUpState>("signUp")
+      .state("credentials", ($) =>
+        $.context().sub("form", credentialsState, [
+          "complete -> submit() -> profile",
+        ])
+      )
+      .state("profile", ($) =>
+        $.context<CredentialsFields>().sub("form", profileState, [
+          "complete -> submit() -> done",
+        ])
+      )
+      .final("done", ($) => $.context<CredentialsFields & ProfileFields>());
+
+    const form = signUpState.host();
+
+    //! It expects the full context as the complete transitions to parent's done
+    form.send("profile.form.submit() -> complete", {
+      email: "koss@nocorp.me",
+      password: "123456",
+      fullName: "Sasha Koss",
+      company: "No Corp",
+    });
+
+    //! It won't accept incomplete context
+    // @ts-expect-error
+    form.send("profile.form.submit() -> complete", {
+      fullName: "Sasha Koss",
+      company: "No Corp",
+    });
+
+    //! Context must be defined
+    // @ts-expect-error
+    form.send("profile.form.submit() -> complete");
+
+    //! Context can't be empty
+    // @ts-expect-error
+    form.send("profile.form.submit() -> complete", {});
+
+    //! Context can't be null
+    // @ts-expect-error
+    form.send("profile.form.submit() -> complete", {});
+
+    // [TODO] Remove debug code vvvvvv
+
+    type TestState0 =
+      typeof signUpState extends Superstate.Factories.MachineFactory<
+        infer State
+      >
+        ? State
+        : never;
+
+    type TestTraits = Superstate.Traits.Traits<TestState0>["event"];
+
+    type TestState = typeof form extends Superstate.Instances.Instance<
+      infer State,
+      infer Traits,
+      any
+    >
+      ? State
+      : never;
+
+    type TestEvent = typeof form extends Superstate.Instances.Instance<
+      infer State,
+      infer Traits,
+      any
+    >
+      ? Traits["event"]
+      : never;
+
+    type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
+
+    // [TODO] Remove debug code ^^^^^^
+  }
+
   //#endregion
 }
 //#endregion

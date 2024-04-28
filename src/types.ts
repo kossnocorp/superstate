@@ -372,17 +372,16 @@ export namespace Superstate {
      */
     export type MatchNextState<
       MachineState extends States.AnyState, // [TODO] Cut it
-      AllState extends States.AnyState, // [TODO] Cut it
       EventName,
       EventCondition extends string | null
-    > = MachineState extends { transitions: Array<infer Transition> }
-      ? Transition extends {
-          event: EventName;
-          condition: EventCondition;
-          to: infer ToName;
-        }
-        ? States.FilterState<AllState, ToName>
-        : never
+    > = MachineState extends {
+      transitions: Array<{
+        event: EventName;
+        condition: EventCondition;
+        to: infer ToName;
+      }>;
+    }
+      ? States.FilterState<MachineState, ToName>
       : never;
 
     /**
@@ -1236,53 +1235,42 @@ export namespace Superstate {
           name: infer StateName extends string;
           sub: infer Substates extends Record<string, any>;
         }
-          ? // Here we prevent the infinite recursion when Substates is uknown and
-            // keyof Substates resolves to `string | number | symbol`:
+          ? // [NOTE] Here we prevent the infinite recursion when Substates is
+            // unknown and keyof Substates resolves to `string | number | symbol`:
             // > Type instantiation is excessively deep and possibly infinite.
-            keyof Substates extends string
-            ? {
-                [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-                  sub: infer AsSubstate;
+            keyof Substates extends infer SubstateName extends string
+            ? SubstateName extends SubstateName
+              ? Substates[SubstateName] extends {
+                  sub: { transitions: Array<infer FinalTransition> };
                   state: infer SubstateState extends States.AnyState;
                 }
-                  ? SubstateName extends string
-                    ?
-                        | Event<
-                            SubstateState,
-                            `${Prefix}${StateName}.${SubstateName}.`
-                          >
-                        // Add final transitions
-                        | (AsSubstate extends Substates.Substate<
-                            any,
-                            any,
-                            infer Transition
-                          >
-                            ? Transition extends Substates.FinalTransition<
-                                infer EventName,
-                                any,
-                                any
-                              >
-                              ? {
-                                  key: `${Prefix}${EventName}`;
-                                  wildcard: `${Prefix}*`;
-                                  transition: Transition;
-                                  condition: null;
-                                  // [TODO] Migrate to the approach used for the root level and get rid of MatchNextState
-                                  next: Transitions.MatchNextState<
-                                    MachineState,
-                                    MachineState,
-                                    EventName,
-                                    null
-                                  >;
-                                  final: true;
-                                  nested: true;
-                                  context: null; // [TODO] context
-                                }
-                              : never
-                            : never)
-                    : never
-                  : never;
-              }[keyof Substates]
+                ?
+                    | Event<
+                        SubstateState,
+                        `${Prefix}${StateName}.${SubstateName}.`
+                      >
+                    // Add final transitions
+                    | (FinalTransition extends {
+                        event: infer EventName extends string;
+                      }
+                        ? {
+                            key: `${Prefix}${EventName}`;
+                            wildcard: `${Prefix}*`;
+                            condition: null;
+                            transition: FinalTransition;
+                            // [TODO] Migrate to the approach used for the root level and get rid of MatchNextState
+                            next: Transitions.MatchNextState<
+                              MachineState,
+                              EventName,
+                              null
+                            >;
+                            final: true;
+                            nested: true;
+                            context: null; // [TODO] calculate the context
+                          }
+                        : never)
+                : never
+              : never
             : never
           : never);
 
