@@ -1130,6 +1130,12 @@ export namespace Superstate {
     };
 
     /**
+     * Final transition type placeholder. It's used where the shape of
+     * a final transition isn't important or known.
+     */
+    export type AnyFinalTransition = FinalTransition<any, any, any>;
+
+    /**
      * Transition from a final substate state to the parent statechart state.
      */
     export interface FinalTransition<
@@ -1183,7 +1189,7 @@ export namespace Superstate {
       condition: string | null;
       final: boolean;
       next: States.AnyState;
-      transition: Transitions.AnyTransition;
+      transition: Transitions.AnyTransition | Substates.AnyFinalTransition;
       nested: boolean;
       context: Contexts.Constraint | null;
     }
@@ -1241,7 +1247,11 @@ export namespace Superstate {
             keyof Substates extends infer SubstateName extends string
             ? SubstateName extends SubstateName
               ? Substates[SubstateName] extends {
-                  sub: { transitions: Array<infer FinalTransition> };
+                  sub: {
+                    transitions: Array<
+                      infer FinalTransition extends Substates.AnyFinalTransition
+                    >;
+                  };
                   state: infer SubstateState extends States.AnyState;
                 }
                 ?
