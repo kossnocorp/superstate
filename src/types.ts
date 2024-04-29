@@ -2,6 +2,15 @@
  * The root Superstate namespace. It contains all the Superstate types.
  */
 export namespace Superstate {
+  // Reaccuring generics and their meaning:
+  //
+  // - `Init`: Initial statechart definition, object with name and context.
+  //   - `StatechartInit`: Statechart state inits union
+  //   - `StateInit`: Current state init
+  //
+  // - `Statechart` - Union of all statechart states. Unlike init it contains
+  //  the full state object with actions, transitions, and substates.
+
   //#region Actions
   /**
    * The actions namespace. It contains all the types related to actions,
@@ -371,17 +380,17 @@ export namespace Superstate {
      * Resolves the next state for the transition.
      */
     export type MatchNextState<
-      MachineState extends States.AnyState, // [TODO] Cut it
+      Statechart extends States.AnyState, // [TODO] Cut it
       EventName,
       EventCondition extends string | null
-    > = MachineState extends {
+    > = Statechart extends {
       transitions: Array<{
         event: EventName;
         condition: EventCondition;
         to: infer ToName;
       }>;
     }
-      ? States.FilterState<MachineState, ToName>
+      ? States.FilterState<Statechart, ToName>
       : never;
 
     /**
@@ -781,13 +790,13 @@ export namespace Superstate {
    */
   export namespace Instances {
     export interface Instance<
-      MachineState,
+      Statechart,
       Traits extends Traits.TraitsConstraint,
       AsSubstate
     > extends Listeners.API<Traits> {
       readonly sub: AsSubstate;
 
-      readonly state: MachineState;
+      readonly state: Statechart;
 
       readonly finalized: boolean;
 
@@ -1194,11 +1203,11 @@ export namespace Superstate {
     }
 
     export type Event<
-      MachineState extends States.AnyState,
+      Statechart extends States.AnyState,
       Prefix extends string | "" = ""
     > =
       // First we get the root level events
-      | (Transition<MachineState> extends infer Transition extends TransitionConstraint
+      | (Transition<Statechart> extends infer Transition extends TransitionConstraint
           ? Transition extends Transition
             ? {
                 key: `${Prefix}${Transition["transition"]["event"]}`;
@@ -1213,7 +1222,7 @@ export namespace Superstate {
             : never
           : never)
       // Now we add the substate events
-      | (MachineState extends {
+      | (Statechart extends {
           name: infer StateName extends string;
           sub: infer Substates extends Record<string, any>;
         }
@@ -1240,7 +1249,7 @@ export namespace Superstate {
                         event: infer EventName extends string;
                       }
                         ? Transitions.MatchNextState<
-                            MachineState,
+                            Statechart,
                             EventName,
                             null
                           > extends infer NextState
@@ -1253,7 +1262,7 @@ export namespace Superstate {
                               final: true;
                               nested: true;
                               context: Contexts.EventContext<
-                                MachineState,
+                                Statechart,
                                 StateName,
                                 NextState
                               >;
@@ -1266,22 +1275,22 @@ export namespace Superstate {
           : never);
 
     export type State<
-      MachineState extends States.AnyState,
+      Statechart extends States.AnyState,
       Prefix extends string | "" = ""
     > =
       // First we get the root level states
-      | (MachineState extends {
+      | (Statechart extends {
           name: infer Name extends string;
         }
           ? {
               key: `${Prefix}${Name}`;
               wildcard: `${Prefix}*`;
-              state: MachineState;
+              state: Statechart;
               nested: Prefix extends "" ? false : true;
             }
           : never)
       // Now we add the substates
-      | (MachineState extends {
+      | (Statechart extends {
           name: infer StateName extends string;
           sub: infer Substates extends Record<string, any>;
         }
