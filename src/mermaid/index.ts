@@ -8,7 +8,7 @@ import { type Superstate } from "../types.js";
  * @returns The Mermaid diagram.
  */
 export function toMermaid<State extends Superstate.States.AnyState>(
-  factory: Superstate.Factories.MachineFactory<State>
+  factory: Superstate.Factories.Factory<State>
 ) {
   return [
     "%% Generated with Superstate",
@@ -26,7 +26,7 @@ export function toMermaid<State extends Superstate.States.AnyState>(
  * @returns Mermaid state lines.
  */
 function toStatechartLines<State extends Superstate.States.AnyState>(
-  factory: Superstate.Factories.MachineFactory<State>,
+  factory: Superstate.Factories.Factory<State>,
   parentName?: string,
   as?: string,
   nameWithActions?: string
