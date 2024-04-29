@@ -346,30 +346,30 @@ export namespace Superstate {
       StatechartInit extends States.AnyInit,
       FromStateInit extends StatechartInit,
       Def_ extends Def<StatechartInit["name"]>
-    > = Def_ extends EventDef<
-      infer ToStateName,
+    > = Def_ extends Transitions.EventDefWithAction<
+      infer ToInitName,
       infer EventName,
-      infer Condition
+      infer Condition,
+      infer Action
     >
-      ? Transition<
-          EventName,
-          FromStateInit["name"],
-          ToStateName,
-          Condition extends "" ? null : Condition,
-          null
-        >
-      : Def_ extends Transitions.EventDefWithAction<
-          infer ToInitName,
-          infer EventName,
-          infer Condition,
-          infer Action
-        >
       ? Transition<
           EventName,
           FromStateInit["name"],
           ToInitName,
           Condition extends "" ? null : Condition,
           { type: "transition"; name: Action }
+        >
+      : Def_ extends EventDef<
+          infer ToStateName,
+          infer EventName,
+          infer Condition
+        >
+      ? Transition<
+          EventName,
+          FromStateInit["name"],
+          ToStateName,
+          Condition extends "" ? null : Condition,
+          null
         >
       : never;
 
