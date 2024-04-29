@@ -1195,7 +1195,10 @@ import { State, Superstate, superstate } from ".";
 {
   //! Simple context
   {
-    type SignUpFormState = "credentials" | "profile" | "done";
+    type SignUpFormState =
+      | State<"credentials", SignUpInitial>
+      | State<"profile", SignUpCredentials>
+      | State<"done", SignUpComplete>;
 
     interface SignUpInitial {
       ref: string;
@@ -1212,13 +1215,9 @@ import { State, Superstate, superstate } from ".";
     }
 
     const formState = superstate<SignUpFormState>("signUp")
-      .state("credentials", "submit() -> profile", ($) =>
-        $.context<SignUpInitial>()
-      )
-      .state("profile", "submit() -> done", ($) =>
-        $.context<SignUpCredentials>()
-      )
-      .final("done", ($) => $.context<SignUpComplete>());
+      .state("credentials", "submit() -> profile")
+      .state("profile", "submit() -> done")
+      .final("done");
 
     //! It requires to include the initial context when hosting
     const form = formState.host({
@@ -1331,7 +1330,9 @@ import { State, Superstate, superstate } from ".";
 
     //! It should not allow omitting incomaptible context fields
     {
-      type SignUpFormState = "credentials" | "profile";
+      type SignUpFormState =
+        | State<"credentials", SignUpInitial>
+        | State<"profile", SignUpCredentials>;
 
       interface SignUpInitial {
         ref: string | null;
@@ -1344,10 +1345,8 @@ import { State, Superstate, superstate } from ".";
       }
 
       const formState = superstate<SignUpFormState>("signUp")
-        .state("credentials", "submit() -> profile", ($) =>
-          $.context<SignUpInitial>()
-        )
-        .state("profile", ($) => $.context<SignUpCredentials>());
+        .state("credentials", "submit() -> profile")
+        .state("profile");
 
       const form = formState.host({
         context: {
@@ -1521,28 +1520,24 @@ import { State, Superstate, superstate } from ".";
       error?: string;
     }
 
-    type FormState = "pending" | "errored" | "complete";
-
     function createFormState<FormFields>() {
       type Context = FormFields & ErrorFields;
 
+      type FormState =
+        | State<"pending", Context>
+        | State<"errored", Context>
+        | State<"complete", Context>;
+
       return superstate<FormState>("form")
-        .state("pending", ($) =>
-          $.context<Context>().on([
-            "submit(error) -> errored",
-            "submit() -> complete",
-          ])
-        )
-        .state("errored", ($) =>
-          $.context<Context>().on([
-            "submit(error) -> errored",
-            "submit() -> complete",
-          ])
-        )
-        .final("complete", ($) => $.context<Context>());
+        .state("pending", ["submit(error) -> errored", "submit() -> complete"])
+        .state("errored", ["submit(error) -> errored", "submit() -> complete"])
+        .final("complete");
     }
 
-    type SignUpState = "credentials" | "profile" | "done";
+    type SignUpState =
+      | State<"credentials">
+      | State<"profile", CredentialsFields>
+      | State<"done", CredentialsFields & ProfileFields>;
 
     interface CredentialsFields {
       email: string;
@@ -1560,16 +1555,12 @@ import { State, Superstate, superstate } from ".";
 
     const signUpState = superstate<SignUpState>("signUp")
       .state("credentials", ($) =>
-        $.context().sub("form", credentialsState, [
-          "complete -> submit() -> profile",
-        ])
+        $.sub("form", credentialsState, ["complete -> submit() -> profile"])
       )
       .state("profile", ($) =>
-        $.context<CredentialsFields>().sub("form", profileState, [
-          "complete -> submit() -> done",
-        ])
+        $.sub("form", profileState, ["complete -> submit() -> done"])
       )
-      .final("done", ($) => $.context<CredentialsFields & ProfileFields>());
+      .final("done");
 
     const form = signUpState.host();
 
