@@ -248,9 +248,9 @@ export namespace Superstate {
     export type AnyTransition = Transition<any, any, any, any, any>;
 
     export interface Transition<
-      EventName,
-      FromStateName,
-      ToStateName,
+      EventName extends string,
+      FromStateName extends string,
+      ToStateName extends string,
       Condition,
       Action
     > {
@@ -264,29 +264,29 @@ export namespace Superstate {
     /**
      * Any transition def.
      */
-    export type Def<StatechartInit extends States.AnyInit> =
-      | EventDef<StatechartInit>
-      | EventDefWithAction<StatechartInit>;
+    export type Def<ToStateName extends string> =
+      | EventDef<ToStateName>
+      | EventDefWithAction<ToStateName>;
 
     /**
      * Event string definition. Describes the event that triggers
      * the transition, the condition and the next state.
      */
     export type EventDef<
-      StatechartInit extends States.AnyInit,
+      ToStateName extends string,
       EventName extends string = string,
       Condition extends string | "" = string | ""
-    > = `${EventName}(${Condition}) -> ${StatechartInit["name"]}`;
+    > = `${EventName}(${Condition}) -> ${ToStateName}`;
 
     /**
      * The transition def with action.
      */
     export type EventDefWithAction<
-      StatechartInit extends States.AnyInit,
+      ToStateName extends string,
       EventName extends string = string,
       Condition extends string | "" = string | "",
       Action extends string = string
-    > = `${EventName}(${Condition}) -> ${Action}! -> ${StatechartInit["name"]}`;
+    > = `${EventName}(${Condition}) -> ${Action}! -> ${ToStateName}`;
 
     /**
      * Ant transition case def.
@@ -347,30 +347,30 @@ export namespace Superstate {
 
     export type FromDef<
       StatechartInit extends States.AnyInit,
-      FromStateName extends StatechartInit,
-      Def_ extends Def<StatechartInit>
+      FromStateInit extends StatechartInit,
+      Def_ extends Def<StatechartInit["name"]>
     > = Def_ extends EventDef<
-      infer ToStateName extends StatechartInit,
+      infer ToStateName,
       infer EventName,
       infer Condition
     >
       ? Transition<
           EventName,
-          FromStateName,
+          FromStateInit["name"],
           ToStateName,
           Condition extends "" ? null : Condition,
           null
         >
       : Def_ extends Transitions.EventDefWithAction<
-          infer ToStateName extends StatechartInit,
+          infer ToInitName,
           infer EventName,
           infer Condition,
           infer Action
         >
       ? Transition<
           EventName,
-          FromStateName,
-          ToStateName,
+          FromStateInit["name"],
+          ToInitName,
           Condition extends "" ? null : Condition,
           { type: "transition"; name: Action }
         >
@@ -442,8 +442,8 @@ export namespace Superstate {
     /**
      * The state def.
      */
-    export type Def<StatechartInit extends States.AnyInit> =
-      | Transitions.Def<StatechartInit>
+    export type Def<ToStateName extends string> =
+      | Transitions.Def<ToStateName>
       | Actions.Def;
 
     /**
@@ -509,7 +509,9 @@ export namespace Superstate {
     export interface StateFnGeneratorBuilder<
       StatechartInit extends States.AnyInit,
       StateAction extends Actions.Action = never,
-      StateTransitionDef extends Transitions.Def<StatechartInit> = never,
+      StateTransitionDef extends Transitions.Def<
+        StatechartInit["name"]
+      > = never,
       Substate extends Substates.AnySubstate = never
     > {
       enter<ActionNameDef extends Actions.NameDef>(
@@ -530,7 +532,7 @@ export namespace Superstate {
         Substate
       >;
 
-      on<Def extends Transitions.Def<StatechartInit>>(
+      on<Def extends Transitions.Def<StatechartInit["name"]>>(
         transitions: Def[] | Def
       ): StateFnGeneratorBuilder<
         StatechartInit,
@@ -585,13 +587,15 @@ export namespace Superstate {
     }
 
     export interface StateGenerator<
-      ChartstateInit extends States.AnyInit,
+      StatechartInit extends States.AnyInit,
       StateAction extends Actions.Action,
-      StateTransitionDef extends Transitions.Def<ChartstateInit> = never,
+      StateTransitionDef extends Transitions.Def<
+        StatechartInit["name"]
+      > = never,
       Substate extends Substates.AnySubstate = never
     > {
-      ($: StateFnGeneratorBuilder<ChartstateInit>): StateFnGeneratorBuilder<
-        ChartstateInit,
+      ($: StateFnGeneratorBuilder<StatechartInit>): StateFnGeneratorBuilder<
+        StatechartInit,
         StateAction,
         StateTransitionDef,
         Substate
@@ -604,7 +608,7 @@ export namespace Superstate {
       Statechart extends States.AnyState,
       StateName extends ChainStateInit["name"],
       StateAction extends Actions.Action,
-      StateDef extends States.Def<StatechartInit>,
+      StateDef extends States.Def<StatechartInit["name"]>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean
@@ -651,7 +655,7 @@ export namespace Superstate {
       StatechartInit extends States.AnyInit,
       StateInit extends StatechartInit,
       StateAction extends Superstate.Actions.Action,
-      StateDef_ extends Superstate.States.Def<StatechartInit>,
+      StateDef_ extends Superstate.States.Def<StatechartInit["name"]>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean
@@ -700,7 +704,7 @@ export namespace Superstate {
       <
         StateName extends ChainStateInit["name"],
         StateAction extends Actions.Action,
-        StateTransitionDef extends Transitions.Def<StatechartInit>,
+        StateTransitionDef extends Transitions.Def<StatechartInit["name"]>,
         Substate extends Substates.AnySubstate,
         Context
       >(
@@ -725,7 +729,7 @@ export namespace Superstate {
 
       <
         StateName extends ChainStateInit["name"],
-        StateDef_ extends States.Def<StatechartInit>
+        StateDef_ extends States.Def<StatechartInit["name"]>
       >(
         name: StateName,
         transitions: StateDef_ | StateDef_[]
@@ -744,8 +748,8 @@ export namespace Superstate {
       <
         StateName extends ChainStateInit["name"],
         StateAction extends Actions.Action,
-        StateDef extends States.Def<StatechartInit>,
-        StateTransitionDef extends Transitions.Def<StatechartInit>,
+        StateDef extends States.Def<StatechartInit["name"]>,
+        StateTransitionDef extends Transitions.Def<StatechartInit["name"]>,
         Substate extends Substates.AnySubstate
       >(
         name: StateName,
