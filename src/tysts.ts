@@ -1,3 +1,4 @@
+import { Test } from "vitest";
 import { State, Superstate, superstate } from ".";
 
 //#region Simple machine
@@ -27,6 +28,19 @@ import { State, Superstate, superstate } from ".";
 
   const player = playerMachine.host();
 
+  // [TODO] Remove debug code vvvvvv
+
+  type TestWut = Superstate.States.NormalizeInit<PlayerState>;
+
+  type TestWut1 = Superstate.States.FilterInit<TestWut, "stopped">;
+
+  type TestWut2 = Exclude<
+    TestWut,
+    Superstate.States.FilterInit<TestWut, "stopped">
+  >;
+
+  // [TODO] Remove debug code ^^^^^^
+
   //! send
 
   //! The machine accepts the events
@@ -49,6 +63,13 @@ import { State, Superstate, superstate } from ".";
   >
     ? State
     : never;
+
+  type TestStateStopped = Superstate.States.FilterState<
+    TestAllState,
+    "stopped"
+  >;
+
+  type TestTransition = Superstate.Traits.Transition<TestAllState>;
 
   type TestFlatEvent = typeof player extends Superstate.Instances.Instance<
     infer State,

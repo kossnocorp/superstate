@@ -416,10 +416,19 @@ export namespace Superstate {
       context: Context;
     }
 
+    /**
+     * Filters out the state init by the state name.
+     */
+    export type FilterInit<Init, Name> = Init extends { name: Name }
+      ? Init
+      : never;
+
     export type NormalizeInit<StateInit extends AnyInit | string> =
       | Extract<StateInit, AnyInit>
       | Extract<StateInit, string> extends infer Name extends string
-      ? { name: Name; context: null }
+      ? Name extends Name
+        ? { name: Name; context: null }
+        : never
       : never;
 
     export interface State<StateName, Action, Transition, Substates_, Final> {
@@ -593,15 +602,34 @@ export namespace Superstate {
       StatechartInit extends States.AnyInit,
       ChainStateInit extends StatechartInit,
       Statechart extends States.AnyState,
-      StateInit extends ChainStateInit,
+      StateName extends ChainStateInit["name"],
       StateAction extends Actions.Action,
       StateDef extends States.Def<StatechartInit>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
       Final extends boolean
-    > = Exclude<ChainStateInit, StateInit> extends never
-      ? Factories.MachineFactory<
-          States.BuilderStateToInstance<
+    > = States.FilterInit<
+      ChainStateInit,
+      StateName
+    > extends infer StateInit extends ChainStateInit
+      ? Exclude<ChainStateInit, StateInit> extends never
+        ? Factories.MachineFactory<
+            States.BuilderStateToInstance<
+              | Statechart
+              | State<
+                  StatechartInit,
+                  StateInit,
+                  StateAction,
+                  StateDef,
+                  Substate,
+                  Initial,
+                  Final
+                >
+            >
+          >
+        : Tail<
+            StatechartInit,
+            Exclude<ChainStateInit, StateInit>,
             | Statechart
             | State<
                 StatechartInit,
@@ -613,21 +641,7 @@ export namespace Superstate {
                 Final
               >
           >
-        >
-      : Tail<
-          StatechartInit,
-          Exclude<ChainStateInit, StateInit>,
-          | Statechart
-          | State<
-              StatechartInit,
-              StateInit,
-              StateAction,
-              StateDef,
-              Substate,
-              Initial,
-              Final
-            >
-        >;
+      : never;
 
     /**
      * Builder state. It constructs the state object from the builder chain
@@ -669,13 +683,13 @@ export namespace Superstate {
       ChainStateInit extends StatechartInit = StatechartInit,
       Statechart extends States.AnyState = never
     > {
-      <StateInit extends ChainStateInit>(
-        name: StateInit["name"]
+      <StateName extends ChainStateInit["name"]>(
+        name: StateName
       ): BuilderChainResult<
         StatechartInit,
         ChainStateInit,
         Statechart,
-        StateInit,
+        StateName,
         never,
         never,
         never,
@@ -684,13 +698,13 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends ChainStateInit,
+        StateName extends ChainStateInit["name"],
         StateAction extends Actions.Action,
         StateTransitionDef extends Transitions.Def<StatechartInit>,
         Substate extends Substates.AnySubstate,
         Context
       >(
-        name: StateInit["name"],
+        name: StateName,
         generator: StateGenerator<
           StatechartInit,
           StateAction,
@@ -701,7 +715,7 @@ export namespace Superstate {
         StatechartInit,
         ChainStateInit,
         Statechart,
-        StateInit,
+        StateName,
         StateAction,
         StateTransitionDef,
         Substate,
@@ -710,16 +724,16 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends ChainStateInit,
+        StateName extends ChainStateInit["name"],
         StateDef_ extends States.Def<StatechartInit>
       >(
-        name: StateInit["name"],
+        name: StateName,
         transitions: StateDef_ | StateDef_[]
       ): BuilderChainResult<
         StatechartInit,
         ChainStateInit,
         Statechart,
-        StateInit,
+        StateName,
         never,
         StateDef_,
         never,
@@ -728,13 +742,13 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends ChainStateInit,
+        StateName extends ChainStateInit["name"],
         StateAction extends Actions.Action,
         StateDef extends States.Def<StatechartInit>,
         StateTransitionDef extends Transitions.Def<StatechartInit>,
         Substate extends Substates.AnySubstate
       >(
-        name: StateInit["name"],
+        name: StateName,
         transitions: StateDef | StateDef[],
         generator: StateGenerator<
           StatechartInit,
@@ -746,7 +760,7 @@ export namespace Superstate {
         StatechartInit,
         ChainStateInit,
         Statechart,
-        StateInit,
+        StateName,
         StateAction,
         StateDef | StateTransitionDef,
         Substate,
