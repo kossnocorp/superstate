@@ -1,4 +1,4 @@
-import { Superstate, superstate } from ".";
+import { State, Superstate, superstate } from ".";
 
 //#region Simple machine
 {
@@ -1286,7 +1286,10 @@ import { Superstate, superstate } from ".";
 
   //#region Context/conditions
   {
-    type SignUpFormState = "credentials" | "profile" | "done";
+    type SignUpFormState =
+      | State<"credentials", SignUpInitial>
+      | State<"profile", SignUpCredentials>
+      | State<"done", SignUpComplete>;
 
     interface ErrorFields {
       error?: string;
@@ -1312,15 +1315,12 @@ import { Superstate, superstate } from ".";
     }
 
     const formState = superstate<SignUpFormState>("signUp")
-      .state(
-        "credentials",
-        ["submit(error) -> credentials", "submit() -> profile"],
-        ($) => $.context<SignUpInitial>()
-      )
-      .state("profile", ["submit(error) -> profile", "submit() -> done"], ($) =>
-        $.context<SignUpCredentials>()
-      )
-      .final("done", ($) => $.context<SignUpComplete>());
+      .state("credentials", [
+        "submit(error) -> credentials",
+        "submit() -> profile",
+      ])
+      .state("profile", ["submit(error) -> profile", "submit() -> done"])
+      .final("done");
 
     //! It allows to omit passing optional context
     const form = formState.host();
