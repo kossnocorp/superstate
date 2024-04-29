@@ -931,7 +931,7 @@ import { State, Superstate, superstate } from ".";
   type ButtonState = "off" | "on";
 
   //! Allows to define the transition actions
-  const buttonMachine = superstate<ButtonState>("button")
+  const buttonState = superstate<ButtonState>("button")
     .state("off", ($) => $.on("press() -> turnOn! -> on"))
     .state("on", ($) => $.on("press() -> turnOff! -> off"));
 
@@ -968,8 +968,45 @@ import { State, Superstate, superstate } from ".";
 
   //! Binding
 
+  // [TODO] Remove debug code vvvvvv
+
+  const testState = superstate<ButtonState>("button")
+    .state("off", ($) => $.on("press() -> turnOn! -> on"))
+    .state("on", ($) => $.on("press() -> turnOff! -> off"));
+
+  type TestState = typeof testState;
+
+  type TestStateBuilder = TestState extends Superstate.Builder.Tail<
+    any,
+    any,
+    infer State
+  >
+    ? State
+    : never;
+
+  type TestInit = Superstate.States.NormalizeInit<ButtonState>;
+
+  type TestInitOff = Superstate.States.FilterInit<TestInit, "off">;
+
+  type TestDefOff = Superstate.Transitions.EventDefWithAction<
+    "on",
+    "press",
+    "turnOn",
+    ""
+  >;
+
+  type TestFromDefOff = Superstate.Transitions.FromDef<
+    TestInit,
+    TestInitOff,
+    TestDefOff
+  >;
+
+  // type TestEventCaseDefWithAction = Superstate.Transitions.EventCaseDefWithAction<>
+
+  // [TODO] Remove debug code ^^^^^^
+
   //! It allows to bind the actions
-  buttonMachine.host({
+  buttonState.host({
     on: {
       "press() -> turnOff!": () => console.log("Turning on"),
     },
@@ -1021,7 +1058,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! The defitions must be correct
-  buttonMachine.host({
+  buttonState.host({
     on: {
       // @ts-expect-error
       "press() -> turnOff?": () => console.log("Turning on"),
@@ -1033,7 +1070,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! Can't bind unknown events
-  buttonMachine.host({
+  buttonState.host({
     on: {
       // @ts-expect-error
       "press() -> turnOff?": () => console.log("Turning on"),
