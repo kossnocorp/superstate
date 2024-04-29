@@ -354,7 +354,7 @@ import { State, Superstate, superstate } from ".";
 {
   type PCState = "on" | "sleep" | "off";
 
-  const pcMachine = superstate<PCState>("pc")
+  const pcState = superstate<PCState>("pc")
     .state("off", "press() -> on")
     .state("sleep", ($) =>
       $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
@@ -363,7 +363,7 @@ import { State, Superstate, superstate } from ".";
       $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
     );
 
-  const pc = pcMachine.host();
+  const pc = pcState.host();
 
   //! Allows to send an event without the condition
   {
@@ -383,6 +383,76 @@ import { State, Superstate, superstate } from ".";
     }
 
     // [TODO] Remove debug code vvvvvv
+
+    const testState = superstate<PCState>("pc")
+      .state("off", "press() -> on")
+      // .state("sleep", [
+      //   "press(long) -> off",
+      //   "press() -> on",
+      //   "restart() -> on",
+      // ]);
+      .state("sleep", ($) =>
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+      );
+
+    type TestState = typeof testState;
+
+    type TestStateBuilder = TestState extends Superstate.Builder.Tail<
+      any,
+      any,
+      infer State
+    >
+      ? State
+      : never;
+
+    type TestInit = Superstate.States.NormalizeInit<PCState>;
+
+    type TestInitSleep = Superstate.States.FilterInit<TestInit, "sleep">;
+
+    type TestDefSleep =
+      | Superstate.Transitions.EventDef<"off", "press", "long">
+      | Superstate.Transitions.EventDef<"on", "press", "">
+      | Superstate.Transitions.EventDef<"on", "restart", "">;
+
+    type TestFromDefSleep = Superstate.Transitions.FromDef<
+      TestInit,
+      TestInitSleep,
+      TestDefSleep
+    >;
+
+    type TestBuilderState = Superstate.Builder.State<
+      TestInit,
+      TestInitSleep,
+      never,
+      TestDefSleep,
+      never,
+      false,
+      false
+    >;
+
+    type TestStateFnResult = Superstate.Builder.StateFnResult<
+      TestInit,
+      Exclude<TestInit, "on">,
+      never,
+      "sleep",
+      never,
+      TestDefSleep,
+      never,
+      false,
+      false
+    >;
+
+    type TestStatechart = typeof pcState extends Superstate.Factories.Factory<
+      infer State
+    >
+      ? State
+      : never;
+
+    type TestStateSleep = Superstate.States.FilterState<
+      TestStatechart,
+      "sleep"
+    >;
+
     type TestEvent = typeof pc extends Superstate.Instances.Instance<
       infer State,
       infer Traits,
@@ -390,6 +460,15 @@ import { State, Superstate, superstate } from ".";
     >
       ? Traits["event"]
       : never;
+
+    type TestFindEvent<Wut, Key, Condition> = Wut extends {
+      key: Key;
+      condition: Condition;
+    }
+      ? Wut
+      : never;
+
+    type TestEvent123 = TestFindEvent<TestEvent, "press", "long">;
 
     type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
@@ -1486,12 +1565,11 @@ import { State, Superstate, superstate } from ".";
 
     // [TODO] Remove debug code vvvvvv
 
-    type TestState0 =
-      typeof signUpState extends Superstate.Factories.MachineFactory<
-        infer State
-      >
-        ? State
-        : never;
+    type TestState0 = typeof signUpState extends Superstate.Factories.Factory<
+      infer State
+    >
+      ? State
+      : never;
 
     type TestTraits = Superstate.Traits.Traits<TestState0>["event"];
 
