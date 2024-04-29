@@ -1259,6 +1259,8 @@ import { State, Superstate, superstate } from ".";
 
     // [TODO] Remove debug code vvvvvv
 
+    type TestNormalizeInit = Superstate.States.NormalizeInit<SignUpFormState>;
+
     type TestAllState = typeof form extends Superstate.Instances.Instance<
       infer State,
       infer Traits,

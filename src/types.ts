@@ -422,11 +422,11 @@ export namespace Superstate {
 
     export type NormalizeInit<StateInit extends AnyInit | string> =
       | Extract<StateInit, AnyInit>
-      | Extract<StateInit, string> extends infer Name extends string
-      ? Name extends Name
-        ? { name: Name; context: null }
-        : never
-      : never;
+      | (Extract<StateInit, string> extends infer Name extends string
+          ? Name extends Name
+            ? { name: Name; context: null }
+            : never
+          : never);
 
     export interface State<StateName, Action, Transition, Substates_, Final> {
       name: StateName;

@@ -4,6 +4,6 @@ export type { Superstate };
 export type State<
   Name extends string,
   Context extends Superstate.Contexts.Constraint | null = null
-> = Superstate.State<Name, Context>;
+> = Superstate.States.Init<Name, Context>;
 
 export const superstate: Superstate.Builder.Machine;
