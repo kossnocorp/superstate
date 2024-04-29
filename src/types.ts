@@ -1239,21 +1239,26 @@ export namespace Superstate {
                     | (FinalTransition extends {
                         event: infer EventName extends string;
                       }
-                        ? {
-                            key: `${Prefix}${EventName}`;
-                            wildcard: `${Prefix}*`;
-                            condition: null;
-                            transition: FinalTransition;
-                            // [TODO] Migrate to the approach used for the root level and get rid of MatchNextState
-                            next: Transitions.MatchNextState<
-                              MachineState,
-                              EventName,
-                              null
-                            >;
-                            final: true;
-                            nested: true;
-                            context: null; // [TODO] calculate the context
-                          }
+                        ? Transitions.MatchNextState<
+                            MachineState,
+                            EventName,
+                            null
+                          > extends infer NextState
+                          ? {
+                              key: `${Prefix}${EventName}`;
+                              wildcard: `${Prefix}*`;
+                              condition: null;
+                              transition: FinalTransition;
+                              next: NextState;
+                              final: true;
+                              nested: true;
+                              context: Contexts.EventContext<
+                                MachineState,
+                                StateName,
+                                NextState
+                              >;
+                            }
+                          : never
                         : never)
                 : never
               : never
