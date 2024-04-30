@@ -1544,12 +1544,22 @@ import { State, Superstate, superstate } from ".";
       type FormState =
         | State<"pending", Partial<Context>>
         | State<"errored", Context>
-        | State<"complete", Context>;
+        | State<"complete", Context>
+        | "canceled";
 
       return superstate<FormState>("form")
-        .state("pending", ["submit(error) -> errored", "submit() -> complete"])
-        .state("errored", ["submit(error) -> errored", "submit() -> complete"])
-        .final("complete");
+        .state("pending", [
+          "submit(error) -> errored",
+          "submit() -> complete",
+          "cancel() -> canceled",
+        ])
+        .state("errored", [
+          "submit(error) -> errored",
+          "submit() -> complete",
+          "cancel() -> canceled",
+        ])
+        .final("complete")
+        .final("canceled");
     }
 
     type SignUpState =
@@ -1579,6 +1589,20 @@ import { State, Superstate, superstate } from ".";
         $.sub("form", profileState, ["complete -> submit() -> done"])
       )
       .final("done");
+
+    //! It should not allow to connect incompatible final states
+    {
+      const signUpState = superstate<SignUpState>("signUp")
+        .state("credentials", ($) =>
+          // @ts-expect-error
+          $.sub("form", credentialsState, ["canceled -> submit() -> profile"])
+        )
+        .state("profile", ($) =>
+          // @ts-expect-error
+          $.sub("form", profileState, ["canceled -> submit() -> done"])
+        )
+        .final("done");
+    }
 
     const form = signUpState.host();
 
