@@ -438,18 +438,13 @@ export namespace Superstate {
       StateInit extends StatechartInit,
       FinalContext extends Contexts.Constraint | null
     > = StatechartInit extends StatechartInit
-      ? StatechartInit extends {
-          name: infer ToStateName extends string;
-          context: infer ToContext extends Contexts.Constraint | null;
-        }
-        ? ToContext extends null
-          ? StatechartInit
-          : Contexts.Intersect<
-              StateInit["context"],
-              FinalContext
-            > extends ToContext
-          ? StateInit
-          : never
+      ? StatechartInit["context"] extends null
+        ? StatechartInit
+        : Contexts.Intersect<
+            StateInit["context"],
+            FinalContext
+          > extends StatechartInit["context"]
+        ? StatechartInit
         : never
       : never;
   }

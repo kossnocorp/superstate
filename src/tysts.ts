@@ -1598,20 +1598,18 @@ import { State, Superstate, superstate } from ".";
     //! It should not allow to connect incompatible final states
     {
       const signUpState = superstate<SignUpState>("signUp")
-        .state("credentials", ($) => {
-          type Wut = typeof $;
-          return $.sub("form", credentialsState, [
+        .state("credentials", ($) =>
+          $.sub("form", credentialsState, [
             // @ts-expect-error
             "form.canceled -> submit() -> profile",
-          ]);
-        })
-        .state("profile", ($) => {
-          type Wut = typeof $;
-          return $.sub("form", profileState, [
+          ])
+        )
+        .state("profile", ($) =>
+          $.sub("form", profileState, [
             // @ts-expect-error
             "form.canceled -> submit() -> done",
-          ]);
-        })
+          ])
+        )
         .final("done");
 
       // [TODO] Remove debug code vvvvvv
@@ -1625,6 +1623,11 @@ import { State, Superstate, superstate } from ".";
         "profile"
       >;
 
+      type TestStateInitDone = Superstate.States.FilterInit<
+        TestStatechartInit,
+        "done"
+      >;
+
       type TestSubstateTransitionDef =
         Superstate.Transitions.SubstateTransitionDef<
           TestStatechartInit,
@@ -1633,10 +1636,10 @@ import { State, Superstate, superstate } from ".";
           typeof profileState
         >;
 
-      type TestFinalContext =
+      type TestFinalContext<Name> =
         typeof profileState extends Superstate.Factories.Factory<infer State>
           ? State extends {
-              name: infer FinalName extends string;
+              name: Name;
               final: true;
               [Superstate.Contexts
                 .ContextBrand]: infer FinalContext extends Superstate.Contexts.Constraint | null;
@@ -1645,7 +1648,15 @@ import { State, Superstate, superstate } from ".";
             : never
           : never;
 
-      type TestIntersection = TestStateInit["context"] & TestFinalContext;
+      type TestFinal = TestFinalContext<"complete">;
+
+      type TestIntersection = Superstate.Contexts.Intersect<
+        TestStateInit["context"],
+        TestFinal
+      >;
+
+      type TestFinalExtends =
+        TestIntersection extends TestStateInitDone["context"] ? true : false;
 
       type TestCompatibleInitWithSubstateFinalTransition =
         Superstate.Transitions.CompatibleInitWithSubstateFinalTransition<
