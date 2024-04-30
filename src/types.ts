@@ -505,6 +505,7 @@ export namespace Superstate {
 
     export interface StateFnGeneratorBuilder<
       StatechartInit extends States.AnyInit,
+      StateInit extends StatechartInit,
       Action extends Actions.Action = never,
       TransitionDef extends Transitions.Def<StatechartInit["name"]> = never,
       Substate extends Substates.AnySubstate = never
@@ -513,6 +514,7 @@ export namespace Superstate {
         name: ActionNameDef
       ): StateFnGeneratorBuilder<
         StatechartInit,
+        StateInit,
         Action | Actions.FromNameDef<"enter", ActionNameDef>,
         TransitionDef,
         Substate
@@ -522,6 +524,7 @@ export namespace Superstate {
         name: NameDef
       ): StateFnGeneratorBuilder<
         StatechartInit,
+        StateInit,
         Action | Actions.FromNameDef<"exit", NameDef>,
         TransitionDef,
         Substate
@@ -531,6 +534,7 @@ export namespace Superstate {
         transitions: Def[] | Def
       ): StateFnGeneratorBuilder<
         StatechartInit,
+        StateInit,
         Action,
         TransitionDef | Def,
         Substate
@@ -544,6 +548,7 @@ export namespace Superstate {
         cases: Def[] | Def
       ): StateFnGeneratorBuilder<
         StatechartInit,
+        StateInit,
         Action,
         | TransitionDef
         | Transitions.CaseDefToDef<StatechartInit, EventName, Def>,
@@ -556,12 +561,29 @@ export namespace Superstate {
         TrasitionDef extends SubstateFactory extends Factories.Factory<
           infer State
         >
-          ? State extends { name: infer FinalName extends string; final: true }
-            ? Substates.SubstateFinalTransitionDef<
-                StatechartInit,
-                FinalName,
-                any
-              >
+          ? State extends {
+              name: infer FinalName extends string;
+              final: true;
+              [Contexts.ContextBrand]: infer FinalContext;
+            }
+            ? StatechartInit extends {
+                name: infer ToStateName extends string;
+                context: infer ToContext extends Contexts.Constraint | null;
+              }
+              ? ToContext extends null
+                ? Substates.SubstateFinalTransitionDef<
+                    ToStateName,
+                    FinalName,
+                    string
+                  >
+                : StateInit["context"] & FinalContext extends ToContext
+                ? Substates.SubstateFinalTransitionDef<
+                    ToStateName,
+                    FinalName,
+                    string
+                  >
+                : never
+              : never
             : never
           : never = never
       >(
@@ -570,6 +592,7 @@ export namespace Superstate {
         defs?: TrasitionDef | TrasitionDef[]
       ): StateFnGeneratorBuilder<
         StatechartInit,
+        StateInit,
         Action,
         TransitionDef,
         | Substate
@@ -583,12 +606,16 @@ export namespace Superstate {
 
     export interface StateGenerator<
       StatechartInit extends States.AnyInit,
+      StateInit extends StatechartInit,
       Action extends Actions.Action,
       TransitionDef extends Transitions.Def<StatechartInit["name"]> = never,
       Substate extends Substates.AnySubstate = never
     > {
-      ($: StateFnGeneratorBuilder<StatechartInit>): StateFnGeneratorBuilder<
+      (
+        $: StateFnGeneratorBuilder<StatechartInit, StateInit>
+      ): StateFnGeneratorBuilder<
         StatechartInit,
+        StateInit,
         Action,
         TransitionDef,
         Substate
@@ -695,7 +722,8 @@ export namespace Superstate {
       >;
 
       <
-        StateName extends ChainStateInit["name"],
+        StateInit extends StatechartInit,
+        StateName extends StateInit["name"],
         StateAction extends Actions.Action,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
         Substate extends Substates.AnySubstate,
@@ -704,6 +732,7 @@ export namespace Superstate {
         name: StateName,
         generator: StateGenerator<
           StatechartInit,
+          StateInit,
           StateAction,
           TransitionDef,
           Substate
@@ -721,7 +750,8 @@ export namespace Superstate {
       >;
 
       <
-        StateName extends ChainStateInit["name"],
+        StateInit extends StatechartInit,
+        StateName extends StateInit["name"],
         StateDef_ extends States.Def<StatechartInit["name"]>
       >(
         name: StateName,
@@ -739,7 +769,8 @@ export namespace Superstate {
       >;
 
       <
-        StateName extends ChainStateInit["name"],
+        StateInit extends StatechartInit,
+        StateName extends StateInit["name"],
         StateAction extends Actions.Action,
         StateDef extends States.Def<StatechartInit["name"]>,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
@@ -749,6 +780,7 @@ export namespace Superstate {
         transitions: StateDef | StateDef[],
         generator: StateGenerator<
           StatechartInit,
+          StateInit,
           StateAction,
           TransitionDef,
           Substate
@@ -1111,10 +1143,10 @@ export namespace Superstate {
      * String representation of the final substate transition.
      */
     export type SubstateFinalTransitionDef<
-      ParentStatechartInit extends States.AnyInit,
+      ParentToStateName extends string,
       ChildFinalStateName extends string,
       TransitionName extends string
-    > = `${ChildFinalStateName} -> ${TransitionName}() -> ${ParentStatechartInit["name"]}`;
+    > = `${ChildFinalStateName} -> ${TransitionName}() -> ${ParentToStateName}`;
 
     /**
      * Constructs the final substate transition from the transition def.
