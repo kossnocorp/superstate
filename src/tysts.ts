@@ -1465,13 +1465,35 @@ import { State, Superstate, superstate } from ".";
 
     // [TODO] Remove debug code vvvvvv
 
-    type TestEvent = typeof form extends Superstate.Instances.Instance<
+    type Event = typeof form extends Superstate.Instances.Instance<
       infer State,
       infer Traits,
       any
     >
       ? Traits["event"]
       : never;
+
+    type TestContext<Event, Send> = Event extends {
+      send: Send;
+    }
+      ? Event
+      : never;
+
+    type TestContextSubmit = TestContext<
+      Event,
+      "submit(error) -> credentials"
+    >["context"];
+
+    type TestSendContext = Superstate.Listeners.SendContext<TestContextSubmit>;
+
+    type UK = Superstate.Utils.UnionKeys<TestContextSubmit>;
+
+    type UK1 = Superstate.Utils.RequiredKeys<TestContextSubmit>;
+
+    type UK2 = Exclude<
+      Superstate.Utils.UnionKeys<TestContextSubmit>,
+      Superstate.Utils.RequiredKeys<TestContextSubmit>
+    >;
 
     // [TODO] Remove debug code ^^^^^^
 
@@ -1520,7 +1542,7 @@ import { State, Superstate, superstate } from ".";
       type Context = FormFields & ErrorFields;
 
       type FormState =
-        | State<"pending", Context>
+        | State<"pending", Partial<Context>>
         | State<"errored", Context>
         | State<"complete", Context>;
 
@@ -1560,32 +1582,29 @@ import { State, Superstate, superstate } from ".";
 
     const form = signUpState.host();
 
-    //! It expects the full context as the complete transitions to parent's done
-    form.send("profile.form.submit() -> profile.form.complete", {
-      email: "koss@nocorp.me",
-      password: "123456",
+    //! It requires the most complete version of context when there are multiple origin states with different context shapes
+    form.send("profile.form.submit() -> .complete", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
 
     //! It won't accept incomplete context
     // @ts-expect-error
-    form.send("profile.form.submit() -> complete", {
-      fullName: "Sasha Koss",
+    form.send("profile.form.submit() -> .complete", {
       company: "No Corp",
     });
 
     //! Context must be defined
     // @ts-expect-error
-    form.send("profile.form.submit() -> complete");
+    form.send("profile.form.submit() -> .complete");
 
     //! Context can't be empty
     // @ts-expect-error
-    form.send("profile.form.submit() -> complete", {});
+    form.send("profile.form.submit() -> .complete", {});
 
     //! Context can't be null
     // @ts-expect-error
-    form.send("profile.form.submit() -> complete", {});
+    form.send("profile.form.submit() -> .complete", null);
 
     // [TODO] Remove debug code vvvvvv
 
