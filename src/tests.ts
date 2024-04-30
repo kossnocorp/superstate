@@ -480,8 +480,8 @@ describe("Superstate", () => {
               .state("clear", "pour() -> full")
               .state("full", ["drink() -> clear"], ($) =>
                 $.sub("tea", teaState, [
-                  "finished -> finish() -> dirty",
-                  "oversteeped -> oversteep() -> undrinkable",
+                  "tea.finished -> finish() -> dirty",
+                  "tea.oversteeped -> oversteep() -> undrinkable",
                 ])
               )
               .state("undrinkable", "drain() -> dirty")
@@ -1815,7 +1815,7 @@ function createMugWithTeaState() {
   return superstate<MugState>("mug")
     .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub("tea", teaState, "finished -> finish() -> dirty")
+      $.sub("tea", teaState, "tea.finished -> finish() -> dirty")
     )
     .state("dirty", ["clean() -> clear"]);
 }

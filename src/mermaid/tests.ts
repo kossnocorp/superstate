@@ -68,7 +68,7 @@ describe("Mermaid", () => {
         .state("on", ($) =>
           $.enter("boot!")
             .on("pushPower() -> turnOff! -> off")
-            .sub("os", osState, "terminated -> shutdown() -> off")
+            .sub("os", osState, "os.terminated -> shutdown() -> off")
         );
 
       const mermaid = toMermaid(pcState);
@@ -107,11 +107,11 @@ describe("Mermaid", () => {
           $.sub(
             "expire",
             expireMachine,
-            "expired -> throwAway() -> wasted"
-          ).sub("heat", heatMachine, "thawed -> cook() -> cooked")
+            "expire.expired -> throwAway() -> wasted"
+          ).sub("heat", heatMachine, "heat.thawed -> cook() -> cooked")
         )
         .state("cooked", ($) =>
-          $.sub("eat", eatMachine, "finished -> finish() -> finished")
+          $.sub("eat", eatMachine, "eat.finished -> finish() -> finished")
         )
         .final("finished")
         .final("wasted");
