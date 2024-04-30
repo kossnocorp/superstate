@@ -756,7 +756,7 @@ export namespace Superstate {
       >;
 
       <
-        StateName extends StatechartInit["name"],
+        StateName extends ChainStateInit["name"],
         StateAction extends Actions.Action,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
         Substate extends Substates.AnySubstate,
@@ -783,25 +783,25 @@ export namespace Superstate {
       >;
 
       <
-        StateName extends StatechartInit["name"],
-        StateDef_ extends States.Def<StatechartInit["name"]>
+        Name extends ChainStateInit["name"],
+        Def extends States.Def<StatechartInit["name"]>
       >(
-        name: StateName,
-        transitions: StateDef_ | StateDef_[]
+        name: Name,
+        transitions: Def | Def[]
       ): StateFnResult<
         StatechartInit,
         ChainStateInit,
         Statechart,
-        StateName,
+        Name,
         never,
-        StateDef_,
+        Def,
         never,
         Initial,
         Final
       >;
 
       <
-        StateName extends StatechartInit["name"],
+        StateName extends ChainStateInit["name"],
         StateAction extends Actions.Action,
         StateDef extends States.Def<StatechartInit["name"]>,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
