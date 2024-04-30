@@ -71,7 +71,7 @@ import { State, Superstate, superstate } from ".";
 
   type TestTransition = Superstate.Traits.Transition<TestAllState>;
 
-  type TestFlatEvent = typeof player extends Superstate.Instances.Instance<
+  type TestEvent = typeof player extends Superstate.Instances.Instance<
     infer State,
     infer Traits,
     any
@@ -469,8 +469,6 @@ import { State, Superstate, superstate } from ".";
       : never;
 
     type TestEvent123 = TestFindEvent<TestEvent, "press", "long">;
-
-    type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
     // [TODO] Remove debug code ^^^^^^
   }
@@ -1305,7 +1303,7 @@ import { State, Superstate, superstate } from ".";
       SignUpCredentials
     >;
 
-    type TestSend1 = Superstate.Listeners.Send<TestEvent>;
+    type TestSend1 = Superstate.Listeners.SendFn<TestEvent>;
 
     // [TODO] Remove debug code ^^^^^^
 
@@ -1395,8 +1393,6 @@ import { State, Superstate, superstate } from ".";
         { world: "hello" }
       >;
 
-      type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
-
       // [TODO] Remove debug code ^^^^^^
 
       form.send("submit() -> profile", {
@@ -1476,8 +1472,6 @@ import { State, Superstate, superstate } from ".";
     >
       ? Traits["event"]
       : never;
-
-    type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
     // [TODO] Remove debug code ^^^^^^
 
@@ -1567,7 +1561,7 @@ import { State, Superstate, superstate } from ".";
     const form = signUpState.host();
 
     //! It expects the full context as the complete transitions to parent's done
-    form.send("profile.form.submit() -> complete", {
+    form.send("profile.form.submit() -> profile.form.complete", {
       email: "koss@nocorp.me",
       password: "123456",
       fullName: "Sasha Koss",
@@ -1618,8 +1612,6 @@ import { State, Superstate, superstate } from ".";
     >
       ? Traits["event"]
       : never;
-
-    type TestSend1 = Superstate.Listeners.SendSingature<TestEvent>;
 
     // [TODO] Remove debug code ^^^^^^
   }
