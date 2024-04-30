@@ -571,17 +571,25 @@ export namespace Superstate {
                 context: infer ToContext extends Contexts.Constraint | null;
               }
               ? ToContext extends null
-                ? Substates.SubstateFinalTransitionDef<
-                    ToStateName,
-                    FinalName,
-                    string
-                  >
+                ? {
+                    to: ToStateName;
+                    context: null;
+                    def: Substates.SubstateFinalTransitionDef<
+                      ToStateName,
+                      FinalName,
+                      string
+                    >;
+                  }
                 : StateInit["context"] & FinalContext extends ToContext
-                ? Substates.SubstateFinalTransitionDef<
-                    ToStateName,
-                    FinalName,
-                    string
-                  >
+                ? {
+                    to: ToStateName;
+                    context: StateInit["context"] & FinalContext;
+                    def: Substates.SubstateFinalTransitionDef<
+                      ToStateName,
+                      FinalName,
+                      string
+                    >;
+                  }
                 : never
               : never
             : never
@@ -722,7 +730,7 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends StatechartInit,
+        StateInit extends ChainStateInit,
         StateName extends StateInit["name"],
         StateAction extends Actions.Action,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
@@ -750,7 +758,7 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends StatechartInit,
+        StateInit extends ChainStateInit,
         StateName extends StateInit["name"],
         StateDef_ extends States.Def<StatechartInit["name"]>
       >(
@@ -769,7 +777,7 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends StatechartInit,
+        StateInit extends ChainStateInit,
         StateName extends StateInit["name"],
         StateAction extends Actions.Action,
         StateDef extends States.Def<StatechartInit["name"]>,
