@@ -831,7 +831,7 @@ export namespace Superstate {
     export interface API<Traits extends Traits.TraitsConstraint> {
       on: Listeners.On<Traits>;
 
-      send: Listeners.Send<SendSingature<Traits["event"]>>;
+      send: Listeners.SendFn<Traits["event"]>;
 
       off(): void;
     }
@@ -898,95 +898,41 @@ export namespace Superstate {
     /**
      * Function that sends events.
      */
-    export interface Send<Signature> {
+    export interface SendFn<Event extends Traits.EventConstraint> {
       <
-        S extends Signature extends {
-          event: string;
+        Send extends Event extends {
+          send: infer Send extends string;
           context: Contexts.Constraint;
         }
-          ? Signature
+          ? Send
           : never,
-        Event extends S extends {
-          event: infer Event;
-          context: Contexts.Constraint;
-        }
-          ? Event
-          : never,
-        Context extends S extends {
-          event: Event;
+        Context extends Event extends {
+          send: Send;
           context: infer Context;
         }
           ? Context
           : never
       >(
-        event: Event,
+        event: Send,
         context: NoInfer<Context>
-      ): S extends {
-        event: Event;
+      ): Event extends {
+        send: Send;
         context: Context;
-        return: infer Return;
+        next: infer Next;
       }
-        ? Return
+        ? Next | null
         : never;
 
       <
-        S extends Signature extends {
-          event: string;
+        Send extends Event extends {
+          send: infer Send extends string;
           context: null;
         }
-          ? Signature
-          : never,
-        Event extends S extends {
-          event: infer Event;
-        }
-          ? Event
+          ? Send
           : never
       >(
-        event: Event
-      ): S extends { event: Event; return: infer Return } ? Return : never;
-    }
-
-    export type SendSingature<Event extends Traits.EventConstraint> =
-      Event extends Event
-        ? Event["final"] extends false
-          ? Event["context"] extends null
-            ? Event["condition"] extends null
-              ? SendSingaturePlain<Event>
-              : SendSingatureWithCondition<Event>
-            : Event["condition"] extends null
-            ? SendSingatureWithContext<Event>
-            : SendSingatureWithConditionAndContext<Event>
-          : never
-        : never;
-
-    export interface SendSingaturePlain<Event extends Traits.EventConstraint> {
-      event: `${Event["key"]}()`;
-      context: null;
-      return: Event["next"] | null;
-    }
-
-    export interface SendSingatureWithCondition<
-      Event extends Traits.EventConstraint
-    > {
-      event: `${Event["key"]}(${Event["condition"]})`;
-      context: null;
-      return: Event["next"] | null;
-    }
-
-    export interface SendSingatureWithContext<
-      Event extends Traits.EventConstraint
-    > {
-      event: `${Event["key"]}() -> ${Event["transition"]["to"]}`;
-      context: Event["context"];
-      return: Event["next"] | null;
-    }
-
-    export interface SendSingatureWithConditionAndContext<
-      Event extends Traits.EventConstraint
-    > {
-      event: `${Event["key"]}(${Event["condition"]}) -> ${Event["transition"]["to"]}`;
-      context: Event["context"];
-      return: Event["next"] | null;
+        event: Send
+      ): Event extends { send: Send; next: infer Next } ? Next | null : never;
     }
 
     //#endregion
@@ -1182,6 +1128,7 @@ export namespace Superstate {
     export interface EventConstraint {
       key: string;
       wildcard: Targets.WildcardConstraint;
+      send: string | null;
       condition: string | null;
       final: boolean;
       next: States.AnyState;
@@ -1223,6 +1170,11 @@ export namespace Superstate {
             ? {
                 key: `${Prefix}${Transition["transition"]["event"]}`;
                 wildcard: `${Prefix}*`;
+                send: `${Prefix}${Transition["transition"]["event"]}(${Transition["transition"]["condition"] extends string
+                  ? Transition["transition"]["condition"]
+                  : ""})${Transition["context"] extends null
+                  ? ""
+                  : ` -> ${Prefix}${Transition["next"]["name"]}`}`;
                 condition: Transition["transition"]["condition"];
                 transition: Transition["transition"];
                 next: Transition["next"];
@@ -1267,6 +1219,7 @@ export namespace Superstate {
                           ? {
                               key: `${Prefix}${EventName}`;
                               wildcard: `${Prefix}*`;
+                              send: null;
                               condition: null;
                               transition: FinalTransition;
                               next: NextState;
