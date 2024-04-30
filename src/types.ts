@@ -914,7 +914,7 @@ export namespace Superstate {
           : never
       >(
         event: Send,
-        context: NoInfer<Context>
+        context: NoInfer<SendContext<Context>>
       ): Event extends {
         send: Send;
         context: Context;
@@ -935,6 +935,22 @@ export namespace Superstate {
       ): Event extends { send: Send; next: infer Next } ? Next | null : never;
     }
 
+    /**
+     * Resolves the strictest version of given context union.
+     */
+    export type SendContext<Type> = Utils.UnionPick<
+      Type,
+      Utils.RequiredKeys<Type>
+    > & {
+      [Key in Exclude<
+        Utils.UnionKeys<Type>,
+        Utils.RequiredKeys<Type>
+      >]?: Type extends {
+        [TypeKey in Key]?: infer Value;
+      }
+        ? Value
+        : never;
+    };
     //#endregion
   }
   //#endregion
@@ -1174,7 +1190,9 @@ export namespace Superstate {
                   ? Transition["transition"]["condition"]
                   : ""})${Transition["context"] extends null
                   ? ""
-                  : ` -> ${Prefix}${Transition["next"]["name"]}`}`;
+                  : ` -> ${Prefix extends ""
+                      ? ""
+                      : "."}${Transition["next"]["name"]}`}`;
                 condition: Transition["transition"]["condition"];
                 transition: Transition["transition"];
                 next: Transition["next"];
@@ -1225,11 +1243,7 @@ export namespace Superstate {
                               next: NextState;
                               final: true;
                               nested: true;
-                              context: Contexts.EventContext<
-                                Statechart,
-                                StateName,
-                                NextState
-                              >;
+                              context: null;
                             }
                           : never
                         : never)
@@ -1366,13 +1380,16 @@ export namespace Superstate {
     /**
      * Context keys required when transitioning from one state to another.
      */
-    export type RequiredKeys<Context, FromContext> = {
-      [Key in keyof Context]: Key extends keyof FromContext
-        ? FromContext[Key] extends Context[Key]
-          ? never
-          : Key
-        : Key;
-    }[keyof Context];
+    export type RequiredKeys<Context, FromContext> = Exclude<
+      {
+        [Key in keyof Context]: Key extends keyof FromContext
+          ? FromContext[Key] extends Context[Key]
+            ? never
+            : Key
+          : Key;
+      }[keyof Context],
+      undefined
+    >;
   }
   //#endregion
 
@@ -1391,30 +1408,22 @@ export namespace Superstate {
     >;
 
     /**
-     * Makes given keys partial.
-     */
-    export type PartializeKeys<Type, Keys> = Keys extends keyof Type
-      ? Omit<Type, Keys> & Partial<Pick<Type, Keys>>
-      : never;
-
-    /**
-     * Turns never to null.
-     */
-    export type NullIfNever<Type> = Type extends never ? null : Type;
-
-    /**
      * Resolves required keys.
      */
-    export type RequiredKeys<Type> = Exclude<
-      {
-        [Key in keyof Type]: Type[Key] extends never
-          ? never
-          : RequiredKey<Type, Key> extends true
-          ? Key
-          : never;
-      }[keyof Type],
-      undefined
-    >;
+    export type RequiredKeys<Type> = Type extends Type
+      ? Exclude<
+          {
+            [Key in keyof Type]: Type[Key] extends never
+              ? never
+              : RequiredKey<Type, Key> extends true
+              ? Key
+              : never;
+          }[keyof Type],
+          undefined
+        >
+      : never;
+
+    type Test = RequiredKeys<{ a?: string; b?: number; c?: undefined }>;
 
     /**
      * Resolves true if the passed key is a required field of the passed model.
@@ -1447,6 +1456,33 @@ export namespace Superstate {
         : symbol extends Key
         ? never
         : Key]: Model[Key];
+    };
+
+    /**
+     * Resolves union keys.
+     */
+    export type UnionKeys<Type> = Exclude<
+      Type extends Type ? keyof Type : never,
+      undefined
+    >;
+
+    /**
+     * Resolves union value.
+     */
+    export type UnionValue<
+      Type,
+      UnionKey extends UnionKeys<Type>
+    > = Type extends {
+      [Key in UnionKey]: unknown;
+    }
+      ? Type[UnionKey]
+      : never;
+
+    /**
+     * Version of {@link Pick} that works with union types.
+     */
+    export type UnionPick<Type, Keys extends string | number | symbol> = {
+      [Key in Extract<UnionKeys<Type>, Keys>]: UnionValue<Type, Key>;
     };
   }
   //#endregion
