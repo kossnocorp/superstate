@@ -584,7 +584,7 @@ import { State, Superstate, superstate } from ".";
         teaMachine,
         //! The exit must be a correct state
         // @ts-expect-error
-        "finishe -> finish() -> dirty"
+        "tea.finishe -> finish() -> dirty"
       )
     )
     .state("dirty", ["clean() -> clear"]);
@@ -597,7 +597,7 @@ import { State, Superstate, superstate } from ".";
         teaMachine,
         //! The exit must be a final strate
         // @ts-expect-error
-        "water -> finish() -> dirty"
+        "tea.water -> finish() -> dirty"
       )
     )
     .state("dirty", ["clean() -> clear"]);
@@ -610,7 +610,7 @@ import { State, Superstate, superstate } from ".";
         teaMachine,
         //! The exiting state must be correct
         // @ts-expect-error
-        "finished -> finish() -> dity"
+        "tea.finished -> finish() -> dity"
       )
     )
     .state("dirty", ["clean() -> clear"]);
@@ -618,7 +618,7 @@ import { State, Superstate, superstate } from ".";
   const mugMachine = superstate<MugState>("mug")
     .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub("tea", teaMachine, "finished -> finish() -> dirty")
+      $.sub("tea", teaMachine, "tea.finished -> finish() -> dirty")
     )
     .state("dirty", ["clean() -> clear"]);
 
@@ -763,7 +763,7 @@ import { State, Superstate, superstate } from ".";
     .state("unpacked", ($) =>
       $.sub("expire", expireMachine)
         .sub("heat", heatMachine)
-        .sub("eat", eatMachine, "finished -> finish() -> finished")
+        .sub("eat", eatMachine, "eat.finished -> finish() -> finished")
     )
     .state("cooked")
     .final("finished");
@@ -1105,7 +1105,7 @@ import { State, Superstate, superstate } from ".";
       $.on("power() -> turnOff! -> off").sub(
         "os",
         osState,
-        "terminated -> shutdown() -> off"
+        "os.terminated -> shutdown() -> off"
       )
     );
 
@@ -1115,7 +1115,7 @@ import { State, Superstate, superstate } from ".";
       $.on("power() -> off").sub(
         "os",
         osState,
-        "terminated -> shutdown() -> off"
+        "os.terminated -> shutdown() -> off"
       )
     );
 
@@ -1583,25 +1583,78 @@ import { State, Superstate, superstate } from ".";
 
     const signUpState = superstate<SignUpState>("signUp")
       .state("credentials", ($) =>
-        $.sub("form", credentialsState, ["complete -> submit() -> profile"])
+        $.sub("form", credentialsState, [
+          "form.complete -> submit() -> profile",
+        ])
       )
-      .state("profile", ($) =>
-        $.sub("form", profileState, ["complete -> submit() -> done"])
-      )
+      .state("profile", ($) => {
+        type Wut = typeof $;
+        return $.sub("form", profileState, [
+          "form.complete -> submit() -> done",
+        ]);
+      })
       .final("done");
 
     //! It should not allow to connect incompatible final states
     {
       const signUpState = superstate<SignUpState>("signUp")
-        .state("credentials", ($) =>
-          // @ts-expect-error
-          $.sub("form", credentialsState, ["canceled -> submit() -> profile"])
-        )
-        .state("profile", ($) =>
-          // @ts-expect-error
-          $.sub("form", profileState, ["canceled -> submit() -> done"])
-        )
+        .state("credentials", ($) => {
+          type Wut = typeof $;
+          return $.sub("form", credentialsState, [
+            // @ts-expect-error
+            "form.canceled -> submit() -> profile",
+          ]);
+        })
+        .state("profile", ($) => {
+          type Wut = typeof $;
+          return $.sub("form", profileState, [
+            // @ts-expect-error
+            "form.canceled -> submit() -> done",
+          ]);
+        })
         .final("done");
+
+      // [TODO] Remove debug code vvvvvv
+
+      // type TestSubstateFactory = typeof profileState extends Superstate.Factories.Factory<infer
+
+      type TestStatechartInit = Superstate.States.NormalizeInit<SignUpState>;
+
+      type TestStateInit = Superstate.States.FilterInit<
+        TestStatechartInit,
+        "profile"
+      >;
+
+      type TestSubstateTransitionDef =
+        Superstate.Transitions.SubstateTransitionDef<
+          TestStatechartInit,
+          TestStateInit,
+          "form",
+          typeof profileState
+        >;
+
+      type TestFinalContext =
+        typeof profileState extends Superstate.Factories.Factory<infer State>
+          ? State extends {
+              name: infer FinalName extends string;
+              final: true;
+              [Superstate.Contexts
+                .ContextBrand]: infer FinalContext extends Superstate.Contexts.Constraint | null;
+            }
+            ? FinalContext
+            : never
+          : never;
+
+      type TestIntersection = TestStateInit["context"] & TestFinalContext;
+
+      type TestCompatibleInitWithSubstateFinalTransition =
+        Superstate.Transitions.CompatibleInitWithSubstateFinalTransition<
+          TestStatechartInit,
+          TestStateInit,
+          null
+        >;
+
+      // [TODO] Remove debug code ^^^^^^
     }
 
     const form = signUpState.host();
@@ -1685,7 +1738,7 @@ import { State, Superstate, superstate } from ".";
     .state("on", ($) =>
       $.enter("blip!")
         .on("power() -> turnOff! -> off")
-        .sub("os", osState, "terminated -> shutdown() -> off")
+        .sub("os", osState, "os.terminated -> shutdown() -> off")
     );
 
   //! The name must be a string
@@ -1912,7 +1965,7 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> off")
           // Nest the OS state as `os` and connect the `terminated` state
           // through `shutdown()` event to `off` state of the parent.
-          .sub("os", osState, "terminated -> shutdown() -> off")
+          .sub("os", osState, "os.terminated -> shutdown() -> off")
       );
   }
 
@@ -1942,7 +1995,7 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> turnOff! -> off").sub(
           "os",
           osState,
-          "terminated -> shutdown() -> off"
+          "os.terminated -> shutdown() -> off"
         )
       );
 
@@ -2171,7 +2224,7 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> off")
           // Nest the OS state as `os` and connect the `terminated` state
           // through `shutdown()` event to `off` state of the parent.
-          .sub("os", osState, "terminated -> shutdown() -> off")
+          .sub("os", osState, "os.terminated -> shutdown() -> off")
       );
   }
 
@@ -2278,7 +2331,7 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> off").sub(
           "os",
           osState,
-          "terminated -> shutdown() -> off"
+          "os.terminated -> shutdown() -> off"
         )
       );
 
