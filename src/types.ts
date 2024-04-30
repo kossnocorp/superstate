@@ -398,6 +398,60 @@ export namespace Superstate {
     }
       ? Transition
       : never;
+
+    /**
+     * Resolves transition def.
+     */
+    export type SubstateTransitionDef<
+      StatechartInit extends States.AnyInit,
+      StateInit extends StatechartInit,
+      SubstateName extends string,
+      SubstateFactory
+    > = SubstateFactory extends Factories.Factory<infer State>
+      ? State extends State
+        ? State extends {
+            name: infer FinalName extends string;
+            final: true;
+            [Contexts.ContextBrand]: infer FinalContext extends Contexts.Constraint | null;
+          }
+          ? CompatibleInitWithSubstateFinalTransition<
+              StatechartInit,
+              StateInit,
+              FinalContext
+            > extends infer StateInit extends States.AnyInit
+            ? Substates.SubstateFinalTransitionDef<
+                SubstateName,
+                StateInit["name"],
+                FinalName,
+                string
+              >
+            : never
+          : never
+        : never
+      : never;
+
+    /**
+     * Resolves state inits compatible for a substate final transition binding.
+     */
+    export type CompatibleInitWithSubstateFinalTransition<
+      StatechartInit extends States.AnyInit,
+      StateInit extends StatechartInit,
+      FinalContext extends Contexts.Constraint | null
+    > = StatechartInit extends StatechartInit
+      ? StatechartInit extends {
+          name: infer ToStateName extends string;
+          context: infer ToContext extends Contexts.Constraint | null;
+        }
+        ? ToContext extends null
+          ? StatechartInit
+          : Contexts.Intersect<
+              StateInit["context"],
+              FinalContext
+            > extends ToContext
+          ? StateInit
+          : never
+        : never
+      : never;
   }
   //#endregion
 
@@ -558,42 +612,12 @@ export namespace Superstate {
       sub<
         SubstateName extends string,
         SubstateFactory extends Factories.AnyFactory,
-        TrasitionDef extends SubstateFactory extends Factories.Factory<
-          infer State
-        >
-          ? State extends {
-              name: infer FinalName extends string;
-              final: true;
-              [Contexts.ContextBrand]: infer FinalContext;
-            }
-            ? StatechartInit extends {
-                name: infer ToStateName extends string;
-                context: infer ToContext extends Contexts.Constraint | null;
-              }
-              ? ToContext extends null
-                ? {
-                    to: ToStateName;
-                    context: null;
-                    def: Substates.SubstateFinalTransitionDef<
-                      ToStateName,
-                      FinalName,
-                      string
-                    >;
-                  }
-                : StateInit["context"] & FinalContext extends ToContext
-                ? {
-                    to: ToStateName;
-                    context: StateInit["context"] & FinalContext;
-                    def: Substates.SubstateFinalTransitionDef<
-                      ToStateName,
-                      FinalName,
-                      string
-                    >;
-                  }
-                : never
-              : never
-            : never
-          : never = never
+        TrasitionDef extends Transitions.SubstateTransitionDef<
+          StatechartInit,
+          StateInit,
+          SubstateName,
+          SubstateFactory
+        > = never
       >(
         name: SubstateName,
         factory: SubstateFactory,
@@ -611,6 +635,8 @@ export namespace Superstate {
           >
       >;
     }
+
+    type ArayOrItem<Type> = Type | Type[];
 
     export interface StateGenerator<
       StatechartInit extends States.AnyInit,
@@ -730,8 +756,7 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends ChainStateInit,
-        StateName extends StateInit["name"],
+        StateName extends StatechartInit["name"],
         StateAction extends Actions.Action,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
         Substate extends Substates.AnySubstate,
@@ -740,7 +765,7 @@ export namespace Superstate {
         name: StateName,
         generator: StateGenerator<
           StatechartInit,
-          StateInit,
+          States.FilterInit<StatechartInit, StateName>,
           StateAction,
           TransitionDef,
           Substate
@@ -758,8 +783,7 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends ChainStateInit,
-        StateName extends StateInit["name"],
+        StateName extends StatechartInit["name"],
         StateDef_ extends States.Def<StatechartInit["name"]>
       >(
         name: StateName,
@@ -777,8 +801,7 @@ export namespace Superstate {
       >;
 
       <
-        StateInit extends ChainStateInit,
-        StateName extends StateInit["name"],
+        StateName extends StatechartInit["name"],
         StateAction extends Actions.Action,
         StateDef extends States.Def<StatechartInit["name"]>,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
@@ -788,7 +811,7 @@ export namespace Superstate {
         transitions: StateDef | StateDef[],
         generator: StateGenerator<
           StatechartInit,
-          StateInit,
+          States.FilterInit<StatechartInit, StateName>,
           StateAction,
           TransitionDef,
           Substate
@@ -1151,18 +1174,19 @@ export namespace Superstate {
      * String representation of the final substate transition.
      */
     export type SubstateFinalTransitionDef<
+      SubstateName extends string,
       ParentToStateName extends string,
       ChildFinalStateName extends string,
       TransitionName extends string
-    > = `${ChildFinalStateName} -> ${TransitionName}() -> ${ParentToStateName}`;
+    > = `${SubstateName}.${ChildFinalStateName} -> ${TransitionName}() -> ${ParentToStateName}`;
 
     /**
      * Constructs the final substate transition from the transition def.
      */
     export type SubstateFinalTransitionFromDef<
-      Def extends SubstateFinalTransitionDef<any, any, any>
+      Def extends SubstateFinalTransitionDef<any, any, any, any>
     > =
-      Def extends `${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
+      Def extends `${string}.${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
         ? {
             event: EventName;
             from: ChildFromStateName;
@@ -1430,6 +1454,17 @@ export namespace Superstate {
       }[keyof Context],
       undefined
     >;
+
+    /**
+     * Intersects two context types.
+     */
+    export type Intersect<ContextA, ContextB> = EnsureObject<ContextA> &
+      EnsureObject<ContextB>;
+
+    /**
+     * Resolves context object.
+     */
+    export type EnsureObject<Context> = Context extends null ? {} : Context;
   }
   //#endregion
 
