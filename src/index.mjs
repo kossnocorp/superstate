@@ -2,19 +2,22 @@ export function superstate(name) {
   const states = [];
   let bindings;
 
-  // MARK: builder
+  //#region builder
   function createBuilder() {
     const self = {
       name,
 
       states,
 
-      // MARK: host
+      //#region host
       host(bindings_) {
         bindings = bindings_ || {};
-        const initialState = states[0];
-        return createInstance(initialState);
+        return createInstance({
+          ...states[0],
+          context: bindings.context || null,
+        });
       },
+      ////#endregion
     };
 
     Object.assign(self, {
@@ -24,7 +27,7 @@ export function superstate(name) {
 
     return self;
 
-    // MARK: state
+    //#region state
     function state(self, final, stateName, arg1, arg2) {
       const state = {
         name: stateName,
@@ -45,7 +48,7 @@ export function superstate(name) {
       const builderFn = typeof arg1 === "function" ? arg1 : arg2;
       if (builderFn)
         builderFn({
-          // MARK: state->on
+          //#region state->on
           on(defs) {
             []
               .concat(defs)
@@ -54,8 +57,9 @@ export function superstate(name) {
               );
             return this;
           },
+          //#endregion
 
-          // MARK: state->if
+          //#region state->if
           if(eventName, conditions) {
             []
               .concat(conditions)
@@ -66,8 +70,9 @@ export function superstate(name) {
               );
             return this;
           },
+          //#endregion
 
-          // MARK: state->sub
+          //#region state->sub
           sub(name, factory, transitionDefs) {
             state.sub[name] = {
               name,
@@ -78,8 +83,9 @@ export function superstate(name) {
             };
             return this;
           },
+          //#endregion
 
-          // MARK: state->enter
+          //#region state->enter
           enter(actionDef) {
             state.actions.push({
               type: "enter",
@@ -87,8 +93,9 @@ export function superstate(name) {
             });
             return this;
           },
+          //#endregion
 
-          // MARK: state->enter
+          //#region state->enter
           exit(actionDef) {
             state.actions.push({
               type: "exit",
@@ -96,15 +103,18 @@ export function superstate(name) {
             });
             return this;
           },
+          //#endregion
         });
 
       states.push(state);
 
       return self;
     }
+    //#endregion
   }
+  //#endregion
 
-  // MARK: instance
+  //#region instance
   function createInstance(initialState) {
     let finalized = false;
     const subscriptions = [];
@@ -122,7 +132,7 @@ export function superstate(name) {
         return finalized;
       },
 
-      // MARK: in
+      //#region in
       in(deepSatateNameArg) {
         for (const deepStateName of [].concat(deepSatateNameArg)) {
           const [path, stateName] = parseDeepPath(deepStateName);
@@ -133,8 +143,9 @@ export function superstate(name) {
         }
         return null;
       },
+      //#endregion
 
-      // MARK: on
+      //#region on
       on(targetStr, listener) {
         const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
 
@@ -156,23 +167,37 @@ export function superstate(name) {
           subscriptionOffs.delete(subscription);
         };
       },
+      //#endregion
 
-      // MARK: send
-      send(eventSignature) {
+      //#region send
+      send(eventSignature, eventContext) {
         const [path, eventName, condition] =
           parseEventSignature(eventSignature);
 
         // It's a substate
         if (path.length) {
-          findSubstate(this, path)?.send(eventName + "()", condition);
-          return;
+          return findSubstate(this, path)?.send(
+            `${eventName}(${condition || ""})`,
+            eventContext
+          );
         }
 
         const transition = findTransition(eventName, condition);
         if (!transition) return null;
 
-        const nextState = findTransitionTarget(transition);
-        if (!nextState) return null;
+        const state = findTransitionTarget(transition);
+        if (!state) return null;
+
+        let context;
+        if (typeof eventContext === "function") {
+          eventContext(
+            (newContext) => (context = newContext),
+            currentState.context
+          );
+        } else {
+          context = eventContext;
+        }
+        const nextState = { ...state, context: context || null };
 
         transition.action &&
           bindings[currentState.name]?.[
@@ -187,12 +212,14 @@ export function superstate(name) {
 
         return nextState;
       },
+      //#endregion
 
-      // MARK: off
+      //#region off
       off() {
         offSubstates();
         subscriptions.length = 0;
       },
+      //#endregion
     };
 
     function subcribeSubstates(subscription, mint) {
@@ -278,7 +305,11 @@ export function superstate(name) {
             const landingState = findTransitionTarget(transition);
             instance.on(transition.from, () => {
               triggerListeners("event", transition);
-              setCurrentState(landingState);
+              setCurrentState({
+                ...landingState,
+                // Merge child context with the parent context
+                context: { ...currentState.context, ...instance.state.context },
+              });
             });
           });
           return [name, instance];
@@ -347,6 +378,7 @@ export function superstate(name) {
       return states.find((state) => state.name === transition.to);
     }
   }
+  //#endregion
 
   return createBuilder();
 }
@@ -366,7 +398,7 @@ function transitionFromDef(from, def) {
   };
 }
 
-const eventSignatureRe = /^(\w+)\((\w*)\)$/;
+const eventSignatureRe = /^(\w+)\((\w*)\)( -> \.\w+)?$/;
 
 function subscriptionTargetFromStr(str) {
   if (str === "**" || str === "*") return { type: str };
@@ -401,7 +433,7 @@ function parseEventSignature(str) {
 }
 
 function parseDeepPath(str) {
-  const path = str.split(".");
+  const path = str.split(" ")[0].split(".");
   const name = path.pop();
   return [path, name];
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { superstate } from ".";
+import { State, superstate } from ".";
 
 describe("Superstate", () => {
   //#region superstate
@@ -784,6 +784,18 @@ describe("Superstate", () => {
           expect(smallDollOpenListener).toBeCalled();
         });
       });
+
+      describe("contexts", () => {
+        it("allows allows to pass initial context", () => {
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host({
+            context: {
+              ref: "topbar",
+            },
+          });
+          expect(signUp.state.context.ref).toBe("topbar");
+        });
+      });
     });
     //#endregion
   });
@@ -967,6 +979,88 @@ describe("Superstate", () => {
           ).toBe("open");
 
           expect(smallDollListener).toHaveBeenCalledOnce();
+        });
+      });
+
+      describe("contexts", () => {
+        it("allows allows to pass context to an event", () => {
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host();
+
+          const receivedState = signUp.send(
+            "credentials.form.submit() -> .complete",
+            {
+              email: "koss@nocorp.me",
+              password: "123456",
+            }
+          );
+
+          expect(receivedState?.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
+        });
+
+        it("merges substate final state context into the parent context", () => {
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host({
+            context: { ref: "toolbar" },
+          });
+
+          const receivedState = signUp.send(
+            "credentials.form.submit() -> .complete",
+            {
+              email: "koss@nocorp.me",
+              password: "123456",
+            }
+          );
+
+          expect(receivedState?.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
+
+          expect(signUp.state.name).toBe("profile");
+
+          expect(signUp.state.context).toEqual({
+            ref: "toolbar",
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
+        });
+
+        it("allows to use assign function", () => {
+          const credentialsState = createFormState<CredentialsFields>();
+
+          const credentials = credentialsState.host({
+            context: { email: "", password: "" },
+          });
+
+          const erroredState = credentials.send("submit(error) -> errored", {
+            email: "",
+            password: "123456",
+            error: "Email not found",
+          });
+
+          expect(erroredState?.context).toEqual({
+            email: "",
+            password: "123456",
+            error: "Email not found",
+          });
+
+          const submittedState = credentials.send(
+            "submit() -> complete",
+            ($, context) =>
+              $({
+                password: context.password,
+                email: "koss@nocorp.me",
+              })
+          );
+
+          expect(submittedState?.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
         });
       });
     });
@@ -1851,4 +1945,70 @@ function createRussianDollState() {
     .state("open", "close() -> closed", ($) => $.sub("doll", mediumDollState));
 
   return bigDollState;
+}
+
+interface ErrorFields {
+  error?: string;
+}
+
+function createFormState<FormFields>() {
+  type Context = FormFields & ErrorFields;
+
+  type FormState =
+    | State<"pending", Context>
+    | State<"errored", Context>
+    | State<"complete", FormFields & {}>
+    | "canceled";
+
+  return superstate<FormState>("form")
+    .state("pending", [
+      "submit(error) -> errored",
+      "submit() -> complete",
+      "cancel() -> canceled",
+    ])
+    .state("errored", [
+      "submit(error) -> errored",
+      "submit() -> complete",
+      "cancel() -> canceled",
+    ])
+    .final("complete")
+    .final("canceled");
+}
+
+interface RefFields {
+  ref?: string;
+}
+
+type ProfileContext = RefFields & CredentialsFields;
+
+type DoneContext = RefFields & CredentialsFields & ProfileFields;
+
+type SignUpState =
+  | State<"credentials", RefFields>
+  | State<"profile", ProfileContext>
+  | State<"done", DoneContext>;
+
+interface CredentialsFields {
+  email: string;
+  password: string;
+}
+
+interface ProfileFields {
+  fullName: string;
+  company: string;
+}
+
+function createSignUpState() {
+  const credentialsState = createFormState<CredentialsFields>();
+
+  const profileState = createFormState<ProfileFields>();
+
+  return superstate<SignUpState>("signUp")
+    .state("credentials", ($) =>
+      $.sub("form", credentialsState, ["form.complete -> submit() -> profile"])
+    )
+    .state("profile", ($) =>
+      $.sub("form", profileState, ["form.complete -> submit() -> done"])
+    )
+    .final("done");
 }
