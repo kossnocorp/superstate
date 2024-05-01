@@ -444,10 +444,10 @@ export namespace Superstate {
     > = StatechartInit extends StatechartInit
       ? StatechartInit["context"] extends null
         ? StatechartInit
-        : Contexts.Intersect<
-            StateInit["context"],
-            FinalContext
-          > extends StatechartInit["context"]
+        : true extends Utils.Compare<
+            Contexts.Intersect<StateInit["context"], FinalContext>,
+            StatechartInit["context"]
+          >
         ? StatechartInit
         : never
       : never;
@@ -980,6 +980,12 @@ export namespace Superstate {
         }
           ? Send
           : never,
+        FromState extends Event extends {
+          send: Send;
+          from: infer FromState;
+        }
+          ? FromState
+          : never,
         Context extends Event extends {
           send: Send;
           context: infer Context;
@@ -988,7 +994,7 @@ export namespace Superstate {
           : never
       >(
         event: Send,
-        context: NoInfer<SendContext<Context>>
+        context: ContextArg<Context, FromState["context"]>
       ): Event extends {
         send: Send;
         context: Context;
@@ -1009,22 +1015,25 @@ export namespace Superstate {
       ): Event extends { send: Send; next: infer Next } ? Next | null : never;
     }
 
-    /**
-     * Resolves the strictest version of given context union.
-     */
-    export type SendContext<Type> = Utils.UnionPick<
-      Type,
-      Utils.RequiredKeys<Type>
-    > & {
-      [Key in Exclude<
-        Utils.UnionKeys<Type>,
-        Utils.RequiredKeys<Type>
-      >]?: Type extends {
-        [TypeKey in Key]?: infer Value;
-      }
-        ? Value
-        : never;
+    export type ContextArg<Context, PrevContext> =
+      | Context
+      | ContextArgFn<Context, PrevContext>;
+
+    export type ContextArgFn<Context, PrevContext> = (
+      updater: ContextUpdater<Context>,
+      context: PrevContext
+    ) => ExactContext<Context>;
+
+    export type ContextUpdater<Context> = (
+      context: Context
+    ) => ExactContext<Context>;
+
+    export type ExactContext<Context> = Context & {
+      [exactContextBrand]: Context;
     };
+
+    export declare const exactContextBrand: unique symbol;
+
     //#endregion
   }
   //#endregion
@@ -1226,6 +1235,7 @@ export namespace Superstate {
       send: string | null;
       condition: string | null;
       final: boolean;
+      from: States.AnyState;
       next: States.AnyState;
       transition: Transitions.AnyTransition | Substates.AnyFinalTransition;
       nested: boolean;
@@ -1241,6 +1251,7 @@ export namespace Superstate {
 
     export interface TransitionConstraint {
       transition: Transitions.AnyTransition;
+      from: States.AnyState;
       next: States.AnyState;
       context: Contexts.Constraint | null;
     }
@@ -1274,6 +1285,7 @@ export namespace Superstate {
                       : "."}${Transition["next"]["name"]}`}`;
                 condition: Transition["transition"]["condition"];
                 transition: Transition["transition"];
+                from: Transition["from"];
                 next: Transition["next"];
                 final: false;
                 nested: Prefix extends "" ? false : true;
@@ -1319,6 +1331,7 @@ export namespace Superstate {
                               send: null;
                               condition: null;
                               transition: FinalTransition;
+                              from: States.FilterState<Statechart, StateName>;
                               next: NextState;
                               final: true;
                               nested: true;
@@ -1373,15 +1386,15 @@ export namespace Superstate {
     export type Transition<State extends States.AnyState> =
       Transitions.FromState<State> extends infer Transition extends Transitions.AnyTransition
         ? Transition extends Transition
-          ? States.FilterState<State, Transition["to"]> extends infer NextState
+          ? States.FilterState<
+              State,
+              Transition["to"]
+            > extends infer NextState extends States.AnyState
             ? {
                 transition: Transition;
+                from: States.FilterState<State, Transition["from"]>;
                 next: NextState;
-                context: Contexts.EventContext<
-                  State,
-                  Transition["from"],
-                  NextState
-                >;
+                context: NextState["context"];
               }
             : never
           : never
@@ -1419,28 +1432,6 @@ export namespace Superstate {
         : keyof Context extends never
         ? never
         : Context
-      : never;
-
-    /**
-     * Minimal context payload required to move from one state to another.
-     */
-    export type EventContext<
-      AllState extends States.AnyState,
-      FromName,
-      NextState
-    > = NextState extends {
-      context: infer Context;
-    }
-      ? AllState extends {
-          name: FromName;
-          context: infer FromContext;
-        }
-        ? MinimalContext<Context, FromContext> extends infer EventContext
-          ? keyof EventContext extends never
-            ? null
-            : EventContext
-          : never
-        : never
       : never;
 
     /**
@@ -1508,8 +1499,6 @@ export namespace Superstate {
         >
       : never;
 
-    type Test = RequiredKeys<{ a?: string; b?: number; c?: undefined }>;
-
     /**
      * Resolves true if the passed key is a required field of the passed model.
      */
@@ -1569,6 +1558,24 @@ export namespace Superstate {
     export type UnionPick<Type, Keys extends string | number | symbol> = {
       [Key in Extract<UnionKeys<Type>, Keys>]: UnionValue<Type, Key>;
     };
+
+    /**
+     * Resolves true if both types are equal.
+     * Source: https://github.com/microsoft/TypeScript/issues/48100#issuecomment-1193266100
+     */
+    export type Compare<TypeA, TypeB> = (<T>() => T extends Simplify<TypeA>
+      ? 1
+      : 2) extends <T>() => T extends Simplify<TypeB> ? 1 : 2
+      ? true
+      : false;
+
+    /**
+     * Simplifies the type. Required for {@link Compare}.
+     * See: https://github.com/microsoft/TypeScript/issues/48100#issuecomment-1193266100
+     */
+    export type Simplify<Type> = Type extends Record<any, unknown>
+      ? { [Key in keyof Type]: Simplify<Type[Key]> }
+      : Type;
   }
   //#endregion
 }
