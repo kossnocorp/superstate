@@ -1522,6 +1522,12 @@ import { State, Superstate, superstate } from ".";
     }
   }
 
+  // [TODO] To finalize contexts:
+  //
+  // - [ ] Require setting substates context
+  // - [ ] Send resolves never in tests
+  // - [ ] Add tests for context in updates (transition/state)
+
   //#endregion
 }
 //#endregion
