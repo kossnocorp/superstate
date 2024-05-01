@@ -406,11 +406,11 @@ function parseDeepPath(str) {
   return [path, name];
 }
 
-const exitTransitionDefRe = /^(\w+)+ -> (\w+)\(\) -> (\w+)+$/;
+const exitTransitionDefRe = /^(\w+)\.(\w+)+ -> (\w+)\(\) -> (\w+)+$/;
 
 function exitTransitionFromDef(def) {
   const captures = def.match(exitTransitionDefRe);
-  const [_, from, event, to] = captures;
+  const [, , from, event, to] = captures;
   return { event, from, to, condition: null };
 }
 
