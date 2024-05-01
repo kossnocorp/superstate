@@ -245,20 +245,22 @@ export namespace Superstate {
      * The transition type placeholder. It's used where the shape of
      * a transition isn't important or known.
      */
-    export type AnyTransition = Transition<any, any, any, any, any>;
+    export type AnyTransition = Transition<any, any, any, any, any, any>;
 
     export interface Transition<
       EventName extends string,
       FromStateName extends string,
       ToStateName extends string,
       Condition,
-      Action
+      Action,
+      Context
     > {
       event: EventName;
       condition: Condition;
       from: FromStateName;
       to: ToStateName;
       action: Action;
+      context: Context;
     }
 
     /**
@@ -347,7 +349,7 @@ export namespace Superstate {
       FromStateInit extends StatechartInit,
       Def_ extends Def<StatechartInit["name"]>
     > = Def_ extends Transitions.EventDefWithAction<
-      infer ToInitName,
+      infer ToStateName,
       infer EventName,
       infer Condition,
       infer Action
@@ -355,9 +357,10 @@ export namespace Superstate {
       ? Transition<
           EventName,
           FromStateInit["name"],
-          ToInitName,
+          ToStateName,
           Condition extends "" ? null : Condition,
-          { type: "transition"; name: Action }
+          { type: "transition"; name: Action },
+          States.FilterInit<StatechartInit, ToStateName>["context"]
         >
       : Def_ extends EventDef<
           infer ToStateName,
@@ -369,7 +372,8 @@ export namespace Superstate {
           FromStateInit["name"],
           ToStateName,
           Condition extends "" ? null : Condition,
-          null
+          null,
+          States.FilterInit<StatechartInit, ToStateName>["context"]
         >
       : never;
 
@@ -412,7 +416,7 @@ export namespace Superstate {
         ? State extends {
             name: infer FinalName extends string;
             final: true;
-            [Contexts.ContextBrand]: infer FinalContext extends Contexts.Constraint | null;
+            context: infer FinalContext extends Contexts.Constraint | null;
           }
           ? CompatibleInitWithSubstateFinalTransition<
               StatechartInit,
@@ -477,12 +481,20 @@ export namespace Superstate {
             : never
           : never);
 
-    export interface State<StateName, Action, Transition, Substates_, Final> {
+    export interface State<
+      StateName,
+      Action,
+      Transition,
+      Substates,
+      Final,
+      Context
+    > {
       name: StateName;
       actions: Action[];
       transitions: Transition[];
-      sub: Substates_;
+      sub: Substates;
       final: Final;
+      context: Context;
     }
 
     /**
@@ -496,7 +508,7 @@ export namespace Superstate {
      * The state type placeholder. It's used where the shape of a state isn't
      * important or known.
      */
-    export type AnyState = State<any, any, any, any, any>;
+    export type AnyState = State<any, any, any, any, any, any>;
 
     export type BuilderStateToInstance<State extends AnyState> = State extends {
       sub: Substates.BuilderSubstatesMap<infer Substate>;
@@ -509,6 +521,7 @@ export namespace Superstate {
       any,
       any,
       Substates.BuilderSubstatesMap<any>,
+      any,
       any
     >;
 
@@ -626,7 +639,10 @@ export namespace Superstate {
         | Substates.Substate<
             SubstateName,
             SubstateFactory,
-            Substates.SubstateFinalTransitionFromDef<TrasitionDef>
+            Substates.SubstateFinalTransitionFromDef<
+              StatechartInit,
+              TrasitionDef
+            >
           >
       >;
     }
@@ -726,7 +742,7 @@ export namespace Superstate {
       sub: Substates.BuilderSubstatesMap<Substate>;
       initial: Initial;
       final: Final;
-      [Contexts.ContextBrand]: StateInit["context"];
+      context: StateInit["context"];
     };
 
     export interface StateFn<
@@ -1179,16 +1195,20 @@ export namespace Superstate {
      * Constructs the final substate transition from the transition def.
      */
     export type SubstateFinalTransitionFromDef<
+      StatechartInit extends States.AnyInit,
       Def extends SubstateFinalTransitionDef<any, any, any, any>
-    > =
-      Def extends `${string}.${infer ChildFromStateName} -> ${infer EventName}() -> ${infer MachineToStateName}`
-        ? {
-            event: EventName;
-            from: ChildFromStateName;
-            to: MachineToStateName;
-            condition: null;
-          }
-        : never;
+    > = Def extends `${string}.${infer ChildFromStateName} -> ${infer EventName}() -> ${infer ParentToStateName}`
+      ? {
+          event: EventName;
+          from: ChildFromStateName;
+          to: ParentToStateName;
+          condition: null;
+          context: States.FilterInit<
+            StatechartInit,
+            ParentToStateName
+          >["context"];
+        }
+      : never;
   }
   //#endregion
 
@@ -1392,7 +1412,7 @@ export namespace Superstate {
      */
     export type InitialContext<State> = State extends {
       initial: true;
-      [ContextBrand]: infer Context;
+      context: infer Context;
     }
       ? Context extends never
         ? never
@@ -1402,11 +1422,6 @@ export namespace Superstate {
       : never;
 
     /**
-     * The context brand symbol used to brand state with the context type.
-     */
-    export declare const ContextBrand: unique symbol;
-
-    /**
      * Minimal context payload required to move from one state to another.
      */
     export type EventContext<
@@ -1414,11 +1429,11 @@ export namespace Superstate {
       FromName,
       NextState
     > = NextState extends {
-      [Contexts.ContextBrand]: infer Context;
+      context: infer Context;
     }
       ? AllState extends {
           name: FromName;
-          [Contexts.ContextBrand]: infer FromContext;
+          context: infer FromContext;
         }
         ? MinimalContext<Context, FromContext> extends infer EventContext
           ? keyof EventContext extends never
