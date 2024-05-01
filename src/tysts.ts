@@ -1533,68 +1533,66 @@ import { State, Superstate, superstate } from ".";
   //#endregion
 
   //#region Context/substates
+
+  interface ErrorFields {
+    error?: string;
+  }
+
+  function createFormState<FormFields>() {
+    type Context = FormFields & ErrorFields;
+
+    type FormState =
+      | State<"pending", Partial<Context>>
+      | State<"errored", Context>
+      | State<"complete", Context>
+      | "canceled";
+
+    return superstate<FormState>("form")
+      .state("pending", [
+        "submit(error) -> errored",
+        "submit() -> complete",
+        "cancel() -> canceled",
+      ])
+      .state("errored", [
+        "submit(error) -> errored",
+        "submit() -> complete",
+        "cancel() -> canceled",
+      ])
+      .final("complete")
+      .final("canceled");
+  }
+
+  type DoneContext = CredentialsFields & ProfileFields;
+
+  type SignUpState =
+    | State<"credentials">
+    | State<"profile", CredentialsFields>
+    | State<"done", DoneContext>;
+
+  interface CredentialsFields {
+    email: string;
+    password: string;
+  }
+
+  interface ProfileFields {
+    fullName: string;
+    company: string;
+  }
+
+  const credentialsState = createFormState<CredentialsFields>();
+
+  const profileState = createFormState<ProfileFields>();
+
+  const signUpState = superstate<SignUpState>("signUp")
+    .state("credentials", ($) =>
+      $.sub("form", credentialsState, ["form.complete -> submit() -> profile"])
+    )
+    .state("profile", ($) =>
+      $.sub("form", profileState, ["form.complete -> submit() -> done"])
+    )
+    .final("done");
+
   {
-    interface ErrorFields {
-      error?: string;
-    }
-
-    function createFormState<FormFields>() {
-      type Context = FormFields & ErrorFields;
-
-      type FormState =
-        | State<"pending", Partial<Context>>
-        | State<"errored", Context>
-        | State<"complete", Context>
-        | "canceled";
-
-      return superstate<FormState>("form")
-        .state("pending", [
-          "submit(error) -> errored",
-          "submit() -> complete",
-          "cancel() -> canceled",
-        ])
-        .state("errored", [
-          "submit(error) -> errored",
-          "submit() -> complete",
-          "cancel() -> canceled",
-        ])
-        .final("complete")
-        .final("canceled");
-    }
-
-    type SignUpState =
-      | State<"credentials">
-      | State<"profile", CredentialsFields>
-      | State<"done", CredentialsFields & ProfileFields>;
-
-    interface CredentialsFields {
-      email: string;
-      password: string;
-    }
-
-    interface ProfileFields {
-      fullName: string;
-      company: string;
-    }
-
-    const credentialsState = createFormState<CredentialsFields>();
-
-    const profileState = createFormState<ProfileFields>();
-
-    const signUpState = superstate<SignUpState>("signUp")
-      .state("credentials", ($) =>
-        $.sub("form", credentialsState, [
-          "form.complete -> submit() -> profile",
-        ])
-      )
-      .state("profile", ($) => {
-        type Wut = typeof $;
-        return $.sub("form", profileState, [
-          "form.complete -> submit() -> done",
-        ]);
-      })
-      .final("done");
-
     //! It should not allow to connect incompatible final states
     {
       const signUpState = superstate<SignUpState>("signUp")
@@ -1641,8 +1639,7 @@ import { State, Superstate, superstate } from ".";
           ? State extends {
               name: Name;
               final: true;
-              [Superstate.Contexts
-                .ContextBrand]: infer FinalContext extends Superstate.Contexts.Constraint | null;
+              context: infer FinalContext extends Superstate.Contexts.Constraint | null;
             }
             ? FinalContext
             : never
@@ -1721,6 +1718,78 @@ import { State, Superstate, superstate } from ".";
       : never;
 
     // [TODO] Remove debug code ^^^^^^
+  }
+
+  //#region Contexts/listeners
+  {
+    const form = signUpState.host();
+
+    //! It exposes context on the state
+    {
+      const state = form.in("credentials");
+      if (state) {
+        state.context satisfies null;
+
+        //! The context should not be any
+        // @ts-expect-error
+        state.context.nope;
+      }
+    }
+    {
+      const state = form.in("profile");
+      if (state) {
+        state.context satisfies CredentialsFields;
+
+        //! The context should not be any
+        // @ts-expect-error
+        state.context.nope;
+      }
+    }
+
+    //! It exposes context in the updates
+    {
+      form.on("*", (update) => {
+        switch (update.type) {
+          case "event": {
+            if (update.transition.to === "done") {
+              update.transition.context satisfies DoneContext;
+
+              //! The context should not be any
+              // @ts-expect-error
+              update.transition.context.nope;
+            }
+
+            if (update.transition.to === "profile") {
+              update.transition.context satisfies CredentialsFields;
+
+              //! The context should not be any
+              // @ts-expect-error
+              update.transition.context.nope;
+            }
+            break;
+          }
+
+          case "state": {
+            if (update.state.name === "profile") {
+              update.state.context satisfies CredentialsFields;
+
+              //! The context should not be any
+              // @ts-expect-error
+              update.state.context.nope;
+            }
+            break;
+          }
+        }
+      });
+
+      form.on("credentials.form.submit()", (update) => {
+        update.transition.context satisfies CredentialsFields;
+
+        //! The context should not be any
+        // @ts-expect-error
+        update.transition.context.nope;
+      });
+    }
   }
 
   //#endregion
