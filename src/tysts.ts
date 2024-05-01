@@ -28,19 +28,6 @@ import { State, Superstate, superstate } from ".";
 
   const player = playerMachine.host();
 
-  // [TODO] Remove debug code vvvvvv
-
-  type TestWut = Superstate.States.NormalizeInit<PlayerState>;
-
-  type TestWut1 = Superstate.States.FilterInit<TestWut, "stopped">;
-
-  type TestWut2 = Exclude<
-    TestWut,
-    Superstate.States.FilterInit<TestWut, "stopped">
-  >;
-
-  // [TODO] Remove debug code ^^^^^^
-
   //! send
 
   //! The machine accepts the events
@@ -53,33 +40,6 @@ import { State, Superstate, superstate } from ".";
   //! The event is not defined
   // @ts-expect-error
   player.send("nope()");
-
-  // [TODO] Remove debug code vvvvvv
-
-  type TestAllState = typeof player extends Superstate.Instances.Instance<
-    infer State,
-    infer Traits,
-    any
-  >
-    ? State
-    : never;
-
-  type TestStateStopped = Superstate.States.FilterState<
-    TestAllState,
-    "stopped"
-  >;
-
-  type TestTransition = Superstate.Traits.Transition<TestAllState>;
-
-  type TestEvent = typeof player extends Superstate.Instances.Instance<
-    infer State,
-    infer Traits,
-    any
-  >
-    ? Traits["event"]
-    : never;
-
-  // [TODO] Remove debug code ^^^^^^
 
   //! It returns the next state or null
   {
@@ -381,96 +341,6 @@ import { State, Superstate, superstate } from ".";
     if (nextState) {
       nextState.name satisfies "off";
     }
-
-    // [TODO] Remove debug code vvvvvv
-
-    const testState = superstate<PCState>("pc")
-      .state("off", "press() -> on")
-      // .state("sleep", [
-      //   "press(long) -> off",
-      //   "press() -> on",
-      //   "restart() -> on",
-      // ]);
-      .state("sleep", ($) =>
-        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
-      );
-
-    type TestState = typeof testState;
-
-    type TestStateBuilder = TestState extends Superstate.Builder.Tail<
-      any,
-      any,
-      infer State
-    >
-      ? State
-      : never;
-
-    type TestInit = Superstate.States.NormalizeInit<PCState>;
-
-    type TestInitSleep = Superstate.States.FilterInit<TestInit, "sleep">;
-
-    type TestDefSleep =
-      | Superstate.Transitions.EventDef<"off", "press", "long">
-      | Superstate.Transitions.EventDef<"on", "press", "">
-      | Superstate.Transitions.EventDef<"on", "restart", "">;
-
-    type TestFromDefSleep = Superstate.Transitions.FromDef<
-      TestInit,
-      TestInitSleep,
-      TestDefSleep
-    >;
-
-    type TestBuilderState = Superstate.Builder.State<
-      TestInit,
-      TestInitSleep,
-      never,
-      TestDefSleep,
-      never,
-      false,
-      false
-    >;
-
-    type TestStateFnResult = Superstate.Builder.StateFnResult<
-      TestInit,
-      Exclude<TestInit, "on">,
-      never,
-      "sleep",
-      never,
-      TestDefSleep,
-      never,
-      false,
-      false
-    >;
-
-    type TestStatechart = typeof pcState extends Superstate.Factories.Factory<
-      infer State
-    >
-      ? State
-      : never;
-
-    type TestStateSleep = Superstate.States.FilterState<
-      TestStatechart,
-      "sleep"
-    >;
-
-    type TestEvent = typeof pc extends Superstate.Instances.Instance<
-      infer State,
-      infer Traits,
-      any
-    >
-      ? Traits["event"]
-      : never;
-
-    type TestFindEvent<Wut, Key, Condition> = Wut extends {
-      key: Key;
-      condition: Condition;
-    }
-      ? Wut
-      : never;
-
-    type TestEvent123 = TestFindEvent<TestEvent, "press", "long">;
-
-    // [TODO] Remove debug code ^^^^^^
   }
 
   //! Allows to send short condition
@@ -966,43 +836,6 @@ import { State, Superstate, superstate } from ".";
 
   //! Binding
 
-  // [TODO] Remove debug code vvvvvv
-
-  const testState = superstate<ButtonState>("button")
-    .state("off", ($) => $.on("press() -> turnOn! -> on"))
-    .state("on", ($) => $.on("press() -> turnOff! -> off"));
-
-  type TestState = typeof testState;
-
-  type TestStateBuilder = TestState extends Superstate.Builder.Tail<
-    any,
-    any,
-    infer State
-  >
-    ? State
-    : never;
-
-  type TestInit = Superstate.States.NormalizeInit<ButtonState>;
-
-  type TestInitOff = Superstate.States.FilterInit<TestInit, "off">;
-
-  type TestDefOff = Superstate.Transitions.EventDefWithAction<
-    "on",
-    "press",
-    "turnOn",
-    ""
-  >;
-
-  type TestFromDefOff = Superstate.Transitions.FromDef<
-    TestInit,
-    TestInitOff,
-    TestDefOff
-  >;
-
-  // type TestEventCaseDefWithAction = Superstate.Transitions.EventCaseDefWithAction<>
-
-  // [TODO] Remove debug code ^^^^^^
-
   //! It allows to bind the actions
   buttonState.host({
     on: {
@@ -1315,36 +1148,6 @@ import { State, Superstate, superstate } from ".";
       error: "nope",
     }));
 
-    // [TODO] Remove debug code vvvvvv
-
-    type TestNormalizeInit = Superstate.States.NormalizeInit<SignUpFormState>;
-
-    type TestAllState = typeof form extends Superstate.Instances.Instance<
-      infer State,
-      infer Traits,
-      any
-    >
-      ? State
-      : never;
-
-    type TestEvent = typeof form extends Superstate.Instances.Instance<
-      infer State,
-      infer Traits,
-      any
-    >
-      ? Traits["event"]
-      : never;
-
-    type TestMatchNext = Superstate.Transitions.MatchNextState<
-      TestAllState,
-      "submit",
-      null
-    >;
-
-    type TestSend1 = Superstate.Listeners.SendFn<TestEvent>;
-
-    // [TODO] Remove debug code ^^^^^^
-
     //! It should not allow to send invalid context
     form.send("submit() -> profile", {
       // @ts-expect-error
@@ -1391,36 +1194,6 @@ import { State, Superstate, superstate } from ".";
           ref: null,
         },
       });
-
-      // [TODO] Remove debug code vvvvvv
-
-      type TestAllState = typeof form extends Superstate.Instances.Instance<
-        infer State,
-        infer Traits,
-        any
-      >
-        ? State
-        : never;
-
-      type TestEvent = typeof form extends Superstate.Instances.Instance<
-        infer State,
-        infer Traits,
-        any
-      >
-        ? Traits["event"]
-        : never;
-
-      type TestRequiredKeys1 = Superstate.Contexts.RequiredKeys<
-        SignUpCredentials,
-        SignUpInitial
-      >;
-
-      type TestRequiredKeys2 = Superstate.Contexts.RequiredKeys<
-        { hello: "world"; world: "hello" },
-        { world: "hello" }
-      >;
-
-      // [TODO] Remove debug code ^^^^^^
 
       form.send("submit() -> profile", {
         ref: "hello",
@@ -1489,31 +1262,6 @@ import { State, Superstate, superstate } from ".";
     //! Allows passing empty context
     formState.host({});
     formState.host({ context: {} });
-
-    // [TODO] Remove debug code vvvvvv
-
-    type Event = typeof form extends Superstate.Instances.Instance<
-      infer State,
-      infer Traits,
-      any
-    >
-      ? Traits["event"]
-      : never;
-
-    type TestContext<Event, Send> = Event extends {
-      send: Send;
-    }
-      ? Event
-      : never;
-
-    type TestContextSubmit = TestContext<
-      Event,
-      "submit(error) -> credentials"
-    >["context"];
-
-    type UK = Superstate.Utils.UnionKeys<TestContextSubmit>;
-
-    // [TODO] Remove debug code ^^^^^^
 
     //! It allows to send context with guarded events
     form.send("submit(error) -> credentials", {
@@ -1627,60 +1375,6 @@ import { State, Superstate, superstate } from ".";
           ])
         )
         .final("done");
-
-      // [TODO] Remove debug code vvvvvv
-
-      // type TestSubstateFactory = typeof profileState extends Superstate.Factories.Factory<infer
-
-      type TestStatechartInit = Superstate.States.NormalizeInit<SignUpState>;
-
-      type TestStateInit = Superstate.States.FilterInit<
-        TestStatechartInit,
-        "profile"
-      >;
-
-      type TestStateInitDone = Superstate.States.FilterInit<
-        TestStatechartInit,
-        "done"
-      >;
-
-      type TestSubstateTransitionDef =
-        Superstate.Transitions.SubstateTransitionDef<
-          TestStatechartInit,
-          TestStateInit,
-          "form",
-          typeof profileState
-        >;
-
-      type TestFinalContext<Name> =
-        typeof profileState extends Superstate.Factories.Factory<infer State>
-          ? State extends {
-              name: Name;
-              final: true;
-              context: infer FinalContext extends Superstate.Contexts.Constraint | null;
-            }
-            ? FinalContext
-            : never
-          : never;
-
-      type TestFinal = TestFinalContext<"complete">;
-
-      type TestIntersection = Superstate.Contexts.Intersect<
-        TestStateInit["context"],
-        TestFinal
-      >;
-
-      type TestFinalExtends =
-        TestIntersection extends TestStateInitDone["context"] ? true : false;
-
-      type TestCompatibleInitWithSubstateFinalTransition =
-        Superstate.Transitions.CompatibleInitWithSubstateFinalTransition<
-          TestStatechartInit,
-          TestStateInit,
-          null
-        >;
-
-      // [TODO] Remove debug code ^^^^^^
     }
 
     //! It should prevent adding extra context fields
@@ -1728,107 +1422,6 @@ import { State, Superstate, superstate } from ".";
           $.sub("form", profileState, ["form.complete -> submit() -> done"])
         )
         .final("done");
-
-      // [TODO] Remove debug code vvvvvv
-
-      // type TestSubstateFactory = typeof profileState extends Superstate.Factories.Factory<infer
-
-      type TestStatechartInit = Superstate.States.NormalizeInit<SignUpState>;
-
-      type TestStateInit = Superstate.States.FilterInit<
-        TestStatechartInit,
-        "profile"
-      >;
-
-      type TestStateInitDone = Superstate.States.FilterInit<
-        TestStatechartInit,
-        "done"
-      >;
-
-      type TestSubstateTransitionDef =
-        Superstate.Transitions.SubstateTransitionDef<
-          TestStatechartInit,
-          TestStateInit,
-          "form",
-          typeof profileState
-        >;
-
-      type TestFinalContext<Name> =
-        typeof profileState extends Superstate.Factories.Factory<infer State>
-          ? State extends {
-              name: Name;
-              final: true;
-              context: infer FinalContext extends Superstate.Contexts.Constraint | null;
-            }
-            ? FinalContext
-            : never
-          : never;
-
-      type TestFinal = TestFinalContext<"complete">;
-
-      type TestIntersection = Superstate.Contexts.Intersect<
-        TestStateInit["context"],
-        TestFinal
-      >;
-
-      type TestFinalExtends =
-        TestIntersection extends TestStateInitDone["context"] ? true : false;
-
-      type TestCompatibleInitWithSubstateFinalTransition =
-        Superstate.Transitions.CompatibleInitWithSubstateFinalTransition<
-          TestStatechartInit,
-          TestStateInit,
-          TestFinal
-        >;
-
-      type TestCompare<Init extends Superstate.States.AnyInit> = Init extends {
-        context: infer Context;
-      }
-        ? {
-            init: Init;
-            compare: Superstate.Utils.Compare<
-              Superstate.Contexts.Intersect<
-                TestStateInit["context"],
-                TestFinal
-              >,
-              Context
-            >;
-            stateContext: TestStateInit["context"];
-            finalContext: TestFinal;
-            intersectContext: Superstate.Contexts.Intersect<
-              TestStateInit["context"],
-              TestFinal
-            >;
-            statechartContext: Context;
-          }
-        : never;
-
-      type TestCompare123 = TestCompare<TestStatechartInit>;
-
-      type TestKeys1 = keyof Superstate.Contexts.Intersect<
-        TestStateInit["context"],
-        TestFinal
-      >;
-      type TestKeys2 = keyof TestStateInitDone["context"];
-
-      type TestContextA = Superstate.Contexts.Intersect<
-        TestStateInit["context"],
-        TestFinal
-      >;
-      type TestContextB = TestStateInitDone["context"];
-
-      type TestCompare321 = Superstate.Utils.Compare<
-        TestContextA,
-        TestContextB
-      >;
-
-      type TestCompareA = TestContextB extends TestStateInitDone["context"]
-        ? true
-        : false;
-
-      type TestCompareB = TestContextB extends TestContextA ? true : false;
-
-      // [TODO] Remove debug code ^^^^^^
     }
 
     const form = signUpState.host();
@@ -1855,34 +1448,6 @@ import { State, Superstate, superstate } from ".";
     //! Context can't be null
     // @ts-expect-error
     form.send("profile.form.submit() -> .complete", null);
-
-    // [TODO] Remove debug code vvvvvv
-
-    type TestState0 = typeof signUpState extends Superstate.Factories.Factory<
-      infer State
-    >
-      ? State
-      : never;
-
-    type TestTraits = Superstate.Traits.Traits<TestState0>["event"];
-
-    type TestState = typeof form extends Superstate.Instances.Instance<
-      infer State,
-      infer Traits,
-      any
-    >
-      ? State
-      : never;
-
-    type TestEvent = typeof form extends Superstate.Instances.Instance<
-      infer State,
-      infer Traits,
-      any
-    >
-      ? Traits["event"]
-      : never;
-
-    // [TODO] Remove debug code ^^^^^^
   }
 
   //#region Contexts/listeners
