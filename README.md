@@ -338,7 +338,7 @@ const pcState = superstate<PCState>("pc")
     $.on("power() -> off")
       // Nest the OS state as `os` and connect the `terminated` state
       // through `shutdown()` event to `off` state of the parent.
-      .sub("os", osState, "terminated -> shutdown() -> off")
+      .sub("os", osState, "os.terminated -> shutdown() -> off")
   );
 ```
 
@@ -375,7 +375,7 @@ const pcState = superstate<PCState>("pc")
     $.on("power() -> turnOff! -> off").sub(
       "os",
       osState,
-      "terminated -> shutdown() -> off"
+      "os.terminated -> shutdown() -> off"
     )
   );
 ```
@@ -712,7 +712,7 @@ const pcState = superstate<PCState>("pc")
     $.on("power() -> off")
       // Nest the OS state as `os` and connect the `terminated` state
       // through `shutdown()` event to `off` state of the parent.
-      .sub("os", osState, "terminated -> shutdown() -> off")
+      .sub("os", osState, "os.terminated -> shutdown() -> off")
   );
 ```
 
