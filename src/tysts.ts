@@ -1245,15 +1245,75 @@ import { State, Superstate, superstate } from ".";
       password: "123456",
     });
 
-    //! It allows to omit the context fields from the previous state
+    //! It doesn't allow to omit the context fields from the previous state
+    // @ts-expect-error
     form.send("submit() -> profile", {
       email: "koss@nocorp.me",
       password: "123456",
     });
+    // @ts-expect-error
     form.send("submit() -> done", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
+
+    //! It allows to pass function that accepts the previous context
+    form.send("submit() -> profile", ($, context) =>
+      $({
+        ref: context.ref,
+        email: "koss@nocorp.me",
+        password: "123456",
+      })
+    );
+    form.send("submit() -> done", ($, context) =>
+      $({
+        ref: context.ref,
+        email: context.email,
+        password: context.password,
+        fullName: "Sasha Koss",
+        company: "No Corp",
+      })
+    );
+
+    //! It disallows passing extra fields
+    form.send("submit() -> profile", ($, context) =>
+      $({
+        ref: context.ref,
+        email: "koss@nocorp.me",
+        password: "123456",
+        // @ts-expect-error
+        error: "nope",
+      })
+    );
+    form.send("submit() -> done", ($, context) =>
+      $({
+        ref: context.ref,
+        email: context.email,
+        password: context.password,
+        fullName: "Sasha Koss",
+        company: "No Corp",
+        // @ts-expect-error
+        error: "nope",
+      })
+    );
+
+    //! It disallows returning context from the updater
+    // @ts-expect-error
+    form.send("submit() -> profile", () => ({
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+      error: "nope",
+    }));
+    // @ts-expect-error
+    form.send("submit() -> done", (context) => ({
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+      fullName: "Sasha Koss",
+      company: "No Corp",
+      error: "nope",
+    }));
 
     // [TODO] Remove debug code vvvvvv
 
@@ -1279,28 +1339,6 @@ import { State, Superstate, superstate } from ".";
       TestAllState,
       "submit",
       null
-    >;
-
-    type TestContext1 = Superstate.Contexts.EventContext<
-      TestAllState,
-      "credentials",
-      Superstate.States.FilterState<TestAllState, "profile">
-    >;
-
-    type TestContext2 = Superstate.Contexts.EventContext<
-      TestAllState,
-      "profile",
-      Superstate.States.FilterState<TestAllState, "done">
-    >;
-
-    type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
-      SignUpCredentials,
-      SignUpInitial
-    >;
-
-    type TestMinimalContext2 = Superstate.Contexts.MinimalContext<
-      SignUpComplete,
-      SignUpCredentials
     >;
 
     type TestSend1 = Superstate.Listeners.SendFn<TestEvent>;
@@ -1371,17 +1409,6 @@ import { State, Superstate, superstate } from ".";
       >
         ? Traits["event"]
         : never;
-
-      type TestContext1 = Superstate.Contexts.EventContext<
-        TestAllState,
-        "credentials",
-        Superstate.States.FilterState<TestAllState, "profile">
-      >;
-
-      type TestMinimalContext1 = Superstate.Contexts.MinimalContext<
-        SignUpCredentials,
-        SignUpInitial
-      >;
 
       type TestRequiredKeys1 = Superstate.Contexts.RequiredKeys<
         SignUpCredentials,
@@ -1484,16 +1511,7 @@ import { State, Superstate, superstate } from ".";
       "submit(error) -> credentials"
     >["context"];
 
-    type TestSendContext = Superstate.Listeners.SendContext<TestContextSubmit>;
-
     type UK = Superstate.Utils.UnionKeys<TestContextSubmit>;
-
-    type UK1 = Superstate.Utils.RequiredKeys<TestContextSubmit>;
-
-    type UK2 = Exclude<
-      Superstate.Utils.UnionKeys<TestContextSubmit>,
-      Superstate.Utils.RequiredKeys<TestContextSubmit>
-    >;
 
     // [TODO] Remove debug code ^^^^^^
 
@@ -1504,14 +1522,14 @@ import { State, Superstate, superstate } from ".";
       error: "The email is missing",
     });
 
-    //! It allows to send context unguarded events
-    form.send("submit() -> done", {
-      fullName: "Sasha Koss",
-      company: "No Corp",
-    });
-
-    //! It should allow empty context as it's a self-transition
-    form.send("submit(error) -> profile", {});
+    //! It allows to send context with unguarded events
+    form.send("submit() -> done", ($, context) =>
+      $({
+        ...context,
+        fullName: "Sasha Koss",
+        company: "No Corp",
+      })
+    );
 
     //! It should not allow incorrect context
     form.send("submit(error) -> credentials", {
@@ -1544,7 +1562,7 @@ import { State, Superstate, superstate } from ".";
     type FormState =
       | State<"pending", Partial<Context>>
       | State<"errored", Context>
-      | State<"complete", Context>
+      | State<"complete", FormFields & {}>
       | "canceled";
 
     return superstate<FormState>("form")
@@ -1665,9 +1683,156 @@ import { State, Superstate, superstate } from ".";
       // [TODO] Remove debug code ^^^^^^
     }
 
+    //! It should prevent adding extra context fields
+    {
+      function createFormState<FormFields>() {
+        type Context = FormFields & ErrorFields;
+
+        type FormState =
+          | State<"pending", Partial<Context>>
+          | State<"errored", Context>
+          //! Context here includes ErrorFields
+          | State<"complete", Context>
+          | "canceled";
+
+        return superstate<FormState>("form")
+          .state("pending", [
+            "submit(error) -> errored",
+            "submit() -> complete",
+            "cancel() -> canceled",
+          ])
+          .state("errored", [
+            "submit(error) -> errored",
+            "submit() -> complete",
+            "cancel() -> canceled",
+          ])
+          .final("complete")
+          .final("canceled");
+      }
+
+      const credentialsState = createFormState<CredentialsFields>();
+
+      const profileState = createFormState<ProfileFields>();
+
+      const signUpState = superstate<SignUpState>("signUp")
+        .state("credentials", ($) =>
+          $.sub("form", credentialsState, [
+            //! Can't connect as the context is incompatible
+            // @ts-expect-error
+            "form.complete -> submit() -> profile",
+          ])
+        )
+        .state("profile", ($) =>
+          //! Can't connect as the context is incompatible
+          // @ts-expect-error
+          $.sub("form", profileState, ["form.complete -> submit() -> done"])
+        )
+        .final("done");
+
+      // [TODO] Remove debug code vvvvvv
+
+      // type TestSubstateFactory = typeof profileState extends Superstate.Factories.Factory<infer
+
+      type TestStatechartInit = Superstate.States.NormalizeInit<SignUpState>;
+
+      type TestStateInit = Superstate.States.FilterInit<
+        TestStatechartInit,
+        "profile"
+      >;
+
+      type TestStateInitDone = Superstate.States.FilterInit<
+        TestStatechartInit,
+        "done"
+      >;
+
+      type TestSubstateTransitionDef =
+        Superstate.Transitions.SubstateTransitionDef<
+          TestStatechartInit,
+          TestStateInit,
+          "form",
+          typeof profileState
+        >;
+
+      type TestFinalContext<Name> =
+        typeof profileState extends Superstate.Factories.Factory<infer State>
+          ? State extends {
+              name: Name;
+              final: true;
+              context: infer FinalContext extends Superstate.Contexts.Constraint | null;
+            }
+            ? FinalContext
+            : never
+          : never;
+
+      type TestFinal = TestFinalContext<"complete">;
+
+      type TestIntersection = Superstate.Contexts.Intersect<
+        TestStateInit["context"],
+        TestFinal
+      >;
+
+      type TestFinalExtends =
+        TestIntersection extends TestStateInitDone["context"] ? true : false;
+
+      type TestCompatibleInitWithSubstateFinalTransition =
+        Superstate.Transitions.CompatibleInitWithSubstateFinalTransition<
+          TestStatechartInit,
+          TestStateInit,
+          TestFinal
+        >;
+
+      type TestCompare<Init extends Superstate.States.AnyInit> = Init extends {
+        context: infer Context;
+      }
+        ? {
+            init: Init;
+            compare: Superstate.Utils.Compare<
+              Superstate.Contexts.Intersect<
+                TestStateInit["context"],
+                TestFinal
+              >,
+              Context
+            >;
+            stateContext: TestStateInit["context"];
+            finalContext: TestFinal;
+            intersectContext: Superstate.Contexts.Intersect<
+              TestStateInit["context"],
+              TestFinal
+            >;
+            statechartContext: Context;
+          }
+        : never;
+
+      type TestCompare123 = TestCompare<TestStatechartInit>;
+
+      type TestKeys1 = keyof Superstate.Contexts.Intersect<
+        TestStateInit["context"],
+        TestFinal
+      >;
+      type TestKeys2 = keyof TestStateInitDone["context"];
+
+      type TestContextA = Superstate.Contexts.Intersect<
+        TestStateInit["context"],
+        TestFinal
+      >;
+      type TestContextB = TestStateInitDone["context"];
+
+      type TestCompare321 = Superstate.Utils.Compare<
+        TestContextA,
+        TestContextB
+      >;
+
+      type TestCompareA = TestContextB extends TestStateInitDone["context"]
+        ? true
+        : false;
+
+      type TestCompareB = TestContextB extends TestContextA ? true : false;
+
+      // [TODO] Remove debug code ^^^^^^
+    }
+
     const form = signUpState.host();
 
-    //! It requires the most complete version of context when there are multiple origin states with different context shapes
     form.send("profile.form.submit() -> .complete", {
       fullName: "Sasha Koss",
       company: "No Corp",
