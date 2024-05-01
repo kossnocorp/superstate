@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { superstate } from ".";
 
 describe("Superstate", () => {
-  // MARK: superstate
+  //#region superstate
   describe("superstate", () => {
     it("creates a statechart", () => {
       const playerState = createPlayerState();
@@ -40,9 +40,10 @@ describe("Superstate", () => {
       expect(playerState.name).toBe("player");
     });
   });
+  //#endregion
 
   describe("builder", () => {
-    // MARK: state
+    //#region state
     describe("state", () => {
       it("accepts transition as single string", () => {
         const lightState = superstate<LightState>("light")
@@ -223,7 +224,7 @@ describe("Superstate", () => {
       });
 
       describe("builder", () => {
-        // MARK: state->on
+        //#region state->on
         describe("on", () => {
           it("accepts a single transition", () => {
             const lightState = superstate<LightState>("light")
@@ -324,8 +325,9 @@ describe("Superstate", () => {
             });
           });
         });
+        //#endregion
 
-        // MARK: state->if
+        //#region state->if
         describe("if", () => {
           it("allows to define conditions", () => {
             const pcState = superstate<PCState>("pc")
@@ -424,8 +426,9 @@ describe("Superstate", () => {
             });
           });
         });
+        //#endregion
 
-        // MARK: state->sub
+        //#region state->sub
         describe("sub", () => {
           it("defines substates", () => {
             const mugState = createMugWithTeaState();
@@ -504,8 +507,9 @@ describe("Superstate", () => {
             expect(mugB.in("undrinkable")).not.toBe(null);
           });
         });
+        //#endregion
 
-        // MARK: state->enter
+        //#region state->enter
         describe("enter", () => {
           it("defines enter action", () => {
             const offListener = vi.fn();
@@ -559,8 +563,9 @@ describe("Superstate", () => {
             expect(actionListener).toBeCalled();
           });
         });
+        //#endregion
 
-        // MARK: state->exit
+        //#region state->exit
         describe("exit", () => {
           it("defines exit action", () => {
             const offListener = vi.fn();
@@ -640,10 +645,12 @@ describe("Superstate", () => {
             expect(actionListener).toBeCalled();
           });
         });
+        //#endregion
       });
     });
+    //#endregion
 
-    // MARK: final
+    //#region final
     describe("final", () => {
       it("creates a final state that finalizes the statechart", () => {
         const casseteState = superstate<CassetteState>("cassette")
@@ -661,18 +668,20 @@ describe("Superstate", () => {
         expect(cassete.finalized).toBe(true);
       });
     });
+    //#endregion
   });
 
   describe("factory", () => {
-    // MARK: name
+    //#region name
     describe("name", () => {
       it("holds the statechart name", () => {
         const playerState = createPlayerState();
         expect(playerState.name).toBe("player");
       });
     });
+    //#endregion
 
-    // MARK: name
+    //#region name
     describe("states", () => {
       it("holds the availble states", () => {
         const playerState = createPlayerState();
@@ -689,8 +698,9 @@ describe("Superstate", () => {
         ]);
       });
     });
+    //#endregion
 
-    // MARK: host
+    //#region host
     describe("host", () => {
       it("returns statatechart instance", () => {
         const playerState = createPlayerState();
@@ -775,10 +785,11 @@ describe("Superstate", () => {
         });
       });
     });
+    //#endregion
   });
 
   describe("instance", () => {
-    // MARK: send
+    //#region send
     describe("send", () => {
       it("sends an event", () => {
         const playerState = createPlayerState();
@@ -959,8 +970,9 @@ describe("Superstate", () => {
         });
       });
     });
+    //#endregion
 
-    // MARK: on
+    //#region on
     describe("on", () => {
       describe("state updates", () => {
         it("allows to subscribe to state updates", () => {
@@ -1669,8 +1681,9 @@ describe("Superstate", () => {
         });
       });
     });
+    //#endregion
 
-    // MARK: in
+    //#region in
     describe("in", () => {
       it("returns the state if the passed state name is current", () => {
         const lightState = superstate<LightState>("light")
@@ -1735,8 +1748,9 @@ describe("Superstate", () => {
         });
       });
     });
+    //#endregion
 
-    // MARK: off
+    //#region off
     describe("off", () => {
       it("unsubscribes from all events", () => {
         const listener = vi.fn();
@@ -1781,6 +1795,7 @@ describe("Superstate", () => {
         });
       });
     });
+    //#endregion
   });
 });
 
