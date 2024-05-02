@@ -405,6 +405,113 @@ const pc = pcState.host({
 });
 ```
 
+### Contexts
+
+Superstate allows pairing states with a data structure called context. A state with assigned context will require the specified data structure to be passed when sending events.
+
+To define states with context, use `State` type:
+
+```ts
+// Import the `State` type:
+import { State, superstate } from "superstate";
+
+// Specify the context types:
+
+interface Fields {
+  email: string;
+  password: string;
+}
+
+interface ErrorFields {
+  error: string;
+}
+
+type FieldsWithErrors = Fields & ErrorFields;
+
+// Define the states
+
+type FormState =
+  | State<"pending", Fields>
+  | State<"errored", Fields & ErrorFields>
+  | State<"complete", Fields>
+  | "canceled";
+
+// Define the form statechart:
+
+const formState = superstate<FormState>("form")
+  .state("pending", [
+    "submit(error) -> errored",
+    "submit() -> complete",
+    "cancel() -> canceled",
+  ])
+  .state("errored", [
+    "submit(error) -> errored",
+    "submit() -> complete",
+    "cancel() -> canceled",
+  ])
+  .final("complete")
+  .final("canceled");
+```
+
+You can combine string states with context states:
+
+```ts
+type FormState =
+  // States with contexts
+  | State<"pending", FieldsWithErrors>
+  | State<"errored", FieldsWithErrors>
+  | State<"complete", Fields>
+  // States without context
+  | "canceled";
+```
+
+When using sending events, you must pass the context data to the function:
+
+```ts
+// Pass the initial context:
+const form = formState.host({
+  context: {
+    email: "",
+    password: "",
+  },
+});
+
+// Send submit event with errored context:
+form.send("submit(error) -> errored", {
+  email: "",
+  password: "123456",
+  error: "Email is missing",
+});
+```
+
+The context will be available on the state and transition objects:
+
+```ts
+// Access context via the state:
+if (form.state.name === "errored") form.state.context.error satisfies string;
+
+// Receive the context with updates:
+form.on("*", (update) => {
+  if (update.type === "event") {
+    // Access the context in the transition:
+    if (update.transition.to === "errored")
+      update.transition.context satisfies FieldsWithErrors;
+  } else {
+    // Access the context in the state:
+    if (update.state.name === "errored")
+      update.state.context satisfies FieldsWithErrors;
+  }
+});
+```
+
+---
+
+When sending events, you have to pass a complete context data structure. To make it easier, `send` allows you passing an updater function with the current context passed as an argument:
+
+```ts
+
+```
+
 ## API
 
 The main entry point of the Superstate API is the [`superstate`](#superstate) function that initiates a statechart creation. It returns [the builder object](#builder).
