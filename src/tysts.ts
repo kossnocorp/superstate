@@ -1217,6 +1217,85 @@ import { State, Superstate, superstate } from ".";
       form.send("submit() -> profile", {});
     }
 
+    //! It prevents assigning incompatible union types
+    {
+      interface Fields {
+        email: string;
+        password: string;
+      }
+
+      interface ErrorFields {
+        error: string;
+      }
+
+      type FieldsWithErrors = Fields & ErrorFields;
+
+      type FormState =
+        | State<"pending", Fields>
+        | State<"errored", Fields & ErrorFields>
+        | State<"complete", Fields>
+        | "canceled";
+
+      const formState = superstate<FormState>("form")
+        .state("pending", [
+          "submit(error) -> errored",
+          "submit() -> complete",
+          "cancel() -> canceled",
+        ])
+        .state("errored", [
+          "submit(error) -> errored",
+          "submit() -> complete",
+          "cancel() -> canceled",
+        ])
+        .final("complete")
+        .final("canceled");
+
+      const form = formState.host({
+        context: {
+          email: "",
+          password: "",
+        },
+      });
+
+      //! Ok as we assign email and password only
+      form.send("submit() -> complete", ($, { email, password }) =>
+        $({ email, password })
+      );
+
+      //! Should fail as we leak error field
+      // @ts-expect-error
+      form.send("submit() -> complete", ($, context) => $(context));
+
+      // [TODO] Remove the debug code vvvvvv
+
+      // @ts-expect-error
+      form.send("submit() -> complete", ($, context) => {
+        type Wut = typeof $;
+        $({ email: "", password: "", error: "asd" });
+        $({ email: "", pasword: "", error: "asd" });
+        $(context);
+        return $(context);
+      });
+
+      function world<Fields>(fields: Fields) {}
+
+      const wut = {
+        email: "",
+        password: "",
+        please: "nope",
+      };
+
+      const result = world<Fields>({
+        email: "",
+        password: "",
+        please: "nope",
+      });
+
+      const result2 = world<Fields>(wut);
+
+      // [TODO] Remove the debug code ^^^^^^
+    }
+
     //! It properly resolves state on send
     // [NOTE] This is an edge case caught in tests
     {
@@ -2617,6 +2696,89 @@ import { State, Superstate, superstate } from ".";
         instance.send("playing.volume.up()");
       }
     }
+  }
+
+  //! Contexts
+  {
+    // Import the `State` type:
+    // import { State, superstate } from "superstate";
+
+    // Specify the context types:
+
+    interface Fields {
+      email: string;
+      password: string;
+    }
+
+    interface ErrorFields {
+      error: string;
+    }
+
+    type FieldsWithErrors = Fields & ErrorFields;
+
+    // Define the states
+
+    type FormState =
+      | State<"pending", Fields>
+      | State<"errored", Fields & ErrorFields>
+      | State<"complete", Fields>
+      | "canceled";
+
+    // Define the form statechart:
+
+    const formState = superstate<FormState>("form")
+      .state("pending", [
+        "submit(error) -> errored",
+        "submit() -> complete",
+        "cancel() -> canceled",
+      ])
+      .state("errored", [
+        "submit(error) -> errored",
+        "submit() -> complete",
+        "cancel() -> canceled",
+      ])
+      .final("complete")
+      .final("canceled");
+
+    // Pass the initial context:
+    const form = formState.host({
+      context: {
+        email: "",
+        password: "",
+      },
+    });
+
+    // Send submit event with errored context:
+    form.send("submit(error) -> errored", {
+      email: "",
+      password: "123456",
+      error: "Email is missing",
+    });
+
+    // Access context via the state:
+    if (form.state.name === "errored")
+      form.state.context.error satisfies string;
+
+    // Receive the context with updates:
+    form.on("*", (update) => {
+      if (update.type === "event") {
+        // Access the context in the transition:
+        if (update.transition.to === "errored")
+          update.transition.context satisfies FieldsWithErrors;
+      } else {
+        // Access the context in the state:
+        if (update.state.name === "errored")
+          update.state.context satisfies FieldsWithErrors;
+      }
+    });
+
+    // Send submit event with errored context:
+    form.send("submit() -> complete", ($, { email, password }) =>
+      $({ email, password })
+    );
+
+    // Send submit event with errored context:
+    form.send("submit() -> complete", ($, context) => $(context));
   }
 }
 //#endregion
