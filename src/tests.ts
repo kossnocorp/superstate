@@ -1042,21 +1042,6 @@ describe("Superstate", () => {
             error: "Email not found",
           });
 
-          // [TODO] Remove debug code vvvvvvv
-
-          type TestTraits =
-            typeof credentials extends Superstate.Instances.Instance<
-              any,
-              infer Traits,
-              any
-            >
-              ? Traits
-              : never;
-
-          type TestEvent = TestTraits["event"];
-
-          // [TODO] Remove debug code ^^^^^^^
-
           expect(erroredState?.context).toEqual({
             email: "",
             password: "123456",
@@ -1075,6 +1060,57 @@ describe("Superstate", () => {
           expect(submittedState?.context).toEqual({
             email: "koss@nocorp.me",
             password: "123456",
+          });
+        });
+
+        it("allows to set initial substate context", () => {
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host({
+            context: { ref: "toolbar" },
+            credentials: {
+              form: {
+                context: {
+                  email: "koss@nocorp.me",
+                  password: "123456",
+                },
+              },
+            },
+          });
+
+          const receivedState = signUp.send(
+            "credentials.form.submit() -> .complete",
+            ($, context) => $(context)
+          );
+
+          expect(receivedState?.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
+        });
+
+        it.only("allows to set initial substate context with a function", () => {
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host({
+            context: { ref: "toolbar" },
+            credentials: {
+              form: {
+                context: ($, context) =>
+                  $({
+                    email: "koss@nocorp.me",
+                    password: context.ref || "",
+                  }),
+              },
+            },
+          });
+
+          const receivedState = signUp.send(
+            "credentials.form.submit() -> .complete",
+            ($, context) => $(context)
+          );
+
+          expect(receivedState?.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "toolbar",
           });
         });
       });

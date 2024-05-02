@@ -1,6 +1,6 @@
 export function superstate(name) {
   const states = [];
-  let bindings;
+  let bindings, parent;
 
   //#region builder
   function createBuilder() {
@@ -10,12 +10,10 @@ export function superstate(name) {
       states,
 
       //#region host
-      host(bindings_) {
+      host(bindings_, parent_) {
         bindings = bindings_ || {};
-        return createInstance({
-          ...states[0],
-          context: bindings.context || null,
-        });
+        parent = parent_;
+        return createInstance(states[0]);
       },
       ////#endregion
     };
@@ -120,10 +118,13 @@ export function superstate(name) {
     const subscriptions = [];
     const subscriptionOffs = new Map();
 
-    let currentState;
-    setCurrentState(initialState);
+    let instance, currentState;
+    setCurrentState({
+      ...initialState,
+      context: resolveContext(bindings.context, parent?.context || null),
+    });
 
-    return {
+    instance = {
       get state() {
         return currentState;
       },
@@ -170,7 +171,7 @@ export function superstate(name) {
       //#endregion
 
       //#region send
-      send(eventSignature, eventContext) {
+      send(eventSignature, context) {
         const [path, eventName, condition] =
           parseEventSignature(eventSignature);
 
@@ -178,7 +179,7 @@ export function superstate(name) {
         if (path.length) {
           return findSubstate(this, path)?.send(
             `${eventName}(${condition || ""})`,
-            eventContext
+            context
           );
         }
 
@@ -188,16 +189,10 @@ export function superstate(name) {
         const state = findTransitionTarget(transition);
         if (!state) return null;
 
-        let context;
-        if (typeof eventContext === "function") {
-          eventContext(
-            (newContext) => (context = newContext),
-            currentState.context
-          );
-        } else {
-          context = eventContext;
-        }
-        const nextState = { ...state, context: context || null };
+        const nextState = {
+          ...state,
+          context: resolveContext(context, currentState.context),
+        };
 
         transition.action &&
           bindings[currentState.name]?.[
@@ -221,6 +216,7 @@ export function superstate(name) {
       },
       //#endregion
     };
+    return instance;
 
     function subcribeSubstates(subscription, mint) {
       const substateTargets = new Map();
@@ -300,19 +296,25 @@ export function superstate(name) {
       // Initialize substates
       const sub = Object.fromEntries(
         Object.entries(state.sub).map(([name, substate]) => {
-          const instance = substate.factory.host(bindings[state.name]?.[name]);
+          const substateInstance = substate.factory.host(
+            bindings[state.name]?.[name],
+            state
+          );
           substate.transitions.forEach((transition) => {
             const landingState = findTransitionTarget(transition);
-            instance.on(transition.from, () => {
+            substateInstance.on(transition.from, () => {
               triggerListeners("event", transition);
               setCurrentState({
                 ...landingState,
                 // Merge child context with the parent context
-                context: { ...currentState.context, ...instance.state.context },
+                context: {
+                  ...currentState.context,
+                  ...substateInstance.state.context,
+                },
               });
             });
           });
-          return [name, instance];
+          return [name, substateInstance];
         })
       );
 
@@ -332,6 +334,16 @@ export function superstate(name) {
       });
 
       !initial && triggerListeners("state", currentState);
+    }
+
+    function resolveContext(context, prevContext) {
+      let resolved;
+      if (typeof context === "function") {
+        context((newContext) => (resolved = newContext), prevContext || null);
+      } else {
+        resolved = context;
+      }
+      return resolved || null;
     }
 
     function offSubstates() {
