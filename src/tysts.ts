@@ -1234,30 +1234,6 @@ import { State, Superstate, superstate } from ".";
 
       //! The state should resolve
       erroredState?.context;
-
-      // [TODO] Remove debug code vvvvvvv
-
-      type TestTraits =
-        typeof credentials extends Superstate.Instances.Instance<
-          any,
-          infer Traits,
-          any
-        >
-          ? Traits
-          : never;
-
-      type TestEvent = TestTraits["event"];
-
-      type TestEventFilter<Send> = TestEvent extends {
-        send: Send;
-        context: Superstate.Contexts.Constraint;
-      }
-        ? TestEvent
-        : never;
-
-      type TestEventSubmitError = TestEventFilter<"submit(error) -> errored">;
-
-      // [TODO] Remove debug code ^^^^^^^
     }
   }
 
@@ -1598,22 +1574,6 @@ import { State, Superstate, superstate } from ".";
         },
       });
 
-      // [TODO] Remove debug code vvvvvvvvv
-
-      type TestState = typeof signUpState extends Superstate.Factories.Factory<
-        infer State
-      >
-        ? State
-        : never;
-
-      type TestBindings = Superstate.Actions.Bindings<TestState>;
-
-      type TestBindingsArg = Superstate.Actions.BindingsArg<
-        Superstate.Actions.Bindings<TestState>
-      >;
-
-      // [TODO] Remove debug code ^^^^^^^^^
-
       //! Can't subtitude the substate contexts
       signUpState.host({
         context: {
@@ -1755,25 +1715,6 @@ import { State, Superstate, superstate } from ".";
   {
     const form = signUpState.host();
 
-    // [TODO] Remove debug code vvvvvvvvv
-
-    type TestState = typeof signUpState extends Superstate.Factories.Factory<
-      infer State
-    >
-      ? State
-      : never;
-
-    type TestBindings = Superstate.Actions.Bindings<TestState>;
-
-    type TestBindingsArg = Superstate.Actions.BindingsArg<
-      Superstate.Actions.Bindings<TestState>
-    >;
-
-    type TestDeepAllOptionalContextsArg =
-      Superstate.Actions.DeepAllOptionalContextsArg<TestBindingsArg>;
-
-    // [TODO] Remove debug code ^^^^^^^^^
-
     //! It exposes context on the state
     {
       const state = form.in("credentials");
@@ -1845,7 +1786,7 @@ import { State, Superstate, superstate } from ".";
   // [TODO] To finalize contexts:
   //
   // - [x] Require setting substates context
-  // - [ ] Send resolves never in tests
+  // - [x] Send resolves never in tests
   // - [ ] Add tests for substate context setting
   // - [ ] Add tests for context in updates (transition/state)
 
