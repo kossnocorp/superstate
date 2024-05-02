@@ -171,7 +171,7 @@ export function superstate(name) {
       //#endregion
 
       //#region send
-      send(eventSignature, context) {
+      send(eventSignature, eventContext) {
         const [path, eventName, condition] =
           parseEventSignature(eventSignature);
 
@@ -179,7 +179,7 @@ export function superstate(name) {
         if (path.length) {
           return findSubstate(this, path)?.send(
             `${eventName}(${condition || ""})`,
-            context
+            eventContext
           );
         }
 
@@ -189,10 +189,8 @@ export function superstate(name) {
         const state = findTransitionTarget(transition);
         if (!state) return null;
 
-        const nextState = {
-          ...state,
-          context: resolveContext(context, currentState.context),
-        };
+        const context = resolveContext(eventContext, currentState.context);
+        const nextState = { ...state, context };
 
         transition.action &&
           bindings[currentState.name]?.[
@@ -201,7 +199,7 @@ export function superstate(name) {
             }!`
           ]?.();
 
-        triggerListeners("event", transition);
+        triggerListeners("event", { ...transition, context });
 
         setCurrentState(nextState);
 
@@ -303,15 +301,13 @@ export function superstate(name) {
           substate.transitions.forEach((transition) => {
             const landingState = findTransitionTarget(transition);
             substateInstance.on(transition.from, () => {
-              triggerListeners("event", transition);
-              setCurrentState({
-                ...landingState,
-                // Merge child context with the parent context
-                context: {
-                  ...currentState.context,
-                  ...substateInstance.state.context,
-                },
-              });
+              // Merge child context with the parent context
+              const context = {
+                ...currentState.context,
+                ...substateInstance.state.context,
+              };
+              triggerListeners("event", { ...transition, context });
+              setCurrentState({ ...landingState, context });
             });
           });
           return [name, substateInstance];

@@ -1088,7 +1088,7 @@ describe("Superstate", () => {
           });
         });
 
-        it.only("allows to set initial substate context with a function", () => {
+        it("allows to set initial substate context with a function", () => {
           const signUpState = createSignUpState();
           const signUp = signUpState.host({
             context: { ref: "toolbar" },
@@ -1823,6 +1823,63 @@ describe("Superstate", () => {
 
             expect(listener).toHaveBeenCalledTimes(5);
           });
+        });
+      });
+
+      describe("contexts", () => {
+        it("allows to access context in event updates", () => {
+          const listener = vi.fn();
+          const credentialsState = createFormState<CredentialsFields>();
+
+          const credentials = credentialsState.host({
+            context: { email: "", password: "" },
+          });
+          credentials.on("*", listener);
+
+          const erroredState = credentials.send("submit(error) -> errored", {
+            email: "",
+            password: "123456",
+            error: "Email not found",
+          });
+
+          expect(listener).toBeCalledWith(
+            expect.objectContaining({
+              transition: expect.objectContaining({
+                context: {
+                  email: "",
+                  password: "123456",
+                  error: "Email not found",
+                },
+              }),
+            })
+          );
+        });
+
+        it("allows to access context from substate event updates", () => {
+          const listener = vi.fn();
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host();
+
+          signUp.on("*", listener);
+
+          const receivedState = signUp.send(
+            "credentials.form.submit() -> .complete",
+            {
+              email: "koss@nocorp.me",
+              password: "123456",
+            }
+          );
+
+          expect(listener).toBeCalledWith(
+            expect.objectContaining({
+              transition: expect.objectContaining({
+                context: {
+                  email: "koss@nocorp.me",
+                  password: "123456",
+                },
+              }),
+            })
+          );
         });
       });
     });
