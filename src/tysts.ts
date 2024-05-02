@@ -689,7 +689,7 @@ import { State, Superstate, superstate } from ".";
     .state("on", ($) => $.enter("turnOn!").on("toggle() -> off"));
 
   //! Exit actions
-  const switchMachineSingle = superstate<SwitchState>("switch")
+  const switchStateSingle = superstate<SwitchState>("switch")
     .state("off", "toggle() -> on")
     .state("on", ($) =>
       $.enter("turnOn!").exit("turnOff!").on("toggle() -> off")
@@ -732,7 +732,7 @@ import { State, Superstate, superstate } from ".";
   //! Binding
 
   //! It allows to bind the actions
-  const switch_ = switchMachineSingle.host({
+  const switch_ = switchStateSingle.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
@@ -764,7 +764,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! It forces to bind all actions
-  switchMachineSingle.host({
+  switchStateSingle.host({
     // @ts-expect-error
     on: {
       "-> turnOn!": () => console.log("Turning on"),
@@ -772,7 +772,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! The defitions must be correct
-  switchMachineSingle.host({
+  switchStateSingle.host({
     on: {
       // @ts-expect-error
       "-> turnOn?": () => console.log("Turning on"),
@@ -781,7 +781,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! Can't bind unknown events
-  switchMachineSingle.host({
+  switchStateSingle.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
@@ -806,7 +806,7 @@ import { State, Superstate, superstate } from ".";
   type PushableButtonState = ButtonState | "pushed";
 
   //! Allows to define actions on conditional transitions
-  const buttonMachineWithCondition = superstate<PushableButtonState>("button")
+  const buttonStateWithCondition = superstate<PushableButtonState>("button")
     .state("off", ($) => $.on("press() -> turnOn! -> on"))
     .state("on", ($) =>
       $.if("press", ["(long) -> blink! -> pushed", "() -> turnOff! -> off"])
@@ -847,7 +847,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! It allows to bind conditional transitions
-  buttonMachineWithCondition.host({
+  buttonStateWithCondition.host({
     off: {
       "press() -> turnOn!": () => console.log("Turning on"),
     },
@@ -875,7 +875,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! It forces to bind all actions
-  buttonMachineWithCondition.host({
+  buttonStateWithCondition.host({
     off: {
       "press() -> turnOn!": () => console.log("Turning on"),
     },
@@ -1424,35 +1424,312 @@ import { State, Superstate, superstate } from ".";
         .final("done");
     }
 
-    const form = signUpState.host();
+    {
+      const form = signUpState.host();
 
-    form.send("profile.form.submit() -> .complete", {
-      fullName: "Sasha Koss",
-      company: "No Corp",
-    });
+      form.send("profile.form.submit() -> .complete", {
+        fullName: "Sasha Koss",
+        company: "No Corp",
+      });
 
-    //! It won't accept incomplete context
-    // @ts-expect-error
-    form.send("profile.form.submit() -> .complete", {
-      company: "No Corp",
-    });
+      //! It won't accept incomplete context
+      // @ts-expect-error
+      form.send("profile.form.submit() -> .complete", {
+        company: "No Corp",
+      });
 
-    //! Context must be defined
-    // @ts-expect-error
-    form.send("profile.form.submit() -> .complete");
+      //! Context must be defined
+      // @ts-expect-error
+      form.send("profile.form.submit() -> .complete");
 
-    //! Context can't be empty
-    // @ts-expect-error
-    form.send("profile.form.submit() -> .complete", {});
+      //! Context can't be empty
+      // @ts-expect-error
+      form.send("profile.form.submit() -> .complete", {});
 
-    //! Context can't be null
-    // @ts-expect-error
-    form.send("profile.form.submit() -> .complete", null);
+      //! Context can't be null
+      // @ts-expect-error
+      form.send("profile.form.submit() -> .complete", null);
+    }
+
+    //! It requires to include initial context for substates
+    {
+      interface RefFields {
+        ref: string;
+      }
+
+      type SignUpState =
+        | State<"credentials", RefFields>
+        | State<"profile", RefFields & CredentialsFields>
+        | State<"done", RefFields & DoneContext>;
+
+      function createFormState<FormFields>() {
+        type Context = FormFields & ErrorFields;
+
+        type FormState =
+          | State<"pending", Context>
+          | State<"errored", Context>
+          | State<"complete", FormFields & {}>
+          | "canceled";
+
+        return superstate<FormState>("form")
+          .state("pending", [
+            "submit(error) -> errored",
+            "submit() -> complete",
+            "cancel() -> canceled",
+          ])
+          .state("errored", [
+            "submit(error) -> errored",
+            "submit() -> complete",
+            "cancel() -> canceled",
+          ])
+          .final("complete")
+          .final("canceled");
+      }
+
+      const credentialsState = createFormState<CredentialsFields>();
+
+      const profileState = createFormState<ProfileFields>();
+
+      const signUpState = superstate<SignUpState>("signUp")
+        .state("credentials", ($) =>
+          $.sub("form", credentialsState, [
+            "form.complete -> submit() -> profile",
+          ])
+        )
+        .state("profile", ($) =>
+          $.sub("form", profileState, ["form.complete -> submit() -> done"])
+        )
+        .final("done");
+
+      //! It requires to bind all the substate contexts
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            context: {
+              email: "",
+              password: "",
+            },
+          },
+        },
+
+        profile: {
+          form: {
+            context: {
+              fullName: "",
+              company: "",
+            },
+          },
+        },
+      });
+
+      //! It allows to pass the function that accepts the parent context
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            context: ($, context) => {
+              context satisfies RefFields;
+              return $({
+                email: "",
+                password: "",
+              });
+            },
+          },
+        },
+
+        profile: {
+          form: {
+            context: ($, context) =>
+              $({
+                fullName: "",
+                company: "",
+              }),
+          },
+        },
+      });
+
+      // [TODO] Remove debug code vvvvvvvvv
+
+      type TestState = typeof signUpState extends Superstate.Factories.Factory<
+        infer State
+      >
+        ? State
+        : never;
+
+      type TestBindings = Superstate.Actions.Bindings<TestState>;
+
+      type TestBindingsArg = Superstate.Actions.BindingsArg<
+        Superstate.Actions.Bindings<TestState>
+      >;
+
+      // [TODO] Remove debug code ^^^^^^^^^
+
+      //! Can't subtitude the substate contexts
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            context: {
+              // @ts-expect-error
+              fullName: "",
+              company: "",
+            },
+          },
+        },
+
+        profile: {
+          form: {
+            context: {
+              // @ts-expect-error
+              email: "",
+              password: "",
+            },
+          },
+        },
+      });
+
+      //! Contexts must be correct
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            context: {
+              // @ts-expect-error
+              nope: true,
+            },
+          },
+        },
+
+        profile: {
+          form: {
+            context: {
+              // @ts-expect-error
+              nah: false,
+            },
+          },
+        },
+      });
+
+      //! Contexts can't be partial
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            // @ts-expect-error
+            context: {
+              email: "",
+            },
+          },
+        },
+
+        profile: {
+          form: {
+            // @ts-expect-error
+            context: {
+              company: "",
+            },
+          },
+        },
+      });
+
+      //! Contexts can't be ommited
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          // @ts-expect-error
+          form: {},
+        },
+      });
+
+      //! Contexts can't be empty objects
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            // @ts-expect-error
+            context: {},
+          },
+        },
+
+        profile: {
+          form: {
+            // @ts-expect-error
+            context: {},
+          },
+        },
+      });
+
+      //! Contexts can't be null
+      signUpState.host({
+        context: {
+          ref: "topbar",
+        },
+
+        credentials: {
+          form: {
+            // @ts-expect-error
+            context: null,
+          },
+        },
+
+        profile: {
+          form: {
+            // @ts-expect-error
+            context: null,
+          },
+        },
+      });
+
+      //! The bindings argument can't be omitted
+      // @ts-expect-error
+      signUpState.host();
+    }
   }
 
   //#region Contexts/listeners
   {
     const form = signUpState.host();
+
+    // [TODO] Remove debug code vvvvvvvvv
+
+    type TestState = typeof signUpState extends Superstate.Factories.Factory<
+      infer State
+    >
+      ? State
+      : never;
+
+    type TestBindings = Superstate.Actions.Bindings<TestState>;
+
+    type TestBindingsArg = Superstate.Actions.BindingsArg<
+      Superstate.Actions.Bindings<TestState>
+    >;
+
+    type TestDeepAllOptionalContextsArg =
+      Superstate.Actions.DeepAllOptionalContextsArg<TestBindingsArg>;
+
+    // [TODO] Remove debug code ^^^^^^^^^
 
     //! It exposes context on the state
     {
@@ -1524,8 +1801,9 @@ import { State, Superstate, superstate } from ".";
 
   // [TODO] To finalize contexts:
   //
-  // - [ ] Require setting substates context
+  // - [x] Require setting substates context
   // - [ ] Send resolves never in tests
+  // - [ ] Add tests for substate context setting
   // - [ ] Add tests for context in updates (transition/state)
 
   //#endregion
