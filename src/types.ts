@@ -1082,10 +1082,11 @@ export namespace Superstate {
           context: infer Context;
         }
           ? Context
-          : never
+          : never,
+        ContextArg extends Contexts.ContextArg<Context, FromState["context"]>
       >(
         event: Send,
-        context: Contexts.ContextArg<Context, FromState["context"]>
+        context: ContextArg
       ): Event extends {
         send: Send;
         context: Context;
@@ -1093,7 +1094,6 @@ export namespace Superstate {
       }
         ? Next | null
         : never;
-
       <
         Send extends Event extends {
           send: infer Send extends string;
