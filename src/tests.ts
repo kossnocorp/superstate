@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { State, superstate } from ".";
+import { State, Superstate, superstate } from ".";
 
 describe("Superstate", () => {
   //#region superstate
@@ -1041,6 +1041,21 @@ describe("Superstate", () => {
             password: "123456",
             error: "Email not found",
           });
+
+          // [TODO] Remove debug code vvvvvvv
+
+          type TestTraits =
+            typeof credentials extends Superstate.Instances.Instance<
+              any,
+              infer Traits,
+              any
+            >
+              ? Traits
+              : never;
+
+          type TestEvent = TestTraits["event"];
+
+          // [TODO] Remove debug code ^^^^^^^
 
           expect(erroredState?.context).toEqual({
             email: "",
