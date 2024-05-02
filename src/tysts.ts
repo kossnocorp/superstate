@@ -1216,6 +1216,49 @@ import { State, Superstate, superstate } from ".";
       // @ts-expect-error
       form.send("submit() -> profile", {});
     }
+
+    //! It properly resolves state on send
+    // [NOTE] This is an edge case caught in tests
+    {
+      const credentialsState = createFormState<CredentialsFields>();
+
+      const credentials = credentialsState.host({
+        context: { email: "", password: "" },
+      });
+
+      const erroredState = credentials.send("submit(error) -> errored", {
+        email: "",
+        password: "123456",
+        error: "Email not found",
+      });
+
+      //! The state should resolve
+      erroredState?.context;
+
+      // [TODO] Remove debug code vvvvvvv
+
+      type TestTraits =
+        typeof credentials extends Superstate.Instances.Instance<
+          any,
+          infer Traits,
+          any
+        >
+          ? Traits
+          : never;
+
+      type TestEvent = TestTraits["event"];
+
+      type TestEventFilter<Send> = TestEvent extends {
+        send: Send;
+        context: Superstate.Contexts.Constraint;
+      }
+        ? TestEvent
+        : never;
+
+      type TestEventSubmitError = TestEventFilter<"submit(error) -> errored">;
+
+      // [TODO] Remove debug code ^^^^^^^
+    }
   }
 
   //#region Context/conditions
