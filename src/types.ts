@@ -69,6 +69,8 @@ export namespace Superstate {
       name: string;
     }
 
+    // [TODO] It doesn't belong to actions, move into separate namespace vvvvv
+
     /**
      * The binding function type.
      */
@@ -78,53 +80,125 @@ export namespace Superstate {
      * The type resolves arguments for the binding functions to actions. It's
      * used to create a host.
      */
-    export type BindingArgs<State extends { name: string }> =
-      true extends HasBindingArgs<State>
-        ? Binding<State> extends infer Binding_ extends BindingConstraint
-          ? BindingMap<
-              Contexts.InitialContext<State>,
-              Binding_
-            > extends infer Map
+    export type BindingsArgs<State extends States.AnyState> =
+      true extends HasBindings<State>
+        ? Bindings<State> extends infer Binding_ extends BindingConstraint
+          ? BindingsArg<Binding_> extends infer Arg
             ?
-                | [Map]
-                | ("context" extends keyof Map
-                    ? Utils.RequiredKeys<Map["context"]> extends never
-                      ? [] | [{}]
-                      : never
+                | [Arg]
+                // [TODO] Replace it with deep type check
+                | (true extends DeepAllOptionalContextsArg<Arg>
+                    ? [] | [{}]
                     : never)
             : never
           : never
         : [];
 
-    export type HasBindingArgs<State> = true extends IsActionable<State>
+    export type DeepAllOptionalContextsArg<Arg> = // If there's only context in the bindings argument structure...
+      "context" extends keyof Arg
+        ? // ...and it's all optional, resolve true
+          Utils.RequiredKeys<Arg["context"]> extends never
+          ? true
+          : false
+        : // Else if the context is not present, or all optional...
+        Utils.RequiredKeys<
+            Arg extends { context: infer Context } ? Context : never
+          > extends never
+        ? // ...and all the rest are resolve to optional too:
+          Exclude<keyof Arg, "context"> extends infer Keys extends keyof Arg
+          ? // Prevent infinite recursion:
+            Keys extends never
+            ? never
+            : true extends DeepAllOptionalContextsArg<Arg[Keys]>
+            ? true
+            : false
+          : never
+        : never;
+
+    export type HasBindings<State> = true extends IsActionable<State>
       ? true
       : true extends Contexts.HasInitialContext<State>
       ? true
       : false;
 
-    export type BindingMap<
-      InitialContext,
-      Binding_ extends BindingConstraint
-    > = Utils.OmitNever<
-      { context: InitialContext } & {
-        [StateName in Binding_["state"]]: {
-          [Key in Binding_ extends { state: StateName }
-            ? Binding_["key"]
-            : never]: Binding_ extends {
-            sub: infer SubstateBinding extends BindingConstraint;
+    /**
+     * Converts action and context bindings to the argument structure.
+     */
+    export type BindingsArg<Bindings extends BindingConstraint> =
+      Utils.OmitNever<
+        // Defines the initial context:
+        //   {
+        //     // vvvvv
+        //     context: { ... }
+        //   }
+        // [TODO] Allow passing updater function
+        {
+          context: Bindings extends {
+            context: infer Context extends Contexts.Constraint;
+            parent: infer ParentContext;
           }
-            ? BindingMap<never, SubstateBinding>
-            : BindingFn;
-        };
-      }
-    >;
+            ? Contexts.ContextArg<Context, ParentContext>
+            : never;
+        } & {
+          // Defines the state structure:
+          //   {
+          //     context: { ... },
+          //
+          //     // vvvvv
+          //     on: { ... }
+          //   }
+          [StateName in Bindings extends { state: string }
+            ? Bindings["state"]
+            : never]: {
+            // Defines each binding
+            [Key in Bindings extends { state: StateName; key: string }
+              ? Bindings["key"]
+              : never]: Bindings extends { state: StateName; key: Key }
+              ? Bindings extends {
+                  sub: infer SubstateBinding extends BindingConstraint;
+                }
+                ? // Defines the substate bindings:
+                  //   {
+                  //     context: { ... },
+                  //
+                  //     on: {
+                  //       // vvvvv
+                  //       "running": { ... }
+                  //     }
+                  //   }
+                  BindingsArg<SubstateBinding>
+                : // Defines the binding function:
+                  //   {
+                  //     context: { ... },
+                  //
+                  //     on: {
+                  //       "running": { ... },
+                  //
+                  //       // vvvvv
+                  //       "wake() -> wake!": () => { ... },
+                  //     }
+                  //   }
+                  BindingFn
+              : never;
+          };
+        }
+      >;
 
     /**
      * The binding constrain type.
      */
     export type BindingConstraint =
+      | BindingConstraintContext
       | BindingConstraintAction
       | BindingConstraintSubstate;
+
+    /**
+     * The binding constrain context type.
+     */
+    export interface BindingConstraintContext {
+      context: Contexts.Constraint;
+      parent: Contexts.Constraint | null;
+    }
 
     /**
      * The binding constrain action type.
@@ -144,17 +218,32 @@ export namespace Superstate {
     }
 
     /**
-     * Resolves action bindings.
+     * Resolves action and context bindings. It's defines the host function
+     * argument structure.
      */
-    export type Binding<State extends { name: string }> = State extends {
+    export type Bindings<
+      State extends States.AnyState,
+      ParentContext = null
+    > = State extends {
       name: infer StateName;
       actions: Array<infer Action>;
       transitions: Array<infer Transition>;
       sub: Record<string, infer Substate>;
+      context: infer Context;
     }
-      ? // Get all state actions
-
-        | (Action extends {
+      ? // Get the initial context
+        | (State extends {
+              name: StateName;
+              initial: true;
+              context: infer Context extends Contexts.Constraint;
+            }
+              ? {
+                  context: Context;
+                  parent: ParentContext;
+                }
+              : never)
+          // Get all state actions
+          | (Action extends {
               name: infer ActionName extends string;
               type: infer Type;
             }
@@ -183,15 +272,17 @@ export namespace Superstate {
               sub: { name: infer SubstateName };
               state: infer SubstateState extends States.AnyState;
             }
-              ? true extends IsActionable<SubstateState>
+              ? true extends HasBindings<SubstateState>
                 ? {
                     key: SubstateName;
                     state: StateName;
-                    sub: Binding<SubstateState>;
+                    sub: Bindings<SubstateState, Context>;
                   }
                 : never
               : never)
       : never;
+
+    // [TODO] It doesn't belong to actions, move into separate namespace ^^^^^
 
     /**
      * The type resolves true if any state has at least one action.
@@ -862,7 +953,7 @@ export namespace Superstate {
       states: State[];
 
       host(
-        ...args: Superstate.Actions.BindingArgs<State>
+        ...args: Superstate.Actions.BindingsArgs<State>
       ): Instances.Instance<State, Traits.Traits<State>, never>;
     }
   }
@@ -994,7 +1085,7 @@ export namespace Superstate {
           : never
       >(
         event: Send,
-        context: ContextArg<Context, FromState["context"]>
+        context: Contexts.ContextArg<Context, FromState["context"]>
       ): Event extends {
         send: Send;
         context: Context;
@@ -1014,25 +1105,6 @@ export namespace Superstate {
         event: Send
       ): Event extends { send: Send; next: infer Next } ? Next | null : never;
     }
-
-    export type ContextArg<Context, PrevContext> =
-      | Context
-      | ContextArgFn<Context, PrevContext>;
-
-    export type ContextArgFn<Context, PrevContext> = (
-      updater: ContextUpdater<Context>,
-      context: PrevContext
-    ) => ExactContext<Context>;
-
-    export type ContextUpdater<Context> = (
-      context: Context
-    ) => ExactContext<Context>;
-
-    export type ExactContext<Context> = Context & {
-      [exactContextBrand]: Context;
-    };
-
-    export declare const exactContextBrand: unique symbol;
 
     //#endregion
   }
@@ -1416,9 +1488,20 @@ export namespace Superstate {
     /**
      * Resolves true if the state has initial context.
      */
-    export type HasInitialContext<State> = InitialContext<State> extends never
-      ? false
-      : true;
+    export type HasInitialContext<State> = State extends {
+      sub: infer Substates;
+    }
+      ? // Is there an initial context?
+        | (InitialContext<State> extends never ? false : true)
+          // Are there any substates with initial context?
+          | (keyof Substates extends never
+              ? false
+              : Substates[keyof Substates] extends {
+                  state: infer SubstateState;
+                }
+              ? HasInitialContext<SubstateState>
+              : never)
+      : never;
 
     /**
      * Resolves the initial state context.
@@ -1466,6 +1549,25 @@ export namespace Superstate {
      * Resolves context object.
      */
     export type EnsureObject<Context> = Context extends null ? {} : Context;
+
+    export type ContextArg<Context, PrevContext> =
+      | Context
+      | ContextArgFn<Context, PrevContext>;
+
+    export type ContextArgFn<Context, PrevContext> = (
+      updater: ContextUpdater<Context>,
+      context: PrevContext
+    ) => ExactContext<Context>;
+
+    export type ContextUpdater<Context> = (
+      context: Context
+    ) => ExactContext<Context>;
+
+    export type ExactContext<Context> = Context & {
+      [exactContextBrand]: Context;
+    };
+
+    export declare const exactContextBrand: unique symbol;
   }
   //#endregion
 
