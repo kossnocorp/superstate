@@ -32,18 +32,15 @@ import { State, Superstate, superstate } from ".";
 
   //! The machine accepts the events
 
-  player.send("play()");
-  player.send("pause()");
+  player.send.play();
+  player.send.pause();
   //! The event is not defined
   // @ts-expect-error
-  player.send();
-  //! The event is not defined
-  // @ts-expect-error
-  player.send("nope()");
+  player.send.nope();
 
   //! It returns the next state or null
   {
-    const nextState = player.send("play()");
+    const nextState = player.send.play();
 
     //! The next state might be null
     assertExtends<typeof nextState>(null);
@@ -1277,7 +1274,29 @@ import { State, Superstate, superstate } from ".";
         return $(context);
       });
 
-      function world<Fields>(fields: Fields) {}
+      const wut2 = {
+        email: "",
+        password: "",
+        error: "asd",
+        qweqweqweqwe: 123,
+      };
+
+      form.send("submit() -> complete", wut2);
+
+      form.send("submit() -> complete", {
+        email: "",
+        password: "",
+        error: "asd",
+      });
+
+      form.send("submit() -> complete", {
+        email: "",
+        password: "",
+      });
+
+      function world<Type>(fields: Exact<Type, Fields>) {
+        throw new Error();
+      }
 
       const wut = {
         email: "",
@@ -1285,13 +1304,14 @@ import { State, Superstate, superstate } from ".";
         please: "nope",
       };
 
-      const result = world<Fields>({
+      const result = world({
         email: "",
         password: "",
-        please: "nope",
       });
 
-      const result2 = world<Fields>(wut);
+      const result2 = world(wut);
+
+      type Exact<A, B> = A extends B ? (B extends A ? A : never) : never;
 
       // [TODO] Remove the debug code ^^^^^^
     }
