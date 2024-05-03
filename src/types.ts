@@ -321,7 +321,11 @@ export namespace Superstate {
    * the entity that trigger state transitions.
    */
   export namespace Events {
-    // [TODO] Move stuff from Transitions
+    export type Name<State extends States.AnyState> = State extends {
+      transitions: Array<infer Transition extends Transitions.AnyTransition>;
+    }
+      ? Transition["event"]
+      : never;
   }
   //#endregion
 
@@ -540,6 +544,17 @@ export namespace Superstate {
             StatechartInit["context"]
           >
         ? StatechartInit
+        : never
+      : never;
+
+    /**
+     * Resolves the state transitions with the given event name.
+     */
+    export type ByEventName<State, EventName> = State extends {
+      transitions: Array<infer Transition>;
+    }
+      ? Transition extends { event: EventName }
+        ? Transition
         : never
       : never;
   }
@@ -999,7 +1014,7 @@ export namespace Superstate {
     > {
       on: Listeners.On<Traits>;
 
-      send: Listeners.SendProxy<Statechart, Traits>;
+      send: Listeners.SendProxy<Traits>;
 
       off(): void;
     }
@@ -1066,21 +1081,13 @@ export namespace Superstate {
     /**
      * Function that sends events.
      */
-    export type SendProxy<
-      Statechart extends States.AnyState,
-      Traits extends Traits.TraitsConstraint
-    > = {
-      [EventName in Statechart extends {
-        transitions: Array<infer Transition extends Transitions.AnyTransition>;
-      }
-        ? Transition["event"]
-        : never]: Statechart extends {
-        transitions: Array<infer Transition>;
-      }
-        ? Transition extends { event: EventName; to: infer To }
-          ? EventName
+    export type SendProxy<Traits extends Traits.TraitsConstraint> = {
+      [Namespace in keyof Traits["send"]]: Traits["send"][Namespace] extends infer SendTrait
+        ? SendTrait extends Traits.SendConstraintEvent
+          ? () => SendTrait["next"] | null
           : never
         : never;
+
       // <
       //   Send extends Event extends {
       //     send: infer Send extends string;
@@ -1343,6 +1350,14 @@ export namespace Superstate {
           >["context"];
         }
       : never;
+
+    export type Parents<State extends States.AnyState> = State extends {
+      sub: infer Substates;
+    }
+      ? keyof Substates extends never
+        ? never
+        : State
+      : never;
   }
   //#endregion
 
@@ -1381,7 +1396,22 @@ export namespace Superstate {
       context: Contexts.Constraint | null;
     }
 
-    export interface SendConstraint {}
+    export type SendConstraint = Record<
+      string,
+      SendConstraintEvent | SendConstraintState
+    >;
+
+    export interface SendConstraintBase<Type extends string> {
+      type: Type;
+      namespace: string;
+    }
+
+    export interface SendConstraintEvent extends SendConstraintBase<"event"> {
+      condition: string | null;
+      next: States.AnyState;
+    }
+
+    export interface SendConstraintState extends SendConstraintBase<"state"> {}
 
     export interface TraitsConstraint {
       state: StateConstraint;
@@ -1530,23 +1560,32 @@ export namespace Superstate {
         : never;
 
     export type Send<State extends States.AnyState> = {
-      [EventName in State extends {
-        transitions: Array<infer Transition extends Transitions.AnyTransition>;
-      }
-        ? Transition["event"]
-        : never]: State extends {
-        transitions: Array<infer Transition extends Transitions.AnyTransition>;
-      }
-        ? Transition extends { event: EventName }
-          ? {
-              condition: Transition["condition"];
-              next: Transition["to"];
-              // context: Transition["to"]["context"];
-            }
-          : never
-        : never;
+      [Namespace in Events.Name<State> | Substates.Parents<State>["name"]]:
+        | (Transitions.ByEventName<
+            // Assign event function
+            State,
+            Namespace
+          > extends {
+            condition: infer Condition extends string | null;
+            to: infer To;
+          }
+            ? State extends { name: To }
+              ? {
+                  type: "event";
+                  namespace: Namespace;
+                  condition: Condition;
+                  next: State;
+                }
+              : never
+            : never)
+        // Assign substates
+        | (Substates.Parents<State> extends { name: Namespace }
+            ? // [TODO] Add substates and their events
+              { type: "state"; namespace: Namespace }
+            : never);
     };
   }
+
   //#endregion
 
   //#region Contexts
