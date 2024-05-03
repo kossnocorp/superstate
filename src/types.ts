@@ -966,10 +966,10 @@ export namespace Superstate {
    */
   export namespace Instances {
     export interface Instance<
-      Statechart,
+      Statechart extends States.AnyState,
       Traits extends Traits.TraitsConstraint,
       AsSubstate
-    > extends Listeners.API<Traits> {
+    > extends Listeners.API<Statechart, Traits> {
       readonly sub: AsSubstate;
 
       readonly state: Statechart;
@@ -993,10 +993,13 @@ export namespace Superstate {
      * Instances API. Provides functions to subscribe, send, and unsubscribe
      * from events and state updates.
      */
-    export interface API<Traits extends Traits.TraitsConstraint> {
+    export interface API<
+      Statechart extends States.AnyState,
+      Traits extends Traits.TraitsConstraint
+    > {
       on: Listeners.On<Traits>;
 
-      send: Listeners.SendFn<Traits["event"]>;
+      send: Listeners.SendProxy<Statechart, Traits>;
 
       off(): void;
     }
@@ -1063,48 +1066,98 @@ export namespace Superstate {
     /**
      * Function that sends events.
      */
-    export interface SendFn<Event extends Traits.EventConstraint> {
-      <
-        Send extends Event extends {
-          send: infer Send extends string;
-          context: Contexts.Constraint;
-        }
-          ? Send
-          : never,
-        FromState extends Event extends {
-          send: Send;
-          from: infer FromState;
-        }
-          ? FromState
-          : never,
-        Context extends Event extends {
-          send: Send;
-          context: infer Context;
-        }
-          ? Context
-          : never,
-        ContextArg extends Contexts.ContextArg<Context, FromState["context"]>
-      >(
-        event: Send,
-        context: ContextArg
-      ): Event extends {
-        send: Send;
-        context: Context;
-        next: infer Next;
+    export type SendProxy<
+      Statechart extends States.AnyState,
+      Traits extends Traits.TraitsConstraint
+    > = {
+      [EventName in Statechart extends {
+        transitions: Array<infer Transition extends Transitions.AnyTransition>;
       }
-        ? Next | null
-        : never;
-      <
-        Send extends Event extends {
-          send: infer Send extends string;
-          context: null;
-        }
-          ? Send
+        ? Transition["event"]
+        : never]: Statechart extends {
+        transitions: Array<infer Transition>;
+      }
+        ? Transition extends { event: EventName; to: infer To }
+          ? EventName
           : never
-      >(
-        event: Send
-      ): Event extends { send: Send; next: infer Next } ? Next | null : never;
-    }
+        : never;
+      // <
+      //   Send extends Event extends {
+      //     send: infer Send extends string;
+      //     context: Contexts.Constraint;
+      //   }
+      //     ? Send
+      //     : never,
+      //   FromState extends Event extends {
+      //     send: Send;
+      //     from: infer FromState;
+      //   }
+      //     ? FromState
+      //     : never,
+      //   Context extends Event extends {
+      //     send: Send;
+      //     context: infer Context;
+      //   }
+      //     ? Context
+      //     : never
+      // >(
+      //   event: Send,
+      //   context: {
+      //     [Key in any]: Key extends keyof Context ? Context[Key] : never;
+      //   }
+      // ): Event extends {
+      //   send: Send;
+      //   context: Context;
+      //   next: infer Next;
+      // }
+      //   ? Next | null
+      //   : never;
+
+      // //   <
+      // //   Send extends Event extends {
+      // //     send: infer Send extends string;
+      // //     context: Contexts.Constraint;
+      // //   }
+      // //     ? Send
+      // //     : never,
+      // //   FromState extends Event extends {
+      // //     send: Send;
+      // //     from: infer FromState;
+      // //   }
+      // //     ? FromState
+      // //     : never,
+      // //   Context extends Event extends {
+      // //     send: Send;
+      // //     context: infer Context;
+      // //   }
+      // //     ? Context
+      // //     : never,
+      // //   ContextArg extends Contexts.ContextArg<
+      // //     ReceivedContext,
+      // //     FromState["context"]
+      // //   >
+      // // >(
+      // //   event: Send,
+      // //   context: NoInfer<Context>
+      // // ): Event extends {
+      // //   send: Send;
+      // //   context: Context;
+      // //   next: infer Next;
+      // // }
+      // //   ? Next | null
+      // //   : never;
+
+      // <
+      //   Send extends Event extends {
+      //     send: infer Send extends string;
+      //     context: null;
+      //   }
+      //     ? Send
+      //     : never
+      // >(
+      //   event: Send
+      // ): Event extends { send: Send; next: infer Next } ? Next | null : never;
+    };
 
     //#endregion
   }
@@ -1328,14 +1381,18 @@ export namespace Superstate {
       context: Contexts.Constraint | null;
     }
 
+    export interface SendConstraint {}
+
     export interface TraitsConstraint {
       state: StateConstraint;
       event: EventConstraint;
+      send: SendConstraint;
     }
 
-    export interface Traits<AllState extends States.AnyState> {
-      state: State<AllState>;
-      event: Event<AllState>;
+    export interface Traits<Statechart extends States.AnyState> {
+      state: State<Statechart>;
+      event: Event<Statechart>;
+      send: Send<Statechart>;
     }
 
     export type Event<
