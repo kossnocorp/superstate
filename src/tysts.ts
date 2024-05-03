@@ -1,4 +1,3 @@
-import { Test } from "vitest";
 import { State, Superstate, superstate } from ".";
 
 //#region Simple machine
