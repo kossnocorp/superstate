@@ -1528,6 +1528,24 @@ export namespace Superstate {
             : never
           : never
         : never;
+
+    export type Send<State extends States.AnyState> = {
+      [EventName in State extends {
+        transitions: Array<infer Transition extends Transitions.AnyTransition>;
+      }
+        ? Transition["event"]
+        : never]: State extends {
+        transitions: Array<infer Transition extends Transitions.AnyTransition>;
+      }
+        ? Transition extends { event: EventName }
+          ? {
+              condition: Transition["condition"];
+              next: Transition["to"];
+              // context: Transition["to"]["context"];
+            }
+          : never
+        : never;
+    };
   }
   //#endregion
 

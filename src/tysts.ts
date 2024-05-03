@@ -17,16 +17,16 @@ import { State, Superstate, superstate } from ".";
     // @ts-expect-error
     .state("stopped", ["play() -> playing"]);
 
-  const playerMachine = superstate<PlayerState>("player")
+  const playerState = superstate<PlayerState>("player")
     .state("stopped", "play() -> playing")
     .state("playing", ($) => $.on(["pause() -> paused", "stop() -> stopped"]))
     .state("paused", ($) => $.on("play() -> playing").on("stop() -> stopped"));
 
   //! All the states are already defined
   // @ts-expect-error
-  playerMachine.state;
+  playerState.state;
 
-  const player = playerMachine.host();
+  const player = playerState.host();
 
   //! send
 
@@ -37,6 +37,18 @@ import { State, Superstate, superstate } from ".";
   //! The event is not defined
   // @ts-expect-error
   player.send.nope();
+
+  // [TODO] Remove the debug code vvvvvv
+
+  type TestState = typeof playerState extends Superstate.Factories.Factory<
+    infer State
+  >
+    ? State
+    : never;
+
+  type TestSend = Superstate.Traits.Send<TestState>;
+
+  // [TODO] Remove the debug code ^^^^^^
 
   //! It returns the next state or null
   {
