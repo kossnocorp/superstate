@@ -70,7 +70,7 @@ b.suite(
   "Sending events",
 
   b.add("Superstate", () => {
-    superstateInstance.send("toggle()");
+    superstateInstance.send.toggle();
   }),
 
   b.add("XState", () => {

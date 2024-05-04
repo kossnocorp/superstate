@@ -19,7 +19,7 @@ describe("Superstate", () => {
     it("allows to send events", () => {
       const playerState = createPlayerState();
       const player = playerState.host();
-      player.send("play()");
+      player.send.play();
       expect(player.state.name).toBe("playing");
     });
 
@@ -28,7 +28,7 @@ describe("Superstate", () => {
       const playerState = createPlayerState();
       const player = playerState.host();
       player.on("*", listener);
-      player.send("play()");
+      player.send.play();
       expect(listener).toBeCalledWith({
         type: "state",
         state: expect.objectContaining({ name: "playing" }),
@@ -50,7 +50,7 @@ describe("Superstate", () => {
           .state("off", "toggle() -> on")
           .state("on");
         const light = lightState.host();
-        light.send("toggle()");
+        light.send.toggle();
         expect(light.state.name).toBe("on");
       });
 
@@ -60,8 +60,8 @@ describe("Superstate", () => {
           .state("playing", ["pause() -> paused", "stop() -> stopped"])
           .state("paused", ["play() -> playing", "stop() -> stopped"]);
         const player = playerState.host();
-        player.send("play()");
-        player.send("pause()");
+        player.send.play();
+        player.send.pause();
         expect(player.state.name).toBe("paused");
       });
 
@@ -88,14 +88,14 @@ describe("Superstate", () => {
               "restart() -> on",
             ]);
           const pc = pcState.host();
-          pc.send("press()");
-          pc.send("press()");
+          pc.send.press();
+          pc.send.press();
           expect(pc.state.name).toBe("sleep");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
-          pc.send("press()");
+          pc.send.press();
           expect(pc.state.name).toBe("on");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
         });
 
@@ -129,19 +129,19 @@ describe("Superstate", () => {
             });
 
             expect(onListener).not.toBeCalled();
-            pc.send("press()");
+            pc.send.press();
             expect(pc.in("on")).not.toBe(null);
             expect(onListener).toBeCalled();
             expect(offListener).not.toBeCalled();
             expect(sleepListener).not.toBeCalled();
 
-            pc.send("press(long)");
+            pc.send.press("long");
             expect(pc.in("off")).not.toBe(null);
             expect(offListener).toBeCalled();
             expect(sleepListener).not.toBeCalled();
 
-            pc.send("press()");
-            pc.send("press()");
+            pc.send.press();
+            pc.send.press();
             expect(pc.in("sleep")).not.toBe(null);
             expect(sleepListener).toBeCalled();
           });
@@ -161,7 +161,7 @@ describe("Superstate", () => {
           });
           expect(offListener).toBeCalled();
           expect(onListener).not.toBeCalled();
-          light.send("toggle()");
+          light.send.toggle();
           expect(onListener).toBeCalled();
           expect(offListener).toBeCalledTimes(1);
         });
@@ -178,10 +178,10 @@ describe("Superstate", () => {
           });
           expect(offListener).not.toBeCalled();
           expect(onListener).not.toBeCalled();
-          light.send("toggle()");
+          light.send.toggle();
           expect(onListener).toBeCalled();
           expect(offListener).not.toBeCalled();
-          light.send("toggle()");
+          light.send.toggle();
           expect(offListener).toBeCalled();
         });
 
@@ -197,10 +197,10 @@ describe("Superstate", () => {
           });
           expect(offListener).not.toBeCalled();
           expect(onListener).not.toBeCalled();
-          light.send("toggle()");
+          light.send.toggle();
           expect(onListener).toBeCalled();
           expect(offListener).not.toBeCalled();
-          light.send("toggle()");
+          light.send.toggle();
           expect(offListener).toBeCalled();
         });
 
@@ -217,7 +217,7 @@ describe("Superstate", () => {
             on: { "toggle() -> off!": () => {} },
           });
           light.on("toggle()", eventListener);
-          light.send("toggle()");
+          light.send.toggle();
           expect(eventListener).toBeCalled();
           expect(actionListener).toBeCalled();
         });
@@ -231,7 +231,7 @@ describe("Superstate", () => {
               .state("off", ($) => $.on("toggle() -> on"))
               .state("on");
             const light = lightState.host();
-            light.send("toggle()");
+            light.send.toggle();
             expect(light.state.name).toBe("on");
           });
 
@@ -243,9 +243,9 @@ describe("Superstate", () => {
               )
               .state("paused", ["play() -> playing", "stop() -> stopped"]);
             const player = playerState.host();
-            player.send("play()");
-            player.send("pause()");
-            player.send("stop()");
+            player.send.play();
+            player.send.pause();
+            player.send.stop();
             expect(player.state.name).toBe("stopped");
           });
 
@@ -257,9 +257,9 @@ describe("Superstate", () => {
               )
               .state("paused", ["play() -> playing", "stop() -> stopped"]);
             const player = playerState.host();
-            player.send("play()");
-            player.send("pause()");
-            player.send("stop()");
+            player.send.play();
+            player.send.pause();
+            player.send.stop();
             expect(player.state.name).toBe("stopped");
           });
 
@@ -271,9 +271,9 @@ describe("Superstate", () => {
               )
               .state("paused", ["play() -> playing", "stop() -> stopped"]);
             const player = playerState.host();
-            player.send("play()");
-            player.send("pause()");
-            player.send("stop()");
+            player.send.play();
+            player.send.pause();
+            player.send.stop();
             expect(player.state.name).toBe("stopped");
           });
 
@@ -292,14 +292,14 @@ describe("Superstate", () => {
                     .on("restart() -> on")
                 );
               const pc = pcState.host();
-              pc.send("press()");
-              pc.send("press()");
+              pc.send.press();
+              pc.send.press();
               expect(pc.state.name).toBe("sleep");
-              pc.send("press(long)");
+              pc.send.press("long");
               expect(pc.state.name).toBe("off");
-              pc.send("press()");
+              pc.send.press();
               expect(pc.state.name).toBe("on");
-              pc.send("press(long)");
+              pc.send.press("long");
               expect(pc.state.name).toBe("off");
             });
           });
@@ -317,10 +317,10 @@ describe("Superstate", () => {
               });
               expect(offListener).not.toBeCalled();
               expect(onListener).not.toBeCalled();
-              light.send("toggle()");
+              light.send.toggle();
               expect(onListener).toBeCalled();
               expect(offListener).not.toBeCalled();
-              light.send("toggle()");
+              light.send.toggle();
               expect(offListener).toBeCalled();
             });
           });
@@ -343,14 +343,14 @@ describe("Superstate", () => {
                 )
               );
             const pc = pcState.host();
-            pc.send("press()");
-            pc.send("press()");
+            pc.send.press();
+            pc.send.press();
             expect(pc.state.name).toBe("sleep");
-            pc.send("press(long)");
+            pc.send.press("long");
             expect(pc.state.name).toBe("off");
-            pc.send("press()");
+            pc.send.press();
             expect(pc.state.name).toBe("on");
-            pc.send("press(long)");
+            pc.send.press("long");
             expect(pc.state.name).toBe("off");
           });
 
@@ -366,14 +366,14 @@ describe("Superstate", () => {
                   .on("restart() -> on")
               );
             const pc = pcState.host();
-            pc.send("press()");
-            pc.send("press()");
+            pc.send.press();
+            pc.send.press();
             expect(pc.state.name).toBe("sleep");
-            pc.send("press(long)");
+            pc.send.press("long");
             expect(pc.state.name).toBe("off");
-            pc.send("press()");
+            pc.send.press();
             expect(pc.state.name).toBe("on");
-            pc.send("press(long)");
+            pc.send.press("long");
             expect(pc.state.name).toBe("off");
           });
 
@@ -408,19 +408,19 @@ describe("Superstate", () => {
               });
 
               expect(onListener).not.toBeCalled();
-              pc.send("press()");
+              pc.send.press();
               expect(pc.in("on")).not.toBe(null);
               expect(onListener).toBeCalled();
               expect(offListener).not.toBeCalled();
               expect(sleepListener).not.toBeCalled();
 
-              pc.send("press(long)");
+              pc.send.press("long");
               expect(pc.in("off")).not.toBe(null);
               expect(offListener).toBeCalled();
               expect(sleepListener).not.toBeCalled();
 
-              pc.send("press()");
-              pc.send("press()");
+              pc.send.press();
+              pc.send.press();
               expect(pc.in("sleep")).not.toBe(null);
               expect(sleepListener).toBeCalled();
             });
@@ -436,7 +436,7 @@ describe("Superstate", () => {
             const mug = mugState.host();
             expect(mug.state.sub).toEqual({});
 
-            mug.send("pour()");
+            mug.send.pour();
 
             const fullState = mug.in("full");
             if (fullState) {
@@ -452,10 +452,10 @@ describe("Superstate", () => {
             const mug = createMugWithTeaState().host();
             mug.on(["dirty", "finish()"], listener);
 
-            mug.send("pour()");
-            mug.send("full.tea.infuse()");
-            mug.send("full.tea.done()");
-            mug.send("full.tea.drink()");
+            mug.send.pour();
+            mug.send.full.tea.infuse();
+            mug.send.full.tea.done();
+            mug.send.full.tea.drink();
 
             expect(mug.in("dirty")).not.toBe(null);
             expect(listener).toBeCalledWith({
@@ -491,18 +491,18 @@ describe("Superstate", () => {
               .state("dirty", ["clean() -> clear"]);
 
             const mugA = mug.host();
-            mugA.send("pour()");
-            mugA.send("full.tea.infuse()");
-            mugA.send("full.tea.done()");
-            mugA.send("full.tea.drink()");
+            mugA.send.pour();
+            mugA.send.full.tea.infuse();
+            mugA.send.full.tea.done();
+            mugA.send.full.tea.drink();
 
             expect(mugA.in("dirty")).not.toBe(null);
 
             const mugB = mug.host();
-            mugB.send("pour()");
-            mugB.send("full.tea.infuse()");
-            mugB.send("full.tea.done()");
-            mugB.send("full.tea.infuse()");
+            mugB.send.pour();
+            mugB.send.full.tea.infuse();
+            mugB.send.full.tea.done();
+            mugB.send.full.tea.infuse();
 
             expect(mugB.in("undrinkable")).not.toBe(null);
           });
@@ -523,7 +523,7 @@ describe("Superstate", () => {
             });
             expect(offListener).toBeCalled();
             expect(onListener).not.toBeCalled();
-            light.send("toggle()");
+            light.send.toggle();
             expect(onListener).toBeCalled();
             expect(offListener).toBeCalledTimes(1);
           });
@@ -541,7 +541,7 @@ describe("Superstate", () => {
               on: { "-> on!": actionListener },
             });
             light.on("on", updateListener);
-            light.send("toggle()");
+            light.send.toggle();
             expect(actionListener).toBeCalled();
             expect(updateListener).toBeCalled();
           });
@@ -559,7 +559,7 @@ describe("Superstate", () => {
               on: { "-> on!": actionListener },
             });
             light.on("toggle()", updateListener);
-            light.send("toggle()");
+            light.send.toggle();
             expect(actionListener).toBeCalled();
           });
         });
@@ -579,10 +579,10 @@ describe("Superstate", () => {
             });
             expect(offListener).not.toBeCalled();
             expect(onListener).not.toBeCalled();
-            light.send("toggle()");
+            light.send.toggle();
             expect(onListener).toBeCalled();
             expect(offListener).not.toBeCalled();
-            light.send("toggle()");
+            light.send.toggle();
             expect(offListener).toBeCalled();
           });
 
@@ -621,7 +621,7 @@ describe("Superstate", () => {
                 "onExit! ->": onExitListener,
               },
             });
-            light.send("toggle()");
+            light.send.toggle();
             expect(offEnterListener).toBeCalled();
             expect(offExitListener).toBeCalled();
             expect(onEnterListener).toBeCalled();
@@ -641,7 +641,7 @@ describe("Superstate", () => {
               on: { "off! ->": () => {} },
             });
             light.on("toggle()", updateListener);
-            light.send("toggle()");
+            light.send.toggle();
             expect(actionListener).toBeCalled();
           });
         });
@@ -661,7 +661,7 @@ describe("Superstate", () => {
         const cassete = casseteState.host();
         expect(cassete.finalized).toBe(false);
 
-        const state = cassete.send("eject()");
+        const state = cassete.send.eject();
 
         expect(state?.name).toBe("ejected");
         expect(state?.final).toBe(true);
@@ -755,28 +755,28 @@ describe("Superstate", () => {
           expect(smallDollCloseListener).not.toBeCalled();
           expect(smallDollOpenListener).not.toBeCalled();
 
-          bigDoll.send("open()");
+          bigDoll.send.open();
 
           expect(mediumDollCloseListener).not.toBeCalled();
           expect(mediumDollOpenListener).not.toBeCalled();
           expect(smallDollCloseListener).not.toBeCalled();
           expect(smallDollOpenListener).not.toBeCalled();
 
-          bigDoll.send("open.doll.open()");
+          bigDoll.send.open.doll.open();
 
           expect(mediumDollCloseListener).not.toBeCalled();
           expect(mediumDollOpenListener).toBeCalled();
           expect(smallDollCloseListener).toBeCalled();
           expect(smallDollOpenListener).not.toBeCalled();
 
-          bigDoll.send("open.doll.open.doll.open()");
+          bigDoll.send.open.doll.open.doll.open();
 
           expect(mediumDollCloseListener).not.toBeCalled();
           expect(mediumDollOpenListener).toBeCalled();
           expect(smallDollCloseListener).toBeCalled();
           expect(smallDollOpenListener).toBeCalled();
 
-          bigDoll.send("open.doll.close()");
+          bigDoll.send.open.doll.close();
 
           expect(mediumDollCloseListener).toBeCalled();
           expect(mediumDollOpenListener).toBeCalled();
@@ -806,28 +806,28 @@ describe("Superstate", () => {
       it("sends an event", () => {
         const playerState = createPlayerState();
         const player = playerState.host();
-        player.send("play()");
+        player.send.play();
         expect(player.state.name).toBe("playing");
       });
 
       it("allows to send non-matching events", () => {
         const playerState = createPlayerState();
         const player = playerState.host();
-        player.send("pause()");
+        player.send.pause();
         expect(player.state.name).toBe("stopped");
       });
 
       it("returns the next state", () => {
         const playerState = createPlayerState();
         const player = playerState.host();
-        const nextState = player.send("play()");
+        const nextState = player.send.play();
         expect(nextState?.name).toBe("playing");
       });
 
       it("returns null for non-matching events", () => {
         const playerState = createPlayerState();
         const player = playerState.host();
-        const nextState = player.send("pause()");
+        const nextState = player.send.pause();
         expect(nextState).toBe(null);
       });
 
@@ -844,14 +844,14 @@ describe("Superstate", () => {
               )
             );
           const pc = pcState.host();
-          pc.send("press()");
-          pc.send("press()");
+          pc.send.press();
+          pc.send.press();
           expect(pc.state.name).toBe("sleep");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
-          pc.send("press()");
+          pc.send.press();
           expect(pc.state.name).toBe("on");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
         });
 
@@ -874,14 +874,14 @@ describe("Superstate", () => {
             )
             .state("restarting", "restarted() -> on");
           const pc = pcState.host();
-          pc.send("press()");
-          pc.send("press()");
+          pc.send.press();
+          pc.send.press();
           expect(pc.state.name).toBe("sleep");
-          pc.send("press(double)");
+          pc.send.press("double");
           expect(pc.state.name).toBe("restarting");
-          pc.send("restarted()");
+          pc.send.restarted();
           expect(pc.state.name).toBe("on");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
         });
 
@@ -894,7 +894,7 @@ describe("Superstate", () => {
             .state("dead");
 
           const cat = catState.host();
-          cat.send("reveal(lucky)");
+          cat.send.reveal("lucky");
           expect(cat.state.name).toBe("alive");
         });
 
@@ -910,14 +910,14 @@ describe("Superstate", () => {
               )
             );
           const pc = pcState.host();
-          pc.send("press()");
-          pc.send("press()");
+          pc.send.press();
+          pc.send.press();
           expect(pc.state.name).toBe("sleep");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
-          pc.send("press()");
+          pc.send.press();
           expect(pc.state.name).toBe("on");
-          pc.send("press(long)");
+          pc.send.press("long");
           expect(pc.state.name).toBe("off");
         });
       });
@@ -927,8 +927,8 @@ describe("Superstate", () => {
           const mugState = createMugWithTeaState();
 
           const mug = mugState.host();
-          mug.send("pour()");
-          mug.send("full.tea.infuse()");
+          mug.send.pour();
+          mug.send.full.tea.infuse();
 
           expect(
             mug.state.name === "full" &&
@@ -942,10 +942,10 @@ describe("Superstate", () => {
           const dollState = createRussianDollState();
 
           const doll = dollState.host();
-          doll.send("open()");
+          doll.send.open();
           doll.on("close()", bigDollListener);
-          doll.send("open.doll.open()");
-          doll.send("open.doll.close()");
+          doll.send.open.doll.open();
+          doll.send.open.doll.close();
 
           expect(bigDollListener).not.toHaveBeenCalled();
         });
@@ -958,20 +958,20 @@ describe("Superstate", () => {
           const doll = dollState.host();
           doll.on("*", wildcardListener);
           doll.on("open.doll.open.doll.open()", smallDollListener);
-          doll.send("open.doll.open.doll.open()");
+          doll.send.open.doll.open.doll.open();
 
           expect(smallDollListener).not.toBeCalled();
           expect(wildcardListener).not.toBeCalled();
 
-          doll.send("open()");
+          doll.send.open();
           expect(doll.state.name).toBe("open");
 
-          doll.send("open.doll.open()");
+          doll.send.open.doll.open();
           expect(
             doll.state.name === "open" && doll.state.sub.doll.state.name
           ).toBe("open");
 
-          doll.send("open.doll.open.doll.open()");
+          doll.send.open.doll.open.doll.open();
           expect(
             doll.state.name === "open" &&
               doll.state.sub.doll.state.name === "open" &&
@@ -987,8 +987,8 @@ describe("Superstate", () => {
           const signUpState = createSignUpState();
           const signUp = signUpState.host();
 
-          const receivedState = signUp.send(
-            "credentials.form.submit() -> .complete",
+          const receivedState = signUp.send.credentials.form.submit(
+            "-> complete",
             {
               email: "koss@nocorp.me",
               password: "123456",
@@ -1007,8 +1007,8 @@ describe("Superstate", () => {
             context: { ref: "toolbar" },
           });
 
-          const receivedState = signUp.send(
-            "credentials.form.submit() -> .complete",
+          const receivedState = signUp.send.credentials.form.submit(
+            "-> complete",
             {
               email: "koss@nocorp.me",
               password: "123456",
@@ -1036,7 +1036,7 @@ describe("Superstate", () => {
             context: { email: "", password: "" },
           });
 
-          const erroredState = credentials.send("submit(error) -> errored", {
+          const erroredState = credentials.send.submit.error("-> errored", {
             email: "",
             password: "123456",
             error: "Email not found",
@@ -1048,8 +1048,8 @@ describe("Superstate", () => {
             error: "Email not found",
           });
 
-          const submittedState = credentials.send(
-            "submit() -> complete",
+          const submittedState = credentials.send.submit(
+            "-> complete",
             ($, context) =>
               $({
                 password: context.password,
@@ -1077,8 +1077,8 @@ describe("Superstate", () => {
             },
           });
 
-          const receivedState = signUp.send(
-            "credentials.form.submit() -> .complete",
+          const receivedState = signUp.send.credentials.form.submit(
+            "-> complete",
             ($, context) => $(context)
           );
 
@@ -1103,8 +1103,8 @@ describe("Superstate", () => {
             },
           });
 
-          const receivedState = signUp.send(
-            "credentials.form.submit() -> .complete",
+          const receivedState = signUp.send.credentials.form.submit(
+            "-> complete",
             ($, context) => $(context)
           );
 
@@ -1125,7 +1125,7 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("*", listener);
-          player.send("play()");
+          player.send.play();
           expect(listener).toBeCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "playing" }),
@@ -1137,8 +1137,8 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("paused", listener);
-          player.send("play()");
-          player.send("pause()");
+          player.send.play();
+          player.send.pause();
           expect(listener).not.toBeCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "playing" }),
@@ -1158,9 +1158,9 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on(["paused", "stopped"], listener);
-          player.send("play()");
-          player.send("pause()");
-          player.send("stop()");
+          player.send.play();
+          player.send.pause();
+          player.send.stop();
           expect(listener).not.toBeCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "playing" }),
@@ -1186,13 +1186,13 @@ describe("Superstate", () => {
             .state("on", "toggle() -> off");
           const light = lightState.host();
           light.on(["on", "off"], listener);
-          light.send("toggle()");
+          light.send.toggle();
           expect(listener).toHaveBeenCalledOnce();
           expect(listener).toBeCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "on" }),
           });
-          light.send("toggle()");
+          light.send.toggle();
           expect(listener).toHaveBeenCalledTimes(2);
           expect(listener).toBeCalledWith({
             type: "state",
@@ -1209,8 +1209,8 @@ describe("Superstate", () => {
 
             mug.on("full.tea.steeping", listener);
 
-            mug.send("pour()");
-            mug.send("full.tea.infuse()");
+            mug.send.pour();
+            mug.send.full.tea.infuse();
 
             expect(listener).toBeCalledWith({
               type: "state",
@@ -1223,11 +1223,11 @@ describe("Superstate", () => {
             const mugState = createMugWithTeaState();
 
             const mug = mugState.host();
-            mug.send("pour()");
+            mug.send.pour();
 
             mug.on("full.tea.steeping", listener);
 
-            mug.send("full.tea.infuse()");
+            mug.send.full.tea.infuse();
 
             expect(listener).toBeCalledWith({
               type: "state",
@@ -1242,14 +1242,14 @@ describe("Superstate", () => {
             const mug = mugState.host();
             mug.on("full.tea.steeping", listener);
 
-            mug.send("pour()");
+            mug.send.pour();
             const teaSubstate = mug.in("full")?.sub.tea;
             if (!teaSubstate) throw new Error("Invalid state");
 
-            mug.send("drink()");
+            mug.send.drink();
 
-            teaSubstate?.send("infuse()");
-            mug.send("full.tea.infuse()");
+            teaSubstate?.send.infuse();
+            mug.send.full.tea.infuse();
 
             expect(listener).not.toBeCalled();
           });
@@ -1261,16 +1261,16 @@ describe("Superstate", () => {
             const doll = dollState.host();
             doll.on("open.doll.open.doll.open", listener);
 
-            doll.send("open()");
-            doll.send("open.doll.open()");
+            doll.send.open();
+            doll.send.open.doll.open();
 
             const smallDollSubstate = doll.in("open")?.sub.doll?.in("open")
               ?.sub.doll;
             if (!smallDollSubstate) throw new Error("Invalid state");
 
-            doll.send("close()");
+            doll.send.close();
 
-            smallDollSubstate.send("open()");
+            smallDollSubstate.send.open();
             expect(listener).not.toBeCalled();
           });
 
@@ -1280,14 +1280,14 @@ describe("Superstate", () => {
 
             const mug = createMugWithTeaState().host();
 
-            mug.send("pour()");
+            mug.send.pour();
 
             mug.on(["**", "full.tea.*", "full.tea.infuse()"], aListener);
             mug.on("**", bListener);
             mug.on("full.tea.*", bListener);
             mug.on("full.tea.infuse()", bListener);
 
-            mug.send("full.tea.infuse()");
+            mug.send.full.tea.infuse();
 
             expect(bListener).toHaveBeenCalledTimes(5);
             expect(aListener).toHaveBeenCalledTimes(2);
@@ -1302,9 +1302,9 @@ describe("Superstate", () => {
 
               mug.on("full.tea.*", listener);
 
-              mug.send("pour()");
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "state",
@@ -1321,12 +1321,12 @@ describe("Superstate", () => {
               const mugState = createMugWithTeaState();
 
               const mug = mugState.host();
-              mug.send("pour()");
+              mug.send.pour();
 
               mug.on("full.tea.*", listener);
 
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "state",
@@ -1348,9 +1348,9 @@ describe("Superstate", () => {
 
               mug.on("**", listener);
 
-              mug.send("pour()");
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "state",
@@ -1375,12 +1375,12 @@ describe("Superstate", () => {
               const mugState = createMugWithTeaState();
 
               const mug = mugState.host();
-              mug.send("pour()");
+              mug.send.pour();
 
               mug.on("**", listener);
 
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "state",
@@ -1401,7 +1401,7 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("*", listener);
-          player.send("play()");
+          player.send.play();
           expect(listener).toBeCalledWith({
             type: "event",
             transition: expect.objectContaining({ event: "play" }),
@@ -1413,7 +1413,7 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("*", listener);
-          player.send("play()");
+          player.send.play();
           expect(listener).toHaveBeenLastCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "playing" }),
@@ -1425,8 +1425,8 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("pause()", listener);
-          player.send("play()");
-          player.send("pause()");
+          player.send.play();
+          player.send.pause();
           expect(listener).not.toBeCalledWith({
             type: "event",
             transition: expect.objectContaining({ event: "play" }),
@@ -1446,9 +1446,9 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on(["pause()", "stop()"], listener);
-          player.send("play()");
-          player.send("pause()");
-          player.send("stop()");
+          player.send.play();
+          player.send.pause();
+          player.send.stop();
           expect(listener).not.toBeCalledWith({
             type: "event",
             transition: expect.objectContaining({ event: "play" }),
@@ -1472,9 +1472,9 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on(["pause()", "stopped"], listener);
-          player.send("play()");
-          player.send("pause()");
-          player.send("stop()");
+          player.send.play();
+          player.send.pause();
+          player.send.stop();
           expect(listener).not.toBeCalledWith({
             type: "event",
             transition: expect.objectContaining({ event: "play" }),
@@ -1500,7 +1500,7 @@ describe("Superstate", () => {
             .state("on", "toggle() -> off");
           const light = lightState.host();
           light.on("toggle()", listener);
-          light.send("toggle()");
+          light.send.toggle();
           expect(listener).toHaveBeenCalledOnce();
           expect(listener).toBeCalledWith({
             type: "event",
@@ -1510,7 +1510,7 @@ describe("Superstate", () => {
               to: "on",
             }),
           });
-          light.send("toggle()");
+          light.send.toggle();
           expect(listener).toHaveBeenCalledTimes(2);
           expect(listener).toBeCalledWith({
             type: "event",
@@ -1539,10 +1539,10 @@ describe("Superstate", () => {
                 )
               );
             const pc = pcState.host();
-            pc.send("press()");
+            pc.send.press();
             pc.on("press(long)", conditionListener);
             pc.on("press()", elseListener);
-            pc.send("press(long)");
+            pc.send.press("long");
             expect(elseListener).not.toHaveBeenCalled();
             expect(conditionListener).toBeCalledWith({
               type: "event",
@@ -1563,8 +1563,8 @@ describe("Superstate", () => {
 
             mug.on("full.tea.infuse()", listener);
 
-            mug.send("pour()");
-            mug.send("full.tea.infuse()");
+            mug.send.pour();
+            mug.send.full.tea.infuse();
 
             expect(listener).toBeCalledWith({
               type: "event",
@@ -1577,11 +1577,11 @@ describe("Superstate", () => {
             const mugState = createMugWithTeaState();
 
             const mug = mugState.host();
-            mug.send("pour()");
+            mug.send.pour();
 
             mug.on("full.tea.infuse()", listener);
 
-            mug.send("full.tea.infuse()");
+            mug.send.full.tea.infuse();
 
             expect(listener).toBeCalledWith({
               type: "event",
@@ -1596,14 +1596,14 @@ describe("Superstate", () => {
             const mug = mugState.host();
             mug.on("full.tea.infuse()", listener);
 
-            mug.send("pour()");
+            mug.send.pour();
             const teaSubstate = mug.in("full")?.sub.tea;
             if (!teaSubstate) throw new Error("Invalid state");
 
-            mug.send("drink()");
+            mug.send.drink();
 
-            teaSubstate?.send("infuse()");
-            mug.send("full.tea.infuse()");
+            teaSubstate?.send.infuse();
+            mug.send.full.tea.infuse();
 
             expect(listener).not.toBeCalled();
           });
@@ -1615,16 +1615,16 @@ describe("Superstate", () => {
             const doll = dollState.host();
             doll.on("open.doll.open.doll.open()", listener);
 
-            doll.send("open()");
-            doll.send("open.doll.open()");
+            doll.send.open();
+            doll.send.open.doll.open();
 
             const smallDollSubstate = doll.in("open")?.sub.doll?.in("open")
               ?.sub.doll;
             if (!smallDollSubstate) throw new Error("Invalid state");
 
-            doll.send("close()");
+            doll.send.close();
 
-            smallDollSubstate.send("open()");
+            smallDollSubstate.send.open();
             expect(listener).not.toBeCalled();
           });
 
@@ -1636,9 +1636,9 @@ describe("Superstate", () => {
               const mug = mugState.host();
               mug.on("full.tea.*", listener);
 
-              mug.send("pour()");
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "event",
@@ -1655,12 +1655,12 @@ describe("Superstate", () => {
               const mugState = createMugWithTeaState();
 
               const mug = mugState.host();
-              mug.send("pour()");
+              mug.send.pour();
 
               mug.on("full.tea.*", listener);
 
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "event",
@@ -1682,9 +1682,9 @@ describe("Superstate", () => {
 
               mug.on("**", listener);
 
-              mug.send("pour()");
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "event",
@@ -1705,12 +1705,12 @@ describe("Superstate", () => {
               const mugState = createMugWithTeaState();
 
               const mug = mugState.host();
-              mug.send("pour()");
+              mug.send.pour();
 
               mug.on("**", listener);
 
-              mug.send("full.tea.infuse()");
-              mug.send("full.tea.done()");
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
                 type: "event",
@@ -1732,7 +1732,7 @@ describe("Superstate", () => {
           const player = playerState.host();
           const off = player.on("*", listener);
           off();
-          player.send("play()");
+          player.send.play();
           expect(listener).not.toHaveBeenCalled();
         });
 
@@ -1744,14 +1744,14 @@ describe("Superstate", () => {
             const mug = mugState.host();
             const off = mug.on("full.tea.infuse()", listener);
 
-            mug.send("pour()");
-            mug.send("full.tea.infuse()");
+            mug.send.pour();
+            mug.send.full.tea.infuse();
 
             expect(listener).toHaveBeenCalledOnce();
 
             off();
 
-            mug.send("full.tea.infuse()");
+            mug.send.full.tea.infuse();
 
             expect(listener).toHaveBeenCalledOnce();
           });
@@ -1762,21 +1762,21 @@ describe("Superstate", () => {
 
             const doll = dollState.host();
             const off = doll.on("open.doll.open.doll.open()", listener);
-            doll.send("open.doll.open.doll.open()");
+            doll.send.open.doll.open.doll.open();
 
             expect(listener).not.toBeCalled();
 
-            doll.send("open()");
+            doll.send.open();
             expect(doll.state.name).toBe("open");
 
-            doll.send("open.doll.open()");
+            doll.send.open.doll.open();
             expect(
               doll.state.name === "open" && doll.state.sub.doll.state.name
             ).toBe("open");
 
             off();
 
-            doll.send("open.doll.open.doll.open()");
+            doll.send.open.doll.open.doll.open();
             expect(
               doll.state.name === "open" &&
                 doll.state.sub.doll.state.name === "open" &&
@@ -1793,14 +1793,14 @@ describe("Superstate", () => {
             const mug = mugState.host();
             const off = mug.on("full.tea.*", listener);
 
-            mug.send("pour()");
-            mug.send("full.tea.infuse()");
+            mug.send.pour();
+            mug.send.full.tea.infuse();
 
             expect(listener).toHaveBeenCalledTimes(2);
 
             off();
 
-            mug.send("full.tea.done()");
+            mug.send.full.tea.done();
 
             expect(listener).toHaveBeenCalledTimes(2);
           });
@@ -1812,14 +1812,14 @@ describe("Superstate", () => {
             const mug = mugState.host();
             const off = mug.on("**", listener);
 
-            mug.send("pour()");
-            mug.send("full.tea.infuse()");
+            mug.send.pour();
+            mug.send.full.tea.infuse();
 
             expect(listener).toHaveBeenCalledTimes(5);
 
             off();
 
-            mug.send("full.tea.done()");
+            mug.send.full.tea.done();
 
             expect(listener).toHaveBeenCalledTimes(5);
           });
@@ -1836,7 +1836,7 @@ describe("Superstate", () => {
           });
           credentials.on("*", listener);
 
-          const erroredState = credentials.send("submit(error) -> errored", {
+          const erroredState = credentials.send.submit.error("-> errored", {
             email: "",
             password: "123456",
             error: "Email not found",
@@ -1893,7 +1893,7 @@ describe("Superstate", () => {
           .state("on");
         const light = lightState.host();
         expect(light.in("on")).toBe(null);
-        light.send("toggle()");
+        light.send.toggle();
         expect(light.in("on")).toEqual(expect.objectContaining({ name: "on" }));
       });
 
@@ -1905,7 +1905,7 @@ describe("Superstate", () => {
         expect(light.in(["on", "off"])).toEqual(
           expect.objectContaining({ name: "off" })
         );
-        light.send("toggle()");
+        light.send.toggle();
         expect(light.in(["on", "off"])).toEqual(
           expect.objectContaining({ name: "on" })
         );
@@ -1915,7 +1915,7 @@ describe("Superstate", () => {
         it("allows to check for substates", () => {
           const mugState = createMugWithTeaState();
           const mug = mugState.host();
-          mug.send("pour()");
+          mug.send.pour();
           expect(mug.in("full")).toEqual(
             expect.objectContaining({ name: "full" })
           );
@@ -1927,7 +1927,7 @@ describe("Superstate", () => {
         it("allows to check for multiple substates", () => {
           const mugState = createMugWithTeaState();
           const mug = mugState.host();
-          mug.send("pour()");
+          mug.send.pour();
           expect(mug.in(["full.tea.steeping", "full.tea.water"])).toEqual(
             expect.objectContaining({ name: "water" })
           );
@@ -1941,7 +1941,7 @@ describe("Superstate", () => {
 
         it("returns the first state if the states are overlapping", () => {
           const mug = createMugWithTeaState().host();
-          mug.send("pour()");
+          mug.send.pour();
           expect(mug.in("full")).not.toBeNull();
           expect(mug.in("full.tea.water")).not.toBeNull();
 
@@ -1961,8 +1961,8 @@ describe("Superstate", () => {
         player.on("*", listener);
         player.on("playing", listener);
         player.off();
-        player.send("play()");
-        player.send("pause()");
+        player.send.play();
+        player.send.pause();
         expect(listener).not.toBeCalled();
       });
 
@@ -1975,10 +1975,10 @@ describe("Superstate", () => {
           mug.on("dirty", listener);
           mug.on("**", listener);
           mug.off();
-          mug.send("pour()");
-          mug.send("full.tea.infuse()");
-          mug.send("full.tea.done()");
-          mug.send("drink()");
+          mug.send.pour();
+          mug.send.full.tea.infuse();
+          mug.send.full.tea.done();
+          mug.send.drink();
           expect(listener).not.toBeCalled();
         });
 
@@ -1990,9 +1990,9 @@ describe("Superstate", () => {
           doll.on("closed", listener);
           doll.on("**", listener);
           doll.off();
-          doll.send("open()");
-          doll.send("open.doll.open()");
-          doll.send("open.doll.open.doll.open()");
+          doll.send.open();
+          doll.send.open.doll.open();
+          doll.send.open.doll.open.doll.open();
           expect(listener).not.toBeCalled();
         });
       });

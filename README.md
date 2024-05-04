@@ -108,7 +108,7 @@ volume.on(["low", "medium", "high"], (target) =>
 );
 
 // Trigger the events:
-volume.send("up()");
+volume.send.up();
 
 // Check the current state:
 if (volume.in("high")) console.log("The volume is at maximum");
@@ -178,7 +178,7 @@ To send an event with a condition, use the `send` method:
 const pc = pcState.host();
 
 // Send the long press event:
-const nextState = pc.send("press(long)");
+const nextState = pc.send.press("long");
 
 // The next state is "off":
 if (nextState) nextState.name satisfies "off";
@@ -190,7 +190,7 @@ If you send the `press()` event without the condition, it might transition to th
 
 ```ts
 // Send the press event:
-const nextState = pc.send("press()");
+const nextState = pc.send.press();
 
 // The next state is "sleep" or "on":
 if (nextState) nextState.name satisfies "sleep" | "on";
@@ -302,7 +302,7 @@ You can send events, subscribe to updates, and access the substate from the pare
 const player = playerState.host();
 
 // Send events to the substate:
-player.send("playing.volume.up()");
+player.send.playing.volume.up();
 
 // Subscribe to the substate state updates:
 player.on("playing.volume.low", (target) => console.log("The volume is low"));
@@ -477,7 +477,7 @@ const form = formState.host({
 });
 
 // Send submit event with errored context:
-form.send("submit(error) -> errored", {
+form.send.submit.error("-> errored", {
   email: "",
   password: "123456",
   error: "Email is missing",
@@ -971,7 +971,7 @@ Here are the available methods and properties:
 The property holds the current state of the statechart.
 
 ```ts
-instance.send("play()");
+instance.send.play();
 
 // Check the current state:
 instance.state.name;
@@ -983,7 +983,7 @@ instance.state.name;
 The property is `true` if the statechart has reached a final state.
 
 ```ts
-instance.send("terminate()");
+instance.send.terminate();
 
 // Check if the statechart is finalized:
 instance.finalized;
@@ -1081,7 +1081,7 @@ const off = instance.on("paused", () => {});
 off();
 
 // Won't trigger the listener:
-instance.send("pause()");
+instance.send.pause();
 ```
 
 Subscribe to multiple state and event updates at once:
@@ -1175,7 +1175,7 @@ The method sends an event to the statechart.
 instance.on("playing", () => console.log("Playing!"));
 
 // Send "play()", trigger the listener and print "Playing!":
-instance.send("play()");
+instance.send.play();
 ```
 
 The first argument is the event name. Guarded events receive the condition as part of the event name:
@@ -1186,16 +1186,16 @@ const instance = pcMachine.host();
 instance.on("press(long)", () => console.log("Pressed long"));
 
 // Won't trigger the listener:
-instance.send("press()");
+instance.send.press();
 
 // Will trigger the listener and print "Pressed long":
-instance.send("press(long)");
+instance.send.press("long");
 ```
 
 The method returns the next state if the event leads to a transition or `null` otherwise:
 
 ```ts
-const nextState = instance.send("play()");
+const nextState = instance.send.play();
 
 // If the event triggered a transition, send will return the playing state:
 if (nextState) {
@@ -1209,7 +1209,7 @@ To send the event to a substate, use the dot-notation path:
 instance.on("playing.volume.up()", () => console.log("Volume up!"));
 
 // Will trigger the listener and print "Volume up!":
-instance.send("playing.volume.up()");
+instance.send.playing.volume.up();
 ```
 
 #### `instance.off`
@@ -1223,7 +1223,7 @@ instance.on("playing", () => console.log("Playing!"));
 instance.off();
 
 // Won't trigger the listener:
-instance.send("play()");
+instance.send.play();
 ```
 
 ### Mermaid
