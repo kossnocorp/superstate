@@ -45,7 +45,7 @@ import { State, Superstate, superstate } from ".";
     ? State
     : never;
 
-  type TestSend = Superstate.Traits.Send<TestState>;
+  type TestSend = Superstate.Traits.Send.FromState<TestState>;
 
   // [TODO] Remove the debug code ^^^^^^
 
@@ -267,14 +267,14 @@ import { State, Superstate, superstate } from ".";
 {
   type LightState = "off" | "on";
 
-  const lightMachine = superstate<LightState>("light")
+  const lightState = superstate<LightState>("light")
     .state("off", "toggle() -> on")
     .state("on", "toggle() -> off");
 
-  const light = lightMachine.host();
+  const light = lightState.host();
 
   //! Can send events to multiple targets
-  const nextState = light.send("toggle()");
+  const nextState = light.send.toggle();
   if (nextState) {
     //! The next state is off
     nextState.name satisfies "off" | "on";
@@ -291,16 +291,16 @@ import { State, Superstate, superstate } from ".";
 {
   type CassetteState = "stopped" | "playing" | "ejected";
 
-  const casseteMachine = superstate<CassetteState>("cassette")
+  const casseteState = superstate<CassetteState>("cassette")
     .state("stopped", ($) => $.on(["play() -> playing", "eject() -> ejected"]))
     //! Mixed events definition
     .state("playing", "stop() -> stopped", ($) => $.on("eject() -> ejected"))
     .final("ejected");
 
-  const cassete = casseteMachine.host();
+  const cassete = casseteState.host();
 
   //! Should be able to send exit events
-  const nextState = cassete.send("eject()");
+  const nextState = cassete.send.eject();
 
   //! The next step is final
   if (nextState) {
@@ -335,7 +335,7 @@ import { State, Superstate, superstate } from ".";
 
   //! Allows to send an event without the condition
   {
-    const nextState = pc.send("press()");
+    const nextState = pc.send.press();
     //! It properly infers the next state
     if (nextState) {
       nextState.name satisfies "on" | "sleep";
@@ -344,7 +344,7 @@ import { State, Superstate, superstate } from ".";
 
   //! Allows to send an event with the condition
   {
-    const nextState = pc.send("press(long)");
+    const nextState = pc.send.press("long");
     //! It properly infers the next state
     if (nextState) {
       nextState.name satisfies "off";
@@ -353,34 +353,57 @@ import { State, Superstate, superstate } from ".";
 
   //! Allows to send short condition
   {
-    const nextState = pc.send("press(long)");
+    const nextState = pc.send.press("long");
     //! It properly infers the next state
     if (nextState) {
       nextState.name satisfies "off";
     }
   }
 
+  // [TODO] Remove the debug code vvvvvv
+
+  type TestState = typeof pcState extends Superstate.Factories.Factory<
+    infer State
+  >
+    ? State
+    : never;
+
+  type TestSend = Superstate.Traits.Send.FromState<TestState>;
+
+  type TestSendFilter<Send, Condition> = Send extends {
+    type: "event";
+    condition: Condition;
+  }
+    ? Send
+    : never;
+
+  type TestSendPress = TestSendFilter<TestSend["press"], any>;
+
+  type TestSendFn = Superstate.Listeners.SendEventFn<TestSendPress>;
+
+  // [TODO] Remove the debug code ^^^^^^
+
   //! null should not leak
   // @ts-expect-error
-  pc.send("press(null)");
+  pc.send.press("null");
 
   //! The condition is undefined
   // @ts-expect-error
-  pc.send("press()", "nope");
+  pc.send.press("nope");
 
   //! Can't send conditions to wrong events
   // @ts-expect-error
-  pc.send("restart()", "long");
+  pc.send.restart("long");
 
   //! Can't send undefined events
   // @ts-expect-error
   pc.send();
   // @ts-expect-error
-  pc.send("nope()");
+  pc.send.nope();
   // @ts-expect-error
-  pc.send("nope()", "nope");
+  pc.send.nope("nope");
   // @ts-expect-error
-  pc.send("nope()", "long");
+  pc.send.nope("long");
 
   //! on
 
@@ -396,40 +419,40 @@ import { State, Superstate, superstate } from ".";
 {
   type CatState = "boxed" | "alive" | "dead";
 
-  const catMachine = superstate<CatState>("cat")
+  const catState = superstate<CatState>("cat")
     .state("boxed", ($) =>
       $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"])
     )
     .state("alive", ($) => $.on("pet() -> alive"))
     .state("dead");
 
-  const cat = catMachine.host();
+  const cat = catState.host();
 
   //! Allows to send conditional exit events
-  cat.send("reveal(lucky)");
-  cat.send("reveal(unlucky)");
+  cat.send.reveal("lucky");
+  cat.send.reveal("unlucky");
 
   //! The condition is undefined
   // @ts-expect-error
-  cat.send("reveal()", "nope");
+  cat.send.reveal("nope");
 
   //! Should always pass the condition
   // @ts-expect-error
-  cat.send("reveal()");
+  cat.send.reveal();
 
   //! Can't send conditions to wrong events
   // @ts-expect-error
-  cat.send("restart()", "long");
+  cat.send.restart("long");
 
   //! Can't send undefined events
   // @ts-expect-error
   cat.send();
   // @ts-expect-error
-  cat.send("nope()");
+  cat.send.nope();
   // @ts-expect-error
-  cat.send("nope()", "nope");
+  cat.send.nope("nope");
   // @ts-expect-error
-  cat.send("nope()", "long");
+  cat.send.nope("long");
 
   //! on
 
@@ -446,7 +469,7 @@ import { State, Superstate, superstate } from ".";
 {
   type TeaState = "water" | "steeping" | "ready" | "finished";
 
-  const teaMachine = superstate<TeaState>("tea")
+  const teaState = superstate<TeaState>("tea")
     .state("water", ["infuse() -> steeping", "drink() -> finished"])
     .state("steeping", ["done() -> ready", "drink() -> finished"])
     .state("ready", ["drink() -> finished"])
@@ -459,7 +482,7 @@ import { State, Superstate, superstate } from ".";
     .state("full", ["drink() -> clear"], ($) =>
       $.sub(
         "tea",
-        teaMachine,
+        teaState,
         //! The exit must be a correct state
         // @ts-expect-error
         "tea.finishe -> finish() -> dirty"
@@ -472,7 +495,7 @@ import { State, Superstate, superstate } from ".";
     .state("full", ["drink() -> clear"], ($) =>
       $.sub(
         "tea",
-        teaMachine,
+        teaState,
         //! The exit must be a final strate
         // @ts-expect-error
         "tea.water -> finish() -> dirty"
@@ -485,7 +508,7 @@ import { State, Superstate, superstate } from ".";
     .state("full", ["drink() -> clear"], ($) =>
       $.sub(
         "tea",
-        teaMachine,
+        teaState,
         //! The exiting state must be correct
         // @ts-expect-error
         "tea.finished -> finish() -> dity"
@@ -493,15 +516,15 @@ import { State, Superstate, superstate } from ".";
     )
     .state("dirty", ["clean() -> clear"]);
 
-  const mugMachine = superstate<MugState>("mug")
+  const mugState = superstate<MugState>("mug")
     .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub("tea", teaMachine, "tea.finished -> finish() -> dirty")
+      $.sub("tea", teaState, "tea.finished -> finish() -> dirty")
     )
     .state("dirty", ["clean() -> clear"]);
 
-  const tea = teaMachine.host();
-  const mug = mugMachine.host();
+  const tea = teaState.host();
+  const mug = mugState.host();
 
   //! on
 
@@ -581,16 +604,39 @@ import { State, Superstate, superstate } from ".";
 
   //! Should be able to send events to substates
   {
-    const nextState = mug.send("full.tea.infuse()");
+    const nextState = mug.send.full.tea.infuse();
     if (nextState) {
       //! The next state is steeping
       nextState.name satisfies "steeping";
     }
   }
 
+  // [TODO] Remove the debug code vvvvvv
+
+  type TestState = typeof mugState extends Superstate.Factories.Factory<
+    infer State
+  >
+    ? State
+    : never;
+
+  type TestSend = Superstate.Traits.Send.FromState<TestState>;
+
+  type TestSendFilter<Send, Condition> = Send extends {
+    type: "event";
+    condition: Condition;
+  }
+    ? Send
+    : never;
+
+  // type TestSendPress = TestSendFilter<TestSend["press"], any>;
+
+  // type TestSendFn = Superstate.Listeners.SendEventFn<TestSendPress>;
+
+  // [TODO] Remove the debug code ^^^^^^
+
   //! Should not be able to send final transition events
   // @ts-expect-error
-  mug.send("finish()");
+  mug.send.finish();
 
   //! Matching states
   {
@@ -618,13 +664,13 @@ import { State, Superstate, superstate } from ".";
 {
   type ExpireState = "fresh" | "expired";
 
-  const expireMachine = superstate<ExpireState>("expire")
+  const expireState = superstate<ExpireState>("expire")
     .state("expired", "expire() -> expired")
     .state("fresh");
 
   type HeatState = "frozen" | "thawed" | "hot";
 
-  const heatMachine = superstate<HeatState>("heat")
+  const heatState = superstate<HeatState>("heat")
     .state("frozen", "thaw() -> thawed")
     .state("thawed", "heat() -> hot")
     .state("hot");
@@ -633,20 +679,20 @@ import { State, Superstate, superstate } from ".";
 
   type EatState = "eating" | "finished";
 
-  const eatMachine = superstate<EatState>("eat")
+  const eatState = superstate<EatState>("eat")
     .state("eating", "eat() -> finished")
     .final("finished");
 
-  const meatPieMachine = superstate<MeatPieState>("meatPie")
+  const meatPieState = superstate<MeatPieState>("meatPie")
     .state("unpacked", ($) =>
-      $.sub("expire", expireMachine)
-        .sub("heat", heatMachine)
-        .sub("eat", eatMachine, "eat.finished -> finish() -> finished")
+      $.sub("expire", expireState)
+        .sub("heat", heatState)
+        .sub("eat", eatState, "eat.finished -> finish() -> finished")
     )
     .state("cooked")
     .final("finished");
 
-  const meatPie = meatPieMachine.host();
+  const meatPie = meatPieState.host();
 
   //! on
 
@@ -663,14 +709,14 @@ import { State, Superstate, superstate } from ".";
 
   //! Can send events to the parallel states
   {
-    const nextState = meatPie.send("unpacked.eat.eat()");
+    const nextState = meatPie.send.unpacked.eat.eat();
     //! The next state is finished
     if (nextState) nextState.name satisfies "finished";
   }
 
   //! Can't send invalid events
   // @ts-expect-error
-  meatPie.send("unpacked.eat.heat()");
+  meatPie.send.unpacked.eat.heat();
 
   //! in
 
@@ -692,7 +738,7 @@ import { State, Superstate, superstate } from ".";
   type SwitchState = "off" | "on";
 
   //! Enter actions
-  const switchMachineDouble = superstate<SwitchState>("switch")
+  const switchStateDouble = superstate<SwitchState>("switch")
     .state("off", ($) => $.enter("turnOff!").on("toggle() -> on"))
     .state("on", ($) => $.enter("turnOn!").on("toggle() -> off"));
 
@@ -704,12 +750,12 @@ import { State, Superstate, superstate } from ".";
     );
 
   //! Shortcut definition
-  const switchMachineShortcut = superstate<SwitchState>("switch")
+  const switchStateShortcut = superstate<SwitchState>("switch")
     .state("off", "toggle() -> on")
     .state("on", ["-> turnOn!", "turnOff! ->", "toggle() -> off"]);
 
   //! Mixed shortcut definition
-  const switchMachineMixedShortcut = superstate<SwitchState>("switch")
+  const switchStateMixedShortcut = superstate<SwitchState>("switch")
     .state("off", "toggle() -> on")
     .state("on", ["-> turnOn!", "toggle() -> off"], ($) => $.exit("turnOff!"));
 
@@ -748,7 +794,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! It allows to bind multiple states
-  switchMachineDouble.host({
+  switchStateDouble.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
     },
@@ -758,13 +804,13 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! Allows to bind shortcut actions
-  switchMachineShortcut.host({
+  switchStateShortcut.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
     },
   });
-  switchMachineMixedShortcut.host({
+  switchStateMixedShortcut.host({
     on: {
       "-> turnOn!": () => console.log("Turning on"),
       "turnOff! ->": () => console.log("Turning off"),
@@ -822,7 +868,7 @@ import { State, Superstate, superstate } from ".";
     .state("pushed", "press() -> turnOff! -> off");
 
   //! Allows to use shortcuts
-  const buttonMachineMixed = superstate<PushableButtonState>("button")
+  const buttonStateMixed = superstate<PushableButtonState>("button")
     .state("off", "press() -> turnOn! -> on")
     .state("on", "press(long) -> blink! -> pushed", ($) =>
       $.on("press() -> turnOff! -> off")
@@ -869,7 +915,7 @@ import { State, Superstate, superstate } from ".";
   });
 
   //! It allows to bind mixed actions
-  buttonMachineMixed.host({
+  buttonStateMixed.host({
     off: {
       "press() -> turnOn!": () => console.log("Turning on"),
     },
@@ -1080,33 +1126,50 @@ import { State, Superstate, superstate } from ".";
     });
 
     //! It requires to include the context assignment when sending an event
-    form.send("submit() -> profile", {
+    form.send.submit("-> profile", {
       ref: "topbar",
       email: "koss@nocorp.me",
       password: "123456",
     });
 
+    //! It doesn't allow passing extra fields
+    // @ts-expect-error
+    form.send.submit("-> profile", {
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+      error: "nope",
+    });
+    const payload = {
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+      error: "nope",
+    };
+    // @ts-expect-error
+    form.send.submit("-> profile", payload);
+
     //! It doesn't allow to omit the context fields from the previous state
     // @ts-expect-error
-    form.send("submit() -> profile", {
+    form.send.submit("-> profile", {
       email: "koss@nocorp.me",
       password: "123456",
     });
     // @ts-expect-error
-    form.send("submit() -> done", {
+    form.send.submit("-> done", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
 
     //! It allows to pass function that accepts the previous context
-    form.send("submit() -> profile", ($, context) =>
+    form.send.submit("-> profile", ($, context) =>
       $({
         ref: context.ref,
         email: "koss@nocorp.me",
         password: "123456",
       })
     );
-    form.send("submit() -> done", ($, context) =>
+    form.send.submit("-> done", ($, context) =>
       $({
         ref: context.ref,
         email: context.email,
@@ -1117,62 +1180,66 @@ import { State, Superstate, superstate } from ".";
     );
 
     //! It disallows passing extra fields
-    form.send("submit() -> profile", ($, context) =>
+    form.send.submit("-> profile", ($, context) =>
+      // @ts-expect-error
       $({
         ref: context.ref,
         email: "koss@nocorp.me",
         password: "123456",
-        // @ts-expect-error
         error: "nope",
       })
     );
-    form.send("submit() -> done", ($, context) =>
+    form.send.submit("-> done", ($, context) =>
+      // @ts-expect-error
       $({
         ref: context.ref,
         email: context.email,
         password: context.password,
         fullName: "Sasha Koss",
         company: "No Corp",
-        // @ts-expect-error
         error: "nope",
       })
     );
 
     //! It disallows returning context from the updater
-    // @ts-expect-error
-    form.send("submit() -> profile", () => ({
-      ref: "topbar",
-      email: "koss@nocorp.me",
-      password: "123456",
-      error: "nope",
-    }));
-    // @ts-expect-error
-    form.send("submit() -> done", (context) => ({
-      ref: "topbar",
-      email: "koss@nocorp.me",
-      password: "123456",
-      fullName: "Sasha Koss",
-      company: "No Corp",
-      error: "nope",
-    }));
+    form.send.submit("-> profile", ($) =>
+      // @ts-expect-error
+      $({
+        ref: "topbar",
+        email: "koss@nocorp.me",
+        password: "123456",
+        error: "nope",
+      })
+    );
+    form.send.submit("-> done", ($, context) =>
+      // @ts-expect-error
+      $({
+        ref: "topbar",
+        email: "koss@nocorp.me",
+        password: "123456",
+        fullName: "Sasha Koss",
+        company: "No Corp",
+        error: "nope",
+      })
+    );
 
     //! It should not allow to send invalid context
-    form.send("submit() -> profile", {
-      // @ts-expect-error
+    // @ts-expect-error
+    form.send.submit("-> profile", {
       nope: "nah",
     });
 
     //! null can't be a valid payload
     // @ts-expect-error
-    form.send("submit() -> profile", null);
+    form.send.submit("-> profile", null);
 
     //! Empty object can't be a valid payload
     // @ts-expect-error
-    form.send("submit() -> profile", {});
+    form.send.submit("-> profile", {});
 
     //! Should not accept wrong context
-    form.send("submit() -> profile", {
-      // @ts-expect-error
+    // @ts-expect-error
+    form.send.submit("-> profile", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
@@ -1203,7 +1270,7 @@ import { State, Superstate, superstate } from ".";
         },
       });
 
-      form.send("submit() -> profile", {
+      form.send.submit("-> profile", {
         ref: "hello",
         email: "koss@nocorp.me",
         password: "123456",
@@ -1211,18 +1278,18 @@ import { State, Superstate, superstate } from ".";
 
       //! ref is required while it's optional on SignUpInitial
       // @ts-expect-error
-      form.send("submit() -> profile", {
+      form.send.submit("-> profile", {
         email: "koss@nocorp.me",
         password: "123456",
       });
 
       //! null can't be a valid payload
       // @ts-expect-error
-      form.send("submit() -> profile", null);
+      form.send.submit("-> profile", null);
 
       //! Empty object can't be a valid payload
       // @ts-expect-error
-      form.send("submit() -> profile", {});
+      form.send.submit("-> profile", {});
     }
 
     //! It prevents assigning incompatible union types
@@ -1266,65 +1333,16 @@ import { State, Superstate, superstate } from ".";
       });
 
       //! Ok as we assign email and password only
-      form.send("submit() -> complete", ($, { email, password }) =>
-        $({ email, password })
+      form.send.submit("-> complete", ($, { email, password }) =>
+        $({
+          email,
+          password,
+        })
       );
 
       //! Should fail as we leak error field
       // @ts-expect-error
-      form.send("submit() -> complete", ($, context) => $(context));
-
-      // [TODO] Remove the debug code vvvvvv
-
-      // @ts-expect-error
-      form.send("submit() -> complete", ($, context) => {
-        type Wut = typeof $;
-        $({ email: "", password: "", error: "asd" });
-        $({ email: "", pasword: "", error: "asd" });
-        $(context);
-        return $(context);
-      });
-
-      const wut2 = {
-        email: "",
-        password: "",
-        error: "asd",
-        qweqweqweqwe: 123,
-      };
-
-      form.send("submit() -> complete", wut2);
-
-      form.send("submit() -> complete", {
-        email: "",
-        password: "",
-        error: "asd",
-      });
-
-      form.send("submit() -> complete", {
-        email: "",
-        password: "",
-      });
-
-      function world<Type>(fields: Exact<Type, Fields>) {
-        throw new Error();
-      }
-
-      const wut = {
-        email: "",
-        password: "",
-        please: "nope",
-      };
-
-      const result = world({
-        email: "",
-        password: "",
-      });
-
-      const result2 = world(wut);
-
-      type Exact<A, B> = A extends B ? (B extends A ? A : never) : never;
-
-      // [TODO] Remove the debug code ^^^^^^
+      form.send.submit("-> complete", (context) => context);
     }
 
     //! It properly resolves state on send
@@ -1336,7 +1354,7 @@ import { State, Superstate, superstate } from ".";
         context: { email: "", password: "" },
       });
 
-      const erroredState = credentials.send("submit(error) -> errored", {
+      const erroredState = credentials.send.submit.error("-> errored", {
         email: "",
         password: "123456",
         error: "Email not found",
@@ -1393,14 +1411,14 @@ import { State, Superstate, superstate } from ".";
     formState.host({ context: {} });
 
     //! It allows to send context with guarded events
-    form.send("submit(error) -> credentials", {
+    form.send.submit.error("-> credentials", {
       email: "",
       password: "123456",
       error: "The email is missing",
     });
 
     //! It allows to send context with unguarded events
-    form.send("submit() -> done", ($, context) =>
+    form.send.submit("-> done", ($, context) =>
       $({
         ...context,
         fullName: "Sasha Koss",
@@ -1409,18 +1427,18 @@ import { State, Superstate, superstate } from ".";
     );
 
     //! It should not allow incorrect context
-    form.send("submit(error) -> credentials", {
-      // @ts-expect-error
+    // @ts-expect-error
+    form.send.submit.error("-> credentials", {
       nope: "nah",
     });
 
     //! It should not allow null
     // @ts-expect-error
-    form.send("submit(error) -> credentials", null);
+    form.send.submit.error("-> credentials", null);
 
     //! It should not context from another state
-    form.send("submit(error) -> credentials", {
-      // @ts-expect-error
+    // @ts-expect-error
+    form.send.submit.error("-> credentials", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
@@ -1556,28 +1574,28 @@ import { State, Superstate, superstate } from ".";
     {
       const form = signUpState.host();
 
-      form.send("profile.form.submit() -> .complete", {
+      form.send.profile.form.submit("-> complete", {
         fullName: "Sasha Koss",
         company: "No Corp",
       });
 
       //! It won't accept incomplete context
       // @ts-expect-error
-      form.send("profile.form.submit() -> .complete", {
+      form.send.profile.form.submit("-> .complete", {
         company: "No Corp",
       });
 
       //! Context must be defined
       // @ts-expect-error
-      form.send("profile.form.submit() -> .complete");
+      form.send.profile.form.submit("-> .complete");
 
       //! Context can't be empty
       // @ts-expect-error
-      form.send("profile.form.submit() -> .complete", {});
+      form.send.profile.form.submit("-> .complete", {});
 
       //! Context can't be null
       // @ts-expect-error
-      form.send("profile.form.submit() -> .complete", null);
+      form.send.profile.form.submit("-> .complete", null);
     }
 
     //! It requires to include initial context for substates
@@ -1663,13 +1681,11 @@ import { State, Superstate, superstate } from ".";
 
         credentials: {
           form: {
-            context: ($, context) => {
-              context satisfies RefFields;
-              return $({
+            context: ($, context) =>
+              $({
                 email: "",
                 password: "",
-              });
-            },
+              }),
           },
         },
 
@@ -1993,7 +2009,7 @@ import { State, Superstate, superstate } from ".";
   );
 
   // Trigger the events:
-  volume.send("up()");
+  volume.send.up();
 
   // Check the current state:
   if (volume.in("high")) console.log("The volume is at maximum");
@@ -2034,7 +2050,7 @@ import { State, Superstate, superstate } from ".";
 
     {
       // Send the long press event:
-      const nextState = pc.send("press(long)");
+      const nextState = pc.send.press("long");
 
       // The next state is "off":
       if (nextState) nextState.name satisfies "off";
@@ -2042,7 +2058,7 @@ import { State, Superstate, superstate } from ".";
 
     {
       // Send the press event:
-      const nextState = pc.send("press()");
+      const nextState = pc.send.press();
 
       // The next state is "sleep" or "on":
       if (nextState) nextState.name satisfies "sleep" | "on";
@@ -2114,7 +2130,7 @@ import { State, Superstate, superstate } from ".";
     const player = playerState.host();
 
     // Send events to the substate:
-    player.send("playing.volume.up()");
+    player.send.playing.volume.up();
 
     // Subscribe to the substate updates:
     player.on("playing.volume.low", (update) =>
@@ -2521,7 +2537,7 @@ import { State, Superstate, superstate } from ".";
     {
       const instance = playerState.host();
 
-      instance.send("play()");
+      instance.send.play();
 
       // Check the current state:
       instance.state.name;
@@ -2533,7 +2549,7 @@ import { State, Superstate, superstate } from ".";
     {
       const instance = osState.host();
 
-      instance.send("terminate()");
+      instance.send.terminate();
 
       // Check if the statechart is finalized:
       instance.finalized;
@@ -2605,7 +2621,7 @@ import { State, Superstate, superstate } from ".";
       off();
 
       // Won't trigger the listener:
-      instance.send("pause()");
+      instance.send.pause();
 
       // Trigger on "pause()" event and "paused" state:
       instance.on(["paused", "pause()"], (update) => {
@@ -2671,7 +2687,7 @@ import { State, Superstate, superstate } from ".";
       instance.on("playing", () => console.log("Playing!"));
 
       // Send "play()", trigger the listener and print "Playing!":
-      instance.send("play()");
+      instance.send.play();
     }
 
     //! instance.off
@@ -2684,12 +2700,12 @@ import { State, Superstate, superstate } from ".";
       instance.off();
 
       // Won't trigger the listener:
-      instance.send("play()");
+      instance.send.play();
 
       {
         type PCState = "on" | "sleep" | "off";
 
-        const pcMachine = superstate<PCState>("pc")
+        const pcState = superstate<PCState>("pc")
           .state("off", "press() -> on")
           .state("sleep", ($) =>
             $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
@@ -2700,19 +2716,19 @@ import { State, Superstate, superstate } from ".";
               .on("restart() -> on")
           );
 
-        const instance = pcMachine.host();
+        const instance = pcState.host();
 
         instance.on("press(long)", () => console.log("Pressed long"));
 
         // Won't trigger the listener:
-        instance.send("press()");
+        instance.send.press();
 
         // Will trigger the listener and print "Pressed long":
-        instance.send("press(long)");
+        instance.send.press("long");
       }
 
       {
-        const nextState = instance.send("play()");
+        const nextState = instance.send.play();
 
         // If the event triggered a transition, send will return the playing state:
         if (nextState) {
@@ -2724,7 +2740,7 @@ import { State, Superstate, superstate } from ".";
         instance.on("playing.volume.up()", () => console.log("Volume up!"));
 
         // Will trigger the listener and print "Volume up!":
-        instance.send("playing.volume.up()");
+        instance.send.playing.volume.up();
       }
     }
   }
@@ -2780,7 +2796,7 @@ import { State, Superstate, superstate } from ".";
     });
 
     // Send submit event with errored context:
-    form.send("submit(error) -> errored", {
+    form.send.submit.error("-> errored", {
       email: "",
       password: "123456",
       error: "Email is missing",
@@ -2804,12 +2820,12 @@ import { State, Superstate, superstate } from ".";
     });
 
     // Send submit event with errored context:
-    form.send("submit() -> complete", ($, { email, password }) =>
+    form.send.submit("-> complete", ($, { email, password }) =>
       $({ email, password })
     );
 
     // Send submit event with errored context:
-    form.send("submit() -> complete", ($, context) => $(context));
+    form.send.submit("-> complete", ($, context) => $(context));
   }
 }
 //#endregion
