@@ -1314,12 +1314,12 @@ import { State, Superstate, superstate } from ".";
       const formState = superstate<FormState>("form")
         .state("pending", [
           "submit(error) -> errored",
-          "submit() -> complete",
+          // "submit() -> complete",
           "cancel() -> canceled",
         ])
         .state("errored", [
           "submit(error) -> errored",
-          "submit() -> complete",
+          // "submit() -> complete",
           "cancel() -> canceled",
         ])
         .final("complete")
@@ -1354,7 +1354,7 @@ import { State, Superstate, superstate } from ".";
         context: { email: "", password: "" },
       });
 
-      const erroredState = credentials.send.submit.error("-> errored", {
+      const erroredState = credentials.send.submit("error", "-> errored", {
         email: "",
         password: "123456",
         error: "Email not found",
@@ -1362,6 +1362,41 @@ import { State, Superstate, superstate } from ".";
 
       //! The state should resolve
       erroredState?.context;
+
+      // [TODO] Remove the debug code vvvvvv
+
+      type TestState =
+        typeof credentialsState extends Superstate.Factories.Factory<
+          infer State
+        >
+          ? State
+          : never;
+
+      type TestSend = Superstate.Traits.Send.FromState<TestState>;
+
+      type TestSendEvent<Send> =
+        Send extends Superstate.Traits.Send.EventConstraint ? Send : never;
+
+      type TestSendEventCondition<Send, Condition> = Send extends {
+        condition: Condition;
+      }
+        ? Send
+        : never;
+
+      type TestSendSubmit = TestSendEventCondition<
+        TestSendEvent<TestSend["submit"]>,
+        "error"
+      >;
+
+      type TestSendEventFn<Send> = Superstate.Listeners.SendEventFn<
+        TestSendEvent<Send>
+      >;
+
+      type TestSendEventFnSubmit = Superstate.Utils.UnionToIntersection<
+        TestSendEventFn<TestSendSubmit>
+      >;
+
+      // [TODO] Remove the debug code ^^^^^^
     }
   }
 
@@ -1411,7 +1446,7 @@ import { State, Superstate, superstate } from ".";
     formState.host({ context: {} });
 
     //! It allows to send context with guarded events
-    form.send.submit.error("-> credentials", {
+    form.send.submit("error", "-> credentials", {
       email: "",
       password: "123456",
       error: "The email is missing",
@@ -1428,17 +1463,17 @@ import { State, Superstate, superstate } from ".";
 
     //! It should not allow incorrect context
     // @ts-expect-error
-    form.send.submit.error("-> credentials", {
+    form.send.submit("error", "-> credentials", {
       nope: "nah",
     });
 
     //! It should not allow null
     // @ts-expect-error
-    form.send.submit.error("-> credentials", null);
+    form.send.submit("error", "-> credentials", null);
 
     //! It should not context from another state
     // @ts-expect-error
-    form.send.submit.error("-> credentials", {
+    form.send.submit("error", "-> credentials", {
       fullName: "Sasha Koss",
       company: "No Corp",
     });
@@ -2796,7 +2831,7 @@ import { State, Superstate, superstate } from ".";
     });
 
     // Send submit event with errored context:
-    form.send.submit.error("-> errored", {
+    form.send.submit("error", "-> errored", {
       email: "",
       password: "123456",
       error: "Email is missing",

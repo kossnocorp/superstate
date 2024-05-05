@@ -1100,33 +1100,37 @@ export namespace Superstate {
     };
 
     export type SendEventFn<Trait extends Traits.Send.EventConstraint> =
-      Trait extends { condition: infer Condition }
-        ? Trait["next"]["context"] extends null
-          ? Condition extends null
-            ? // No condition, no context
-              () => Trait["next"] | null
-            : // With condition, no context
-              (condition: Trait["condition"]) => Trait["next"] | null
-          : Condition extends null
-          ? // No condition, with context
-            <PassedContext extends Trait["next"]["context"]>(
-              to: `-> ${Trait["next"]["name"]}`,
-              context: Contexts.ContextArg<
-                PassedContext,
-                Trait["next"]["context"],
-                Trait["from"]["context"]
-              >
-            ) => Trait["next"] | null
-          : // With condition, with context
-            <PassedContext extends Trait["next"]["context"]>(
-              condition: Trait["condition"],
-              to: `-> ${Trait["next"]["name"]}`,
-              context: Contexts.ContextArg<
-                PassedContext,
-                Trait["next"]["context"],
-                Trait["from"]["context"]
-              >
-            ) => Trait["next"] | null
+      Trait extends Trait
+        ? Trait extends { condition: infer Condition }
+          ? Trait["next"]["context"] extends null
+            ? Condition extends null
+              ? // No condition, no context
+                () => Trait["next"] | null
+              : // With condition, no context
+                (condition: Trait["condition"]) => Trait["next"] | null
+            : Condition extends null
+            ? // No condition, with context
+              <PassedContext extends Trait["next"]["context"]>(
+                to: `-> ${Trait["next"]["name"]}`,
+                context: Contexts.ContextArg<
+                  PassedContext,
+                  Trait["next"]["context"],
+                  Trait["from"]["context"]
+                >
+              ) => Trait["next"] | null
+            : // With condition, with context
+            Trait extends Trait
+            ? <PassedContext extends Trait["next"]["context"]>(
+                condition: Trait["condition"],
+                to: `-> ${Trait["next"]["name"]}`,
+                context: Contexts.ContextArg<
+                  PassedContext,
+                  Trait["next"]["context"],
+                  Trait["from"]["context"]
+                >
+              ) => Trait["next"] | null
+            : never
+          : never
         : never;
 
     //#endregion
@@ -1537,7 +1541,6 @@ export namespace Superstate {
           // Assign substates
           | (State extends {
               sub: infer Substates;
-              context: infer Context extends Contexts.Constraint | null;
             }
               ? keyof Substates extends never
                 ? never
@@ -1829,6 +1832,29 @@ export namespace Superstate {
       : never;
 
     export type Exact<A, B> = A extends B ? (B extends A ? A : never) : never;
+
+    export type NoExtras<OriginalType, Type> = Exclude<
+      keyof Type,
+      keyof OriginalType
+    > extends infer ExtraKeys extends keyof Type
+      ? ExtraKeys extends never
+        ? OriginalType
+        : 456
+      : 123;
+
+    // [TODO] Remove the debug code vvvvvv
+
+    // type TestNoExtras = NoExtras<{ a: string }, { a: string; b: number }>;
+
+    function createNoExtras<OriginalType>() {
+      return <Type extends OriginalType>(value: Type) => {};
+    }
+
+    createNoExtras<{ a: string }>()({ a: "asd", b: 123 });
+    const asd = { a: "asd", b: 1 };
+    createNoExtras<{ a: string }>()(asd);
+
+    // [TODO] Remove the debug code ^^^^^^
   }
   //#endregion
 }
