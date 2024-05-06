@@ -12,9 +12,13 @@ This change log follows the format documented in [Keep a CHANGELOG].
 
 ### Changed
 
-- **BREAKING**: Sending events with the condition as a separate argument is no longer supported: `.send("event()", "condition")` -> `.send("event(condition)")`.
+- **BREAKING**: Changed the send API from string-based to proxy-based: `.send("event()")` -> `.send.event()`. Condition is now a separate argument: `.send.event("condition")`. To send substate events, use the substate name as a prefix: `.send.os.event()`.
 
 - **BREAKING**: The final state to parent transition definition now requires including the substate name into the source state: `.sub("os", osState, "terminated -> shutdown() -> off")` -> `.sub("os", osState, "os.terminated -> shutdown() -> off"))`.
+
+### Added
+
+- Added contexts support. [See README](https://github.com/kossnocorp/superstate#contexts).
 
 ## v1.0.0-beta.2 - 2024-04-11
 
