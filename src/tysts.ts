@@ -37,18 +37,6 @@ import { State, Superstate, superstate } from ".";
   // @ts-expect-error
   player.send.nope();
 
-  // [TODO] Remove the debug code vvvvvv
-
-  type TestState = typeof playerState extends Superstate.Factories.Factory<
-    infer State
-  >
-    ? State
-    : never;
-
-  type TestSend = Superstate.Traits.Send.FromState<TestState>;
-
-  // [TODO] Remove the debug code ^^^^^^
-
   //! It returns the next state or null
   {
     const nextState = player.send.play();
@@ -360,29 +348,6 @@ import { State, Superstate, superstate } from ".";
     }
   }
 
-  // [TODO] Remove the debug code vvvvvv
-
-  type TestState = typeof pcState extends Superstate.Factories.Factory<
-    infer State
-  >
-    ? State
-    : never;
-
-  type TestSend = Superstate.Traits.Send.FromState<TestState>;
-
-  type TestSendFilter<Send, Condition> = Send extends {
-    type: "event";
-    condition: Condition;
-  }
-    ? Send
-    : never;
-
-  type TestSendPress = TestSendFilter<TestSend["press"], any>;
-
-  type TestSendFn = Superstate.Listeners.SendEventFn<TestSendPress>;
-
-  // [TODO] Remove the debug code ^^^^^^
-
   //! null should not leak
   // @ts-expect-error
   pc.send.press("null");
@@ -610,29 +575,6 @@ import { State, Superstate, superstate } from ".";
       nextState.name satisfies "steeping";
     }
   }
-
-  // [TODO] Remove the debug code vvvvvv
-
-  type TestState = typeof mugState extends Superstate.Factories.Factory<
-    infer State
-  >
-    ? State
-    : never;
-
-  type TestSend = Superstate.Traits.Send.FromState<TestState>;
-
-  type TestSendFilter<Send, Condition> = Send extends {
-    type: "event";
-    condition: Condition;
-  }
-    ? Send
-    : never;
-
-  // type TestSendPress = TestSendFilter<TestSend["press"], any>;
-
-  // type TestSendFn = Superstate.Listeners.SendEventFn<TestSendPress>;
-
-  // [TODO] Remove the debug code ^^^^^^
 
   //! Should not be able to send final transition events
   // @ts-expect-error
@@ -1181,47 +1123,43 @@ import { State, Superstate, superstate } from ".";
 
     //! It disallows passing extra fields
     form.send.submit("-> profile", ($, context) =>
-      // @ts-expect-error
       $({
         ref: context.ref,
         email: "koss@nocorp.me",
         password: "123456",
+        // @ts-expect-error
         error: "nope",
       })
     );
     form.send.submit("-> done", ($, context) =>
-      // @ts-expect-error
       $({
         ref: context.ref,
         email: context.email,
         password: context.password,
         fullName: "Sasha Koss",
         company: "No Corp",
+        // @ts-expect-error
         error: "nope",
       })
     );
 
     //! It disallows returning context from the updater
-    form.send.submit("-> profile", ($) =>
-      // @ts-expect-error
-      $({
-        ref: "topbar",
-        email: "koss@nocorp.me",
-        password: "123456",
-        error: "nope",
-      })
-    );
-    form.send.submit("-> done", ($, context) =>
-      // @ts-expect-error
-      $({
-        ref: "topbar",
-        email: "koss@nocorp.me",
-        password: "123456",
-        fullName: "Sasha Koss",
-        company: "No Corp",
-        error: "nope",
-      })
-    );
+    // @ts-expect-error
+    form.send.submit("-> profile", () => ({
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+      error: "nope",
+    }));
+    // @ts-expect-error
+    form.send.submit("-> done", () => ({
+      ref: "topbar",
+      email: "koss@nocorp.me",
+      password: "123456",
+      fullName: "Sasha Koss",
+      company: "No Corp",
+      error: "nope",
+    }));
 
     //! It should not allow to send invalid context
     // @ts-expect-error
@@ -1314,12 +1252,12 @@ import { State, Superstate, superstate } from ".";
       const formState = superstate<FormState>("form")
         .state("pending", [
           "submit(error) -> errored",
-          // "submit() -> complete",
+          "submit() -> complete",
           "cancel() -> canceled",
         ])
         .state("errored", [
           "submit(error) -> errored",
-          // "submit() -> complete",
+          "submit() -> complete",
           "cancel() -> canceled",
         ])
         .final("complete")
@@ -1362,41 +1300,6 @@ import { State, Superstate, superstate } from ".";
 
       //! The state should resolve
       erroredState?.context;
-
-      // [TODO] Remove the debug code vvvvvv
-
-      type TestState =
-        typeof credentialsState extends Superstate.Factories.Factory<
-          infer State
-        >
-          ? State
-          : never;
-
-      type TestSend = Superstate.Traits.Send.FromState<TestState>;
-
-      type TestSendEvent<Send> =
-        Send extends Superstate.Traits.Send.EventConstraint ? Send : never;
-
-      type TestSendEventCondition<Send, Condition> = Send extends {
-        condition: Condition;
-      }
-        ? Send
-        : never;
-
-      type TestSendSubmit = TestSendEventCondition<
-        TestSendEvent<TestSend["submit"]>,
-        "error"
-      >;
-
-      type TestSendEventFn<Send> = Superstate.Listeners.SendEventFn<
-        TestSendEvent<Send>
-      >;
-
-      type TestSendEventFnSubmit = Superstate.Utils.UnionToIntersection<
-        TestSendEventFn<TestSendSubmit>
-      >;
-
-      // [TODO] Remove the debug code ^^^^^^
     }
   }
 
