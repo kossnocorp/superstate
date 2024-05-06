@@ -75,16 +75,19 @@ To get started, you only need to understand a few concepts:
 - **Event**: What triggers _transitions_ between the system _states_ (e.g. `up()` or `play()`). You send _events_ to control the system.
 - **Transition**: The process of moving from one _state_ to another. It's coupled with the triggering _event_ and the next _state_ (e.g. `up() -> medium`).
 - **Action**: What happens during _transitions_, upon entering or exiting a _state_ (e.g. `playMusic!`). _Actions_ call your code.
+- **Context**: Data associated with a state. It is passed with _events_ and avaliable on corresponding _states_.
 
 Everything else is built on top of these concepts.
 
-All the concepts have consistent naming, enabling you to quickly distinguish them. For instance, _events_ have `()` at the end, and _actions_ have `!`. Flow of the system are defined with `->`.
+All the concepts have consistent naming, enabling you to quickly distinguish them. For instance, _events_ have `()` at the end, and _actions_ have `!`. The flow of the system is described by `->`.
 
 ### Basics
 
-The `superstate` function creates a new statechart. It accepts the name, available states as the generic type and returns the builder object:
+The `superstate` function creates a new statechart. It accepts the name and available states as the generic type and returns the builder object:
 
 ```ts
+type VolumeState = "low" | "medium" | "high";
+
 const volumeState = superstate<VolumeState>("volume")
   .state("low", "up() -> medium")
   .state("medium", ["up() -> high", "down() -> low"])
@@ -116,7 +119,7 @@ if (volume.in("high")) console.log("The volume is at maximum");
 
 The method creates an instance of statechart. It's the object that you will interact with, which holds the actual state.
 
-Using the `on` method you can listen to everything (`*`), a single state or an event, or a combination of them:
+Using the `on` method, you can listen to everything (`*`), a single state or an event, or a combination of them:
 
 ```ts
 // Listen to everything:
@@ -172,7 +175,7 @@ There are several ways to define state traits, and passing a function as the las
 
 ---
 
-To send an event with a condition, use the `send` method:
+To send an event with a condition, use the `send` object:
 
 ```ts
 const pc = pcState.host();
@@ -198,7 +201,7 @@ if (nextState) nextState.name satisfies "sleep" | "on";
 
 ### Actions
 
-Actions allow you define side effects that happen when entering or exiting a state or during a transition.
+Actions allow you to define side effects ran when entering or exiting a state or during a transition.
 
 While you trigger the events, the actions trigger your code:
 
@@ -346,7 +349,7 @@ When the OS is terminated, the PC will automatically power off.
 
 ---
 
-If a substate has actions, they must be binded when hosting the root statechart.
+If a substate has actions, they must be bound when hosting the root statechart.
 
 Look at this fairly complex statechart:
 
@@ -407,7 +410,7 @@ const pc = pcState.host({
 
 ### Contexts
 
-Superstate allows pairing states with a data structure called context. A state with assigned context will require the specified data structure to be passed when sending events.
+Superstate allows pairing states with a data structure called context. A state with assigned context will require you to pass the specified data structure when sending events or hosting the statechart.
 
 To define states with context, use the `State` type that you can import from the library:
 
@@ -431,9 +434,11 @@ type FieldsWithErrors = Fields & ErrorFields;
 // Define the states
 
 type FormState =
+  // Pass the context as the second generic parameter:
   | State<"pending", Fields>
   | State<"errored", Fields & ErrorFields>
   | State<"complete", Fields>
+  // You can also mix with strings:
   | "canceled";
 
 // Define the form statechart:
@@ -453,19 +458,7 @@ const formState = superstate<FormState>("form")
   .final("canceled");
 ```
 
-You can combine string states with context states:
-
-```ts
-type FormState =
-  // States with contexts
-  | State<"pending", FieldsWithErrors>
-  | State<"errored", FieldsWithErrors>
-  | State<"complete", Fields>
-  // States without context
-  | "canceled";
-```
-
-When using creating instance or sending events, you must pass the context data:
+When creating an instance or sending events, you must pass the context data:
 
 ```ts
 // Pass the initial context:
@@ -483,7 +476,7 @@ form.send.submit("-> errored", {
 });
 ```
 
-Note that we have to specify the destination state (`-> errored`) when sending an event with context, as events with the same name can transition to different states. While it's not a problem when sending events without context, sending context to the wrong state will lead to unexpected behavior.
+Note that you must specify the destination state (`-> errored`) when sending an event with context, as events with the same name can transition to different states. While it's not a problem when sending events without context, sending context to the wrong state will lead to unexpected behavior.
 
 When sending an event with a condition, specify the condition before the destination state:
 
@@ -518,12 +511,25 @@ form.on("*", (update) => {
 });
 ```
 
+As the context is required, it will always be available on corresponding entities. Superstate guarantees context to always be of the specified type.
+
 ---
 
-When sending events, you have to pass a complete context data structure. To make it easier, `send` allows you to pass an updater function with the current context passed as an argument:
+When sending events, you have to pass a complete context data structure. To make it easier, `send` allows you to pass an updater function with the current context passed as an argument, allowing you to propagate the context from the previous state:
 
 ```ts
+// Build new context using the previous state context:
+form.send.submit("error", "-> errored", ($, context) =>
+  $({ ...context, error: "Email is missing" })
+);
+```
 
+The updater function receives two arguments: the validation functions and the previous context. While the validation function doesn't do anything in the runtime, it guarantees context consistency at the type level. It solves the problem of [TypeScript's structural typing that doesn't prevent returning extra fields that are not part of the context](https://github.com/microsoft/TypeScript/issues/12936). Most of the time, this wouldn't be a problem when dealing with the state the extra fields might lead to unexpected behavior, so the approach with the validation function that triggers type check is a good compromise.
+
+For instance, when transitioning from `errored` state where `error` is present, the updater function will trigger type error when you try to spread the previous `context`:
+
+```ts
+[TODO];
 ```
 
 ## API
