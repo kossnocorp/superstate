@@ -1076,17 +1076,21 @@ export namespace Superstate {
     //#region Listeners/send
 
     /**
-     * Function that sends events.
+     * Send proxy. It it describes the nested structure with send functions,
+     * states and their substates.
      */
     export type SendProxy<SendMap extends Traits.Send.MapConstraint> = {
+      // Namespace can be an event name or a state name.
       [Namespace in keyof SendMap]: SendMap[Namespace] extends infer SendTrait
         ? // Functions union will collapse into a single function, converting it
           // to an intersection will enable multiple overloads and also join
           // any states with substates if needed.
           Utils.UnionToIntersection<
             SendTrait extends Traits.Send.EventConstraint
-              ? SendEventFn<SendTrait, SendTrait>
-              : SendTrait extends Traits.Send.StateConstraint
+              ? // Add the send function to union
+                SendFn<SendTrait>
+              : // Add the state with substates to union
+              SendTrait extends Traits.Send.StateConstraint
               ? {
                   [SubstateName in keyof SendTrait["sub"]]: SendProxy<
                     SendTrait["sub"][SubstateName]
@@ -1097,39 +1101,44 @@ export namespace Superstate {
         : never;
     };
 
-    export type SendEventFn<
-      AllTrait extends Traits.Send.EventConstraint,
-      Trait extends Traits.Send.EventConstraint
-    > = Trait extends Trait
-      ? Trait extends { condition: infer Condition }
-        ? Trait["next"]["context"] extends null
-          ? Condition extends null
-            ? // No condition, no context
-              () => Trait["next"] | null
-            : // With condition, no context
-              (condition: Trait["condition"]) => Trait["next"] | null
-          : Condition extends null
-          ? // No condition, with context
-            <PassedContext extends Trait["next"]["context"]>(
-              to: `-> ${Trait["next"]["name"]}`,
-              context: Contexts.ContextArg<
-                PassedContext,
-                Trait["next"]["context"],
-                Trait["from"]["context"]
-              >
-            ) => Trait["next"] | null
-          : // With condition, with context
-            <PassedContext extends Trait["next"]["context"]>(
-              condition: Trait["condition"],
-              to: `-> ${Trait["next"]["name"]}`,
-              context: Contexts.ContextArg<
-                PassedContext,
-                Trait["next"]["context"],
-                Trait["from"]["context"]
-              >
-            ) => Trait["next"] | null
-        : never
-      : never;
+    /**
+     * Resolves the send function. It has overload for each possible combination
+     * of the condition and context.
+     *
+     * [NOTE] It resolves union, so it must be turned into an intersection
+     * before assigning to a property.
+     */
+    export type SendFn<Trait extends Traits.Send.EventConstraint> =
+      Trait extends Trait
+        ? Trait extends { condition: infer Condition }
+          ? Trait["next"]["context"] extends null
+            ? Condition extends null
+              ? // No condition, no context
+                () => Trait["next"] | null
+              : // With condition, no context
+                (condition: Trait["condition"]) => Trait["next"] | null
+            : Condition extends null
+            ? // No condition, with context
+              <PassedContext extends Trait["next"]["context"]>(
+                to: `-> ${Trait["next"]["name"]}`,
+                context: Contexts.ContextArg<
+                  PassedContext,
+                  Trait["next"]["context"],
+                  Trait["from"]["context"]
+                >
+              ) => Trait["next"] | null
+            : // With condition, with context
+              <PassedContext extends Trait["next"]["context"]>(
+                condition: Trait["condition"],
+                to: `-> ${Trait["next"]["name"]}`,
+                context: Contexts.ContextArg<
+                  PassedContext,
+                  Trait["next"]["context"],
+                  Trait["from"]["context"]
+                >
+              ) => Trait["next"] | null
+          : never
+        : never;
 
     //#endregion
   }
