@@ -180,11 +180,8 @@ export function superstate(name) {
             const fnProxy = new Proxy(() => {}, {
               apply(_, that, args) {
                 const [condition, toDef, eventContext] =
-                  args.length === 1
-                    ? [args[0]]
-                    : args.length === 2
-                    ? [null, args[0], args[1]]
-                    : args;
+                  args.length === 2 ? [null, ...args] : args;
+
                 const transition = findTransition(
                   maybeEventName,
                   condition || null,
