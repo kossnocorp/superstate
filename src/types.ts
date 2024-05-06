@@ -1,5 +1,3 @@
-import { Context } from "vitest";
-
 /**
  * The root Superstate namespace. It contains all the Superstate types.
  */
@@ -88,7 +86,6 @@ export namespace Superstate {
           ? BindingsArg<Binding_> extends infer Arg
             ?
                 | [Arg]
-                // [TODO] Replace it with deep type check
                 | (true extends DeepAllOptionalContextsArg<Arg>
                     ? [] | [{}]
                     : never)
@@ -133,13 +130,12 @@ export namespace Superstate {
         //     // vvvvv
         //     context: { ... }
         //   }
-        // [TODO] Allow passing updater function
         {
           context: Bindings extends {
             context: infer Context extends Contexts.Constraint;
             parent: infer ParentContext;
           }
-            ? Contexts.ContextArg1<Context, ParentContext>
+            ? Context | Contexts.ContextArgFn<Context, ParentContext>
             : never;
         } & {
           // Defines the state structure:
@@ -419,8 +415,7 @@ export namespace Superstate {
       EventName extends string,
       Def_ extends CaseDef<StatechartInit["name"]>
     > = Def_ extends Def_
-      ? // [TODO] Try to optimize it to `${EventName}${Def}`
-        Def_ extends EventCaseDef<infer ToStateName, infer Condition>
+      ? Def_ extends EventCaseDef<infer ToStateName, infer Condition>
         ? `${EventName}(${Condition}) -> ${ToStateName}`
         : Def_ extends EventCaseDefWithAction<
             infer ToStateName,
@@ -478,7 +473,7 @@ export namespace Superstate {
      * Resolves the next state for the transition.
      */
     export type MatchNextState<
-      Statechart extends States.AnyState, // [TODO] Cut it
+      Statechart extends States.AnyState,
       EventName,
       EventCondition extends string | null
     > = Statechart extends {
@@ -1045,7 +1040,7 @@ export namespace Superstate {
      */
     export interface OnListener<
       Traits extends Traits.TraitsConstraint,
-      Target extends Targets.On<Traits> // [TODO] Simplify it
+      Target extends Targets.On<Traits>
     > {
       (
         target: Target extends "**"
@@ -1085,7 +1080,10 @@ export namespace Superstate {
      */
     export type SendProxy<SendMap extends Traits.Send.MapConstraint> = {
       [Namespace in keyof SendMap]: SendMap[Namespace] extends infer SendTrait
-        ? Utils.UnionToIntersection<
+        ? // Functions union will collapse into a single function, converting it
+          // to an intersection will enable multiple overloads and also join
+          // any states with substates if needed.
+          Utils.UnionToIntersection<
             SendTrait extends Traits.Send.EventConstraint
               ? SendEventFn<SendTrait>
               : SendTrait extends Traits.Send.StateConstraint
@@ -1680,13 +1678,13 @@ export namespace Superstate {
      */
     export type EnsureObject<Context> = Context extends null ? {} : Context;
 
-    export type ContextArg<PassedContext, Context, PrevContext> =
-      | Utils.Exact<PassedContext, Context>
+    export type ContextArg<
+      PassedContext extends Context,
+      Context,
+      PrevContext
+    > =
+      | Utils.Exact<Context, PassedContext>
       | ContextArgFn<Context, PrevContext>;
-
-    // export type ContextArgFn<Context, PrevContext> = (
-    //   context: PrevContext
-    // ) => Context;
 
     export type ContextArgFn<Context, PrevContext> = (
       updater: ContextUpdater<Context>,
@@ -1694,7 +1692,7 @@ export namespace Superstate {
     ) => ExactContext<Context>;
 
     export type ContextUpdater<Context> = <PassedContext extends Context>(
-      context: Utils.Exact<PassedContext, Context>
+      context: Utils.Exact<Context, PassedContext>
     ) => ExactContext<Context>;
 
     export type ExactContext<Context> = Context & {
@@ -1702,14 +1700,6 @@ export namespace Superstate {
     };
 
     export declare const exactContextBrand: unique symbol;
-
-    export type ContextArg1<Context, PrevContext> =
-      | Context
-      | ContextArgFn1<Context, PrevContext>;
-
-    export type ContextArgFn1<Context, PrevContext> = (
-      context: PrevContext
-    ) => Context;
   }
   //#endregion
 
@@ -1831,30 +1821,16 @@ export namespace Superstate {
       ? X
       : never;
 
-    export type Exact<A, B> = A extends B ? (B extends A ? A : never) : never;
-
-    export type NoExtras<OriginalType, Type> = Exclude<
-      keyof Type,
-      keyof OriginalType
-    > extends infer ExtraKeys extends keyof Type
-      ? ExtraKeys extends never
-        ? OriginalType
-        : 456
-      : 123;
-
-    // [TODO] Remove the debug code vvvvvv
-
-    // type TestNoExtras = NoExtras<{ a: string }, { a: string; b: number }>;
-
-    function createNoExtras<OriginalType>() {
-      return <Type extends OriginalType>(value: Type) => {};
-    }
-
-    createNoExtras<{ a: string }>()({ a: "asd", b: 123 });
-    const asd = { a: "asd", b: 1 };
-    createNoExtras<{ a: string }>()(asd);
-
-    // [TODO] Remove the debug code ^^^^^^
+    /**
+     * Source: https://github.com/microsoft/TypeScript/issues/12936#issuecomment-2088768988
+     */
+    export type Exact<OriginalType, Type extends OriginalType> = {
+      [Key in keyof Type]: Key extends keyof OriginalType
+        ? Type[Key] extends object
+          ? Exact<OriginalType[Key], Type[Key]>
+          : Type[Key]
+        : never;
+    };
   }
   //#endregion
 }
