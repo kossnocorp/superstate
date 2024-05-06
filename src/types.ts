@@ -1085,7 +1085,7 @@ export namespace Superstate {
           // any states with substates if needed.
           Utils.UnionToIntersection<
             SendTrait extends Traits.Send.EventConstraint
-              ? SendEventFn<SendTrait>
+              ? SendEventFn<SendTrait, SendTrait>
               : SendTrait extends Traits.Send.StateConstraint
               ? {
                   [SubstateName in keyof SendTrait["sub"]]: SendProxy<
@@ -1097,39 +1097,39 @@ export namespace Superstate {
         : never;
     };
 
-    export type SendEventFn<Trait extends Traits.Send.EventConstraint> =
-      Trait extends Trait
-        ? Trait extends { condition: infer Condition }
-          ? Trait["next"]["context"] extends null
-            ? Condition extends null
-              ? // No condition, no context
-                () => Trait["next"] | null
-              : // With condition, no context
-                (condition: Trait["condition"]) => Trait["next"] | null
-            : Condition extends null
-            ? // No condition, with context
-              <PassedContext extends Trait["next"]["context"]>(
-                to: `-> ${Trait["next"]["name"]}`,
-                context: Contexts.ContextArg<
-                  PassedContext,
-                  Trait["next"]["context"],
-                  Trait["from"]["context"]
-                >
-              ) => Trait["next"] | null
-            : // With condition, with context
-            Trait extends Trait
-            ? <PassedContext extends Trait["next"]["context"]>(
-                condition: Trait["condition"],
-                to: `-> ${Trait["next"]["name"]}`,
-                context: Contexts.ContextArg<
-                  PassedContext,
-                  Trait["next"]["context"],
-                  Trait["from"]["context"]
-                >
-              ) => Trait["next"] | null
-            : never
-          : never
-        : never;
+    export type SendEventFn<
+      AllTrait extends Traits.Send.EventConstraint,
+      Trait extends Traits.Send.EventConstraint
+    > = Trait extends Trait
+      ? Trait extends { condition: infer Condition }
+        ? Trait["next"]["context"] extends null
+          ? Condition extends null
+            ? // No condition, no context
+              () => Trait["next"] | null
+            : // With condition, no context
+              (condition: Trait["condition"]) => Trait["next"] | null
+          : Condition extends null
+          ? // No condition, with context
+            <PassedContext extends Trait["next"]["context"]>(
+              to: `-> ${Trait["next"]["name"]}`,
+              context: Contexts.ContextArg<
+                PassedContext,
+                Trait["next"]["context"],
+                Trait["from"]["context"]
+              >
+            ) => Trait["next"] | null
+          : // With condition, with context
+            <PassedContext extends Trait["next"]["context"]>(
+              condition: Trait["condition"],
+              to: `-> ${Trait["next"]["name"]}`,
+              context: Contexts.ContextArg<
+                PassedContext,
+                Trait["next"]["context"],
+                Trait["from"]["context"]
+              >
+            ) => Trait["next"] | null
+        : never
+      : never;
 
     //#endregion
   }
@@ -1514,28 +1514,8 @@ export namespace Superstate {
         ParentState extends States.AnyState | null = null
       > = {
         [Namespace in Events.Name<State> | Substates.Parents<State>["name"]]:
-          | (Transitions.ByEventName<
-              // Assign event function
-              State,
-              Namespace
-            > extends infer Transition
-              ? Transition extends Transition
-                ? Transition extends {
-                    condition: infer Condition extends string | null;
-                    to: infer To;
-                    from: infer From extends string;
-                  }
-                  ? {
-                      type: "event";
-                      namespace: Namespace;
-                      condition: Condition;
-                      from: States.FilterState<State, From>;
-                      next: States.FilterState<State, To>;
-                      parent: ParentState;
-                    }
-                  : never
-                : never
-              : never)
+          | // Assign event function
+          EventFromState<State, ParentState, Namespace>
           // Assign substates
           | (State extends {
               sub: infer Substates;
@@ -1555,6 +1535,55 @@ export namespace Superstate {
                   }
               : never);
       };
+
+      export type EventFromState<
+        State extends States.AnyState,
+        ParentState extends States.AnyState | null,
+        Namespace
+      > = EventFromStateInner<
+        State,
+        ParentState,
+        Namespace,
+        Transitions.ByEventName<State, Namespace>
+      >;
+
+      export type EventFromStateInner<
+        State extends States.AnyState,
+        ParentState extends States.AnyState | null,
+        Namespace,
+        Transition,
+        TransitionForCondition = Transition,
+        TransitionForFrom = Transition
+      > = Transition extends {
+        to: infer To;
+      }
+        ? To extends To
+          ? TransitionForCondition extends {
+              to: To;
+              condition: infer Condition extends string | null;
+            }
+            ? Condition extends Condition
+              ? {
+                  type: "event";
+                  namespace: Namespace;
+                  condition: Condition;
+                  from: States.FilterState<
+                    State,
+                    TransitionForFrom extends {
+                      to: To;
+                      condition: Condition;
+                      from: infer From;
+                    }
+                      ? From
+                      : never
+                  >;
+                  next: States.FilterState<State, To>;
+                  parent: ParentState;
+                }
+              : never
+            : never
+          : never
+        : never;
 
       export type MapConstraint = Record<
         string,

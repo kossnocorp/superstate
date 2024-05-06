@@ -1,3 +1,4 @@
+import { S } from "vitest/dist/reporters-P7C2ytIv.js";
 import { State, Superstate, superstate } from ".";
 
 //#region Simple machine
@@ -1301,6 +1302,50 @@ import { State, Superstate, superstate } from ".";
       //! The state should resolve
       erroredState?.context;
     }
+
+    //! Prevents extra fields in the updater function
+    {
+      interface Fields {
+        email: string;
+        password: string;
+      }
+
+      interface ErrorFields {
+        error: string;
+      }
+
+      type FieldsWithErrors = Fields & ErrorFields;
+
+      type FormState =
+        | State<"pending", Fields>
+        | State<"errored", Fields & ErrorFields>
+        | State<"complete", Fields>
+        | "canceled";
+
+      const formState = superstate<FormState>("form")
+        .state("pending", [
+          "submit(error) -> errored",
+          "submit() -> complete",
+          "cancel() -> canceled",
+        ])
+        .state("errored", [
+          "submit(error) -> errored",
+          "submit() -> complete",
+          "cancel() -> canceled",
+        ])
+        .final("complete")
+        .final("canceled");
+
+      const form = formState.host({
+        context: { email: "", password: "" },
+      });
+
+      //! It prevent passing extra fields (errored can have error field):
+      form.send.submit("-> complete", ($, context) => {
+        context satisfies (Fields & ErrorFields) | Fields;
+        return $(context);
+      });
+    }
   }
 
   //#region Context/conditions
@@ -1519,21 +1564,21 @@ import { State, Superstate, superstate } from ".";
 
       //! It won't accept incomplete context
       // @ts-expect-error
-      form.send.profile.form.submit("-> .complete", {
+      form.send.profile.form.submit("-> complete", {
         company: "No Corp",
       });
 
       //! Context must be defined
       // @ts-expect-error
-      form.send.profile.form.submit("-> .complete");
+      form.send.profile.form.submit("-> complete");
 
       //! Context can't be empty
       // @ts-expect-error
-      form.send.profile.form.submit("-> .complete", {});
+      form.send.profile.form.submit("-> complete", {});
 
       //! Context can't be null
       // @ts-expect-error
-      form.send.profile.form.submit("-> .complete", null);
+      form.send.profile.form.submit("-> complete", null);
     }
 
     //! It requires to include initial context for substates
@@ -2763,6 +2808,15 @@ import { State, Superstate, superstate } from ".";
     );
 
     // Send submit event with errored context:
+    form.send.submit("-> complete", ($, context) => $(context));
+
+    // Build new context using the previous state context:
+    form.send.submit("error", "-> errored", ($, context) =>
+      $({ ...context, error: "Email is missing" })
+    );
+
+    // Build new context using the previous state context:
+    // @ts-expect-error
     form.send.submit("-> complete", ($, context) => $(context));
   }
 }
