@@ -10,7 +10,7 @@
     🎯 Easy to read without visualization
     <br/>
     🧩 Highly composable
-    ⚡ Lightweight (1.5kB) and fast
+    ⚡ Lightweight (1.6kB) and fast
   </div>
 
   <br/>

@@ -171,40 +171,63 @@ export function superstate(name) {
       //#endregion
 
       //#region send
-      send(eventSignature, eventContext) {
-        const [path, eventName, condition] =
-          parseEventSignature(eventSignature);
+      send: new Proxy(
+        {},
+        {
+          get(_, maybeEventName) {
+            const path = [];
 
-        // It's a substate
-        if (path.length) {
-          return findSubstate(this, path)?.send(
-            `${eventName}(${condition || ""})`,
-            eventContext
-          );
+            const fnProxy = new Proxy(() => {}, {
+              apply(_, that, args) {
+                const [condition, eventContext] =
+                  args.length === 1
+                    ? [args[0]]
+                    : args.length === 2
+                    ? [null, args[1]]
+                    : [args[0], args[2]];
+                const transition = findTransition(
+                  maybeEventName,
+                  condition || null
+                );
+                if (!transition) return null;
+
+                const state = findTransitionTarget(transition);
+                if (!state) return null;
+
+                const context = resolveContext(
+                  eventContext,
+                  currentState.context
+                );
+                const nextState = { ...state, context };
+
+                transition.action &&
+                  bindings[currentState.name]?.[
+                    `${transition.event}(${transition.condition || ""}) -> ${
+                      transition.action.name
+                    }!`
+                  ]?.();
+
+                triggerListeners("event", { ...transition, context });
+
+                setCurrentState(nextState);
+
+                return nextState;
+              },
+
+              get(_, substateName) {
+                const substate = findSubstate(instance, [
+                  // It's the state name
+                  maybeEventName,
+                  substateName,
+                ]);
+                return substate?.send || shallowSend;
+              },
+            });
+
+            return fnProxy;
+          },
         }
-
-        const transition = findTransition(eventName, condition);
-        if (!transition) return null;
-
-        const state = findTransitionTarget(transition);
-        if (!state) return null;
-
-        const context = resolveContext(eventContext, currentState.context);
-        const nextState = { ...state, context };
-
-        transition.action &&
-          bindings[currentState.name]?.[
-            `${transition.event}(${transition.condition || ""}) -> ${
-              transition.action.name
-            }!`
-          ]?.();
-
-        triggerListeners("event", { ...transition, context });
-
-        setCurrentState(nextState);
-
-        return nextState;
-      },
+      ),
       //#endregion
 
       //#region off
@@ -469,3 +492,9 @@ function actionFromDef(def) {
     name,
   };
 }
+
+const shallowSend = new Proxy({}, { get: () => shallowSendFn });
+
+const shallowSendFn = new Proxy(() => null, {
+  get: () => shallowSend,
+});
