@@ -1,5 +1,5 @@
 import b from "benny";
-import { superstate } from "./src/index.js";
+import { superstate } from "./src/index.mjs";
 import { createMachine, createActor } from "xstate";
 
 b.suite(

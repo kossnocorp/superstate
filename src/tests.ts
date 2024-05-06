@@ -1036,7 +1036,7 @@ describe("Superstate", () => {
             context: { email: "", password: "" },
           });
 
-          const erroredState = credentials.send.submit.error("-> errored", {
+          const erroredState = credentials.send.submit("error", "-> errored", {
             email: "",
             password: "123456",
             error: "Email not found",
@@ -1079,7 +1079,7 @@ describe("Superstate", () => {
 
           const receivedState = signUp.send.credentials.form.submit(
             "-> complete",
-            ($, context) => $(context)
+            ($, { email, password }) => $({ email, password })
           );
 
           expect(receivedState?.context).toEqual({
@@ -1105,7 +1105,7 @@ describe("Superstate", () => {
 
           const receivedState = signUp.send.credentials.form.submit(
             "-> complete",
-            ($, context) => $(context)
+            ($, { email, password }) => $({ email, password })
           );
 
           expect(receivedState?.context).toEqual({
@@ -1836,7 +1836,7 @@ describe("Superstate", () => {
           });
           credentials.on("*", listener);
 
-          const erroredState = credentials.send.submit.error("-> errored", {
+          const erroredState = credentials.send.submit("error", "-> errored", {
             email: "",
             password: "123456",
             error: "Email not found",
@@ -1862,8 +1862,8 @@ describe("Superstate", () => {
 
           signUp.on("*", listener);
 
-          const receivedState = signUp.send(
-            "credentials.form.submit() -> .complete",
+          const receivedState = signUp.send.credentials.form.submit(
+            "-> complete",
             {
               email: "koss@nocorp.me",
               password: "123456",
