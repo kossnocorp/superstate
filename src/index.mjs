@@ -179,15 +179,16 @@ export function superstate(name) {
 
             const fnProxy = new Proxy(() => {}, {
               apply(_, that, args) {
-                const [condition, eventContext] =
+                const [condition, toDef, eventContext] =
                   args.length === 1
                     ? [args[0]]
                     : args.length === 2
-                    ? [null, args[1]]
-                    : [args[0], args[2]];
+                    ? [null, args[0], args[1]]
+                    : args;
                 const transition = findTransition(
                   maybeEventName,
-                  condition || null
+                  condition || null,
+                  toFromDef(toDef)
                 );
                 if (!transition) return null;
 
@@ -392,13 +393,14 @@ export function superstate(name) {
       listeners.forEach((listener) => listener(update));
     }
 
-    function findTransition(eventName, condition) {
+    function findTransition(eventName, condition, to) {
       for (const state of states) {
         for (const transition of state.transitions) {
           if (
             transition.event === eventName &&
             transition.condition === condition &&
-            currentState.name === transition.from
+            currentState.name === transition.from &&
+            (!to || to === transition.to)
           )
             return transition;
         }
@@ -491,6 +493,12 @@ function actionFromDef(def) {
     type: enterProbe ? "enter" : "exit",
     name,
   };
+}
+
+const toDefRe = /^-> (\w+)?$/;
+
+function toFromDef(def) {
+  return def?.match(toDefRe)[1];
 }
 
 const shallowSend = new Proxy({}, { get: () => shallowSendFn });

@@ -786,7 +786,7 @@ describe("Superstate", () => {
       });
 
       describe("contexts", () => {
-        it("allows allows to pass initial context", () => {
+        it("allows to pass initial context", () => {
           const signUpState = createSignUpState();
           const signUp = signUpState.host({
             context: {
@@ -983,7 +983,7 @@ describe("Superstate", () => {
       });
 
       describe("contexts", () => {
-        it("allows allows to pass context to an event", () => {
+        it("allows to pass context to an event", () => {
           const signUpState = createSignUpState();
           const signUp = signUpState.host();
 
@@ -1001,7 +1001,7 @@ describe("Superstate", () => {
           });
         });
 
-        it("merges substate final state context into the parent context", () => {
+        it("merges substate's final state context into the parent context", () => {
           const signUpState = createSignUpState();
           const signUp = signUpState.host({
             context: { ref: "toolbar" },
@@ -1060,6 +1060,68 @@ describe("Superstate", () => {
           expect(submittedState?.context).toEqual({
             email: "koss@nocorp.me",
             password: "123456",
+          });
+        });
+
+        it("allows to pass context with a condition", () => {
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host();
+
+          const receivedState = signUp.send.credentials.form.submit(
+            "error",
+            "-> errored",
+            {
+              email: "",
+              password: "123456",
+              error: "Email is missing",
+            }
+          );
+
+          expect(receivedState?.context).toEqual({
+            email: "",
+            password: "123456",
+            error: "Email is missing",
+          });
+        });
+
+        it("prevents passing context to wrong event", () => {
+          const wizardState = createWizardState();
+          const wizard = wizardState.host();
+
+          wizard.send.submit("-> done", {
+            email: "koss@nocorp.me",
+            password: "123456",
+            fullName: "Sasha Koss",
+            company: "No Corp",
+          });
+
+          expect(wizard.state.name).toBe("credentials");
+          expect(wizard.state.context).toEqual(null);
+
+          wizard.send.submit("-> profile", {
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
+
+          expect(wizard.state.name).toBe("profile");
+          expect(wizard.state.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "123456",
+          });
+
+          wizard.send.submit("-> done", {
+            email: "koss@nocorp.me",
+            password: "123456",
+            fullName: "Sasha Koss",
+            company: "No Corp",
+          });
+
+          expect(wizard.state.name).toBe("done");
+          expect(wizard.state.context).toEqual({
+            email: "koss@nocorp.me",
+            password: "123456",
+            fullName: "Sasha Koss",
+            company: "No Corp",
           });
         });
 
@@ -2118,5 +2180,17 @@ function createSignUpState() {
     .state("profile", ($) =>
       $.sub("form", profileState, ["form.complete -> submit() -> done"])
     )
+    .final("done");
+}
+
+type WizardState =
+  | "credentials"
+  | State<"profile", ProfileContext>
+  | State<"done", ProfileFields & CredentialsFields>;
+
+function createWizardState() {
+  return superstate<WizardState>("wizard")
+    .state("credentials", "submit() -> profile")
+    .state("profile", "submit() -> done")
     .final("done");
 }

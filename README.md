@@ -409,7 +409,7 @@ const pc = pcState.host({
 
 Superstate allows pairing states with a data structure called context. A state with assigned context will require the specified data structure to be passed when sending events.
 
-To define states with context, use `State` type:
+To define states with context, use the `State` type that you can import from the library:
 
 ```ts
 // Import the `State` type:
@@ -465,7 +465,7 @@ type FormState =
   | "canceled";
 ```
 
-When using sending events, you must pass the context data to the function:
+When using creating instance or sending events, you must pass the context data:
 
 ```ts
 // Pass the initial context:
@@ -476,13 +476,27 @@ const form = formState.host({
   },
 });
 
-// Send submit event with errored context:
-form.send.submit.error("-> errored", {
+// Send submit event:
+form.send.submit("-> errored", {
+  email: "koss@nocorp.me",
+  password: "123456",
+});
+```
+
+Note that we have to specify the destination state (`-> errored`) when sending an event with context, as events with the same name can transition to different states. While it's not a problem when sending events without context, sending context to the wrong state will lead to unexpected behavior.
+
+When sending an event with a condition, specify the condition before the destination state:
+
+```ts
+// Send submit with the error condition:
+form.send.submit("error", "-> errored", {
   email: "",
   password: "123456",
   error: "Email is missing",
 });
 ```
+
+---
 
 The context will be available on the state and transition objects:
 
@@ -506,7 +520,7 @@ form.on("*", (update) => {
 
 ---
 
-When sending events, you have to pass a complete context data structure. To make it easier, `send` allows you passing an updater function with the current context passed as an argument:
+When sending events, you have to pass a complete context data structure. To make it easier, `send` allows you to pass an updater function with the current context passed as an argument:
 
 ```ts
 
