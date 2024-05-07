@@ -1,4 +1,3 @@
-import { S } from "vitest/dist/reporters-P7C2ytIv.js";
 import { State, Superstate, superstate } from ".";
 
 //#region Simple machine
@@ -1284,6 +1283,52 @@ import { State, Superstate, superstate } from ".";
       form.send.submit("-> complete", (context) => context);
     }
 
+    //! It should prevent adding extra context fields
+    {
+      function createFormState<FormFields>() {
+        type Context = FormFields & ErrorFields;
+
+        type FormState =
+          | State<"pending", Partial<Context>>
+          | State<"errored", Context>
+          //! Context here includes ErrorFields
+          | State<"complete", Context>
+          | "canceled";
+
+        return superstate<FormState>("form")
+          .state("pending", [
+            "submit(error) -> errored",
+            "submit() -> complete",
+            "cancel() -> canceled",
+          ])
+          .state("errored", [
+            "submit(error) -> errored",
+            "submit() -> complete",
+            "cancel() -> canceled",
+          ])
+          .final("complete")
+          .final("canceled");
+      }
+
+      const credentialsState = createFormState<CredentialsFields>();
+
+      const profileState = createFormState<ProfileFields>();
+
+      const signUpState = superstate<SignUpState>("signUp")
+        .state("credentials", ($) =>
+          $.sub("form", credentialsState, [
+            //! Can't connect as the context is incompatible
+            // @ts-expect-error
+            "form.complete -> submit() -> profile",
+          ])
+        )
+        .state("profile", ($) =>
+          //! Can't connect as the context is incompatible
+          // @ts-expect-error
+          $.sub("form", profileState, ["form.complete -> submit() -> done"])
+        )
+        .final("done");
+    }
     //! It properly resolves state on send
     // [NOTE] This is an edge case caught in tests
     {
@@ -1343,6 +1388,7 @@ import { State, Superstate, superstate } from ".";
       //! It prevent passing extra fields (errored can have error field):
       form.send.submit("-> complete", ($, context) => {
         context satisfies (Fields & ErrorFields) | Fields;
+        // @ts-expect-error
         return $(context);
       });
     }
@@ -1507,53 +1553,6 @@ import { State, Superstate, superstate } from ".";
         .final("done");
     }
 
-    //! It should prevent adding extra context fields
-    {
-      function createFormState<FormFields>() {
-        type Context = FormFields & ErrorFields;
-
-        type FormState =
-          | State<"pending", Partial<Context>>
-          | State<"errored", Context>
-          //! Context here includes ErrorFields
-          | State<"complete", Context>
-          | "canceled";
-
-        return superstate<FormState>("form")
-          .state("pending", [
-            "submit(error) -> errored",
-            "submit() -> complete",
-            "cancel() -> canceled",
-          ])
-          .state("errored", [
-            "submit(error) -> errored",
-            "submit() -> complete",
-            "cancel() -> canceled",
-          ])
-          .final("complete")
-          .final("canceled");
-      }
-
-      const credentialsState = createFormState<CredentialsFields>();
-
-      const profileState = createFormState<ProfileFields>();
-
-      const signUpState = superstate<SignUpState>("signUp")
-        .state("credentials", ($) =>
-          $.sub("form", credentialsState, [
-            //! Can't connect as the context is incompatible
-            // @ts-expect-error
-            "form.complete -> submit() -> profile",
-          ])
-        )
-        .state("profile", ($) =>
-          //! Can't connect as the context is incompatible
-          // @ts-expect-error
-          $.sub("form", profileState, ["form.complete -> submit() -> done"])
-        )
-        .final("done");
-    }
-
     {
       const form = signUpState.host();
 
@@ -1561,6 +1560,38 @@ import { State, Superstate, superstate } from ".";
         fullName: "Sasha Koss",
         company: "No Corp",
       });
+
+      //! It assigns the correct context
+      form.send.credentials.form.submit(
+        "-> complete",
+        ($, { email, password }) =>
+          $({
+            email: email!,
+            password: password!,
+          })
+      );
+      form.send.credentials.form.submit("-> complete", ($, context) =>
+        $({
+          email: "koss@nocorp.me",
+          password: "123456",
+        })
+      );
+      form.send.profile.form.submit("-> complete", ($, { fullName, company }) =>
+        $({ fullName: fullName!, company: company! })
+      );
+
+      //! It should not allow wrong context
+      form.send.profile.form.submit("-> complete", {
+        // @ts-expect-error
+        email: "koss@nocorp.me",
+        // @ts-expect-error
+        password: "123456",
+      });
+      // @ts-expect-error
+      form.send.profile.form.submit("-> complete", ($, { email, password }) =>
+        // @ts-expect-error
+        $({ email, password })
+      );
 
       //! It won't accept incomplete context
       // @ts-expect-error
@@ -1960,7 +1991,131 @@ import { State, Superstate, superstate } from ".";
 }
 //#endregion
 
-//#region Documentation examples:
+//#region Utils
+{
+  //! NoExtra
+  {
+    function create<Reference>() {
+      return <A, B, C>(
+        value: Superstate.Utils.Exact<Reference, A | B | C>
+      ) => {};
+    }
+
+    //! It resolves the same type for primitives
+    {
+      const exact = create<number>();
+
+      exact(123);
+
+      const value = 123;
+      exact(value);
+    }
+    {
+      const exact = create<string>();
+
+      exact("qwe");
+
+      const value = "qwe";
+      exact(value);
+    }
+
+    //! It resolves the reference type otherwise casting an error
+    {
+      const exact = create<number>();
+
+      // @ts-expect-error
+      exact("123");
+
+      const value = "123";
+      // @ts-expect-error
+      exact(value);
+
+      // @ts-expect-error
+      exact(value as number | string);
+    }
+    {
+      const exact = create<boolean>();
+
+      // @ts-expect-error
+      exact("true");
+
+      const value = "true";
+      // @ts-expect-error
+      exact(value);
+
+      // @ts-expect-error
+      exact(value as boolean | string);
+    }
+
+    //! It allows exact types
+    {
+      const exact = create<{ hello: string }>();
+
+      exact({ hello: "world" });
+
+      const value = { hello: "world" };
+      exact(value);
+    }
+
+    //! It prevents wrong types
+    {
+      const exact = create<{ hello: string }>();
+
+      // @ts-expect-error
+      exact({ nope: "nah" });
+
+      const value = { nope: "nah" };
+      // @ts-expect-error
+      exact(value);
+
+      // @ts-expect-error
+      exact(value as { hello: string } | { nope: "nah" });
+    }
+
+    //! It prevents empty objects
+    {
+      const exact = create<{ hello: string }>();
+
+      // @ts-expect-error
+      exact({});
+
+      const value = {};
+      // @ts-expect-error
+      exact(value);
+
+      // @ts-expect-error
+      exact(value as { hello: string } | {});
+    }
+
+    //! It allows ommitting optional properties
+    {
+      const exact = create<{ hello: string; hey?: string }>();
+
+      exact({ hello: "world" });
+
+      const value = { hello: "world" };
+      exact(value);
+    }
+
+    //! It prevents extra properties
+    {
+      const exact = create<{ hello: string }>();
+
+      // @ts-expect-error
+      exact({ hello: "world", nope: "nah" });
+
+      const value = { hello: "world", nope: "nah" };
+      // @ts-expect-error
+      exact(value);
+
+      // @ts-expect-error
+      exact(value as { hello: string } | { hello: string; nope: string });
+    }
+  }
+}
+//#endregion
+
+//#region Documentation
 {
   //! README.md:
 
@@ -2778,7 +2933,13 @@ import { State, Superstate, superstate } from ".";
       },
     });
 
-    // Send submit event with errored context:
+    // Send submit event:
+    form.send.submit("-> complete", {
+      email: "koss@nocorp.me",
+      password: "123456",
+    });
+
+    // Send submit with the error condition:
     form.send.submit("error", "-> errored", {
       email: "",
       password: "123456",
@@ -2802,22 +2963,149 @@ import { State, Superstate, superstate } from ".";
       }
     });
 
-    // Send submit event with errored context:
-    form.send.submit("-> complete", ($, { email, password }) =>
-      $({ email, password })
-    );
-
-    // Send submit event with errored context:
-    form.send.submit("-> complete", ($, context) => $(context));
-
     // Build new context using the previous state context:
     form.send.submit("error", "-> errored", ($, context) =>
       $({ ...context, error: "Email is missing" })
     );
 
-    // Build new context using the previous state context:
     // @ts-expect-error
     form.send.submit("-> complete", ($, context) => $(context));
+    //                                                ~~~~~~~
+    //> Property 'error' is missing in type 'Fields' but required in type '{ error: never; }'
+
+    // Cherry-pick email and password:
+    form.send.submit("-> complete", ($, { email, password }) =>
+      $({ email, password })
+    );
+
+    {
+      interface ErrorFields {
+        error: string;
+      }
+
+      // Accept form fields generic:
+      function createFormState<FormFields>() {
+        type FormState =
+          | State<"pending", FormFields & {}>
+          | State<"errored", FormFields & ErrorFields>
+          | State<"complete", FormFields & {}>;
+
+        return (
+          superstate<FormState>("form")
+            .state("pending", [
+              // update()
+              "update() -> pending",
+              "submit(error) -> errored",
+              "submit() -> complete",
+            ])
+            .state("errored", [
+              "update() -> pending",
+              "submit(error) -> errored",
+              "submit() -> complete",
+            ])
+            // Mark the complete state as final:
+            .final("complete")
+        );
+      }
+
+      interface CredentialsFields {
+        email: string;
+        password: string;
+      }
+
+      interface ProfileFields {
+        fullName: string;
+        company: string;
+      }
+
+      // Define the states with the context types:
+      type SignUpState =
+        | "credentials"
+        | State<"profile", CredentialsFields>
+        | State<"done", CredentialsFields & ProfileFields>;
+
+      // Create the credentials form statechart:
+      const credentialsState = createFormState<CredentialsFields>();
+
+      // Create the profile form statechart:
+      const profileState = createFormState<ProfileFields>();
+
+      // Define the signup statechart:
+      const signUpState = superstate<SignUpState>("signUp")
+        .state("credentials", ($) =>
+          $.sub("form", credentialsState, [
+            // When the form is complete, transition to profile:
+            "form.complete -> submit() -> profile",
+          ])
+        )
+        .state("profile", ($) =>
+          $.sub("form", profileState, [
+            // When the form is complete, transition to done:
+            "form.complete -> submit() -> done",
+          ])
+        )
+        .final("done");
+
+      // Since we require the full context in each form initial state, we have
+      // to specify the initial context for each form:
+      const signUp = signUpState.host({
+        credentials: {
+          form: {
+            // Initial context for the credentials form:
+            context: {
+              email: "",
+              password: "",
+            },
+          },
+        },
+
+        profile: {
+          form: {
+            // Initial context for the profile form:
+            context: {
+              company: "",
+              fullName: "",
+            },
+          },
+        },
+      });
+
+      // Fill in the email field:
+      signUp.send.credentials.form.update("-> pending", ($, { password }) =>
+        $({ email: "koss@nocorp.me", password })
+      );
+
+      // Fill in the password field:
+      signUp.send.credentials.form.update("-> pending", ($, { email }) =>
+        $({ email, password: "123456" })
+      );
+
+      // Submit the form:
+      signUp.send.credentials.form.submit(
+        "-> complete",
+        ($, { email, password }) => $({ email, password })
+      );
+
+      const profile = signUp.in("profile");
+      if (profile) {
+        // You can access email and password from the profile state:
+        const { email, password } = profile.context;
+        console.log({ email, password });
+      }
+
+      // Submit the profile form:
+      signUp.send.profile.form.submit(
+        "-> complete",
+        ($, { fullName, company }) => $({ fullName, company })
+      );
+
+      const done = signUp.in("done");
+      if (done) {
+        // You can access all the context fields:
+        const { email, password, fullName, company } = done.context;
+        console.log({ email, password, fullName, company });
+      }
+    }
   }
 }
 //#endregion
