@@ -429,8 +429,6 @@ interface ErrorFields {
   error: string;
 }
 
-type FieldsWithErrors = Fields & ErrorFields;
-
 // Define the states
 
 type FormState =
