@@ -8,6 +8,12 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v1.0.0-beta.4 - 2024-05-07
+
+### Fixed
+
+- Fixed previously incorrecly published package.
+
 ## v1.0.0-beta.3 - 2024-05-07
 
 ### Changed
