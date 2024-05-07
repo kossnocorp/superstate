@@ -470,13 +470,13 @@ const form = formState.host({
 });
 
 // Send submit event:
-form.send.submit("-> errored", {
+form.send.submit("-> complete", {
   email: "koss@nocorp.me",
   password: "123456",
 });
 ```
 
-Note that you must specify the destination state (`-> errored`) when sending an event with context, as events with the same name can transition to different states. While it's not a problem when sending events without context, sending context to the wrong state will lead to unexpected behavior.
+Note that you must specify the destination state (`-> complete`) when sending an event with context, as events with the same name can transition to different states. While it's not a problem when sending events without context, sending context to the wrong state will lead to unexpected behavior.
 
 When sending an event with a condition, specify the condition before the destination state:
 
@@ -526,10 +526,186 @@ form.send.submit("error", "-> errored", ($, context) =>
 
 The updater function receives two arguments: the validation functions and the previous context. While the validation function doesn't do anything in the runtime, it guarantees context consistency at the type level. It solves the problem of [TypeScript's structural typing that doesn't prevent returning extra fields that are not part of the context](https://github.com/microsoft/TypeScript/issues/12936). Most of the time, this wouldn't be a problem when dealing with the state the extra fields might lead to unexpected behavior, so the approach with the validation function that triggers type check is a good compromise.
 
-For instance, when transitioning from `errored` state where `error` is present, the updater function will trigger type error when you try to spread the previous `context`:
+For instance, when transitioning from `errored` state where the `error` property is present, the updater function will trigger a type error when you try to pass the previous `context` as is:
 
 ```ts
-[TODO];
+form.send.submit("-> complete", ($, context) => $(context));
+//                                                ~~~~~~~
+//> Property 'error' is missing in type 'Fields' but required in type '{ error: never; }'
+```
+
+The reason is that the type of `context` is `Fields | (Fields & ErrorFields)`, while the `complete` state expects `Fields`. You can see from the error that the `error` is expected to be never (no pun intended).
+
+To fix the problem, cherry-pick the required properties:
+
+```ts
+// Cherry-pick email and password:
+form.send.submit("-> complete", ($, { email, password }) =>
+  $({ email, password })
+);
+```
+
+---
+
+Contexts get more powerful when combined with substates. Let's describe a multistep signup form. Let's start with an abstract form statechart builder:
+
+```ts
+interface ErrorFields {
+  error: string;
+}
+
+// Accept form fields generic:
+function createFormState<FormFields>() {
+  type FormState =
+    | State<"pending", FormFields & {}>
+    | State<"errored", FormFields & ErrorFields>
+    | State<"complete", FormFields & {}>;
+
+  return (
+    superstate<FormState>("form")
+      .state("pending", [
+        // update() will allow use to
+        "update() -> pending",
+        "submit(error) -> errored",
+        "submit() -> complete",
+      ])
+      .state("errored", [
+        "update() -> pending",
+        "submit(error) -> errored",
+        "submit() -> complete",
+      ])
+      // Mark the complete state as final:
+      .final("complete")
+  );
+}
+```
+
+Now, let's define the main signup statechart:
+
+```ts
+interface CredentialsFields {
+  email: string;
+  password: string;
+}
+
+interface ProfileFields {
+  fullName: string;
+  company: string;
+}
+
+// Define the states with the context types:
+type SignUpState =
+  | "credentials"
+  | State<"profile", CredentialsFields>
+  | State<"done", CredentialsFields & ProfileFields>;
+
+// Create the credentials form statechart:
+const credentialsState = createFormState<CredentialsFields>();
+
+// Create the profile form statechart:
+const profileState = createFormState<ProfileFields>();
+
+// Define the signup statechart:
+const signUpState = superstate<SignUpState>("signUp")
+  .state("credentials", ($) =>
+    $.sub("form", credentialsState, [
+      // When the form is complete, transition to profile:
+      "form.complete -> submit() -> profile",
+    ])
+  )
+  .state("profile", ($) =>
+    $.sub("form", profileState, [
+      // When the form is complete, transition to done:
+      "form.complete -> submit() -> done",
+    ])
+  )
+  .final("done");
+```
+
+Note that we bind the `form.complete` states to the next state in the signup statechart. This way, when the form is submitted without errors, the signup statechart will transition to the next state.
+
+Finally, let's take a look how the flow might look like.
+
+First, we create the instance:
+
+```ts
+// Since we require the full context in each form initial state, we have
+// to specify the initial context for each form:
+const signUp = signUpState.host({
+  credentials: {
+    form: {
+      // Initial context for the credentials form:
+      context: {
+        email: "",
+        password: "",
+      },
+    },
+  },
+
+  profile: {
+    form: {
+      // Initial context for the profile form:
+      context: {
+        company: "",
+        fullName: "",
+      },
+    },
+  },
+});
+```
+
+We could have made the initial context optional (`State<"pending", Partial<FormFields> >`) and skipped specifying the initial context when hosting, but then you wouldn't learn about it, would you?
+
+Now, let's fill the first form and submit it:
+
+```ts
+// Fill in the email field:
+signUp.send.credentials.form.update("-> pending", ($, { password }) =>
+  $({ email: "koss@nocorp.me", password })
+);
+
+// Fill in the password field:
+signUp.send.credentials.form.update("-> pending", ($, { email }) =>
+  $({ email, password: "123456" })
+);
+
+// Submit the form:
+signUp.send.credentials.form.submit("-> complete", ($, { email, password }) =>
+  $({ email, password })
+);
+```
+
+If you remember, the `form.complete` state is bound to the `profile` state, so now we should transition to `profile`.
+
+```ts
+const profile = signUp.in("profile");
+if (profile) {
+  // You can access email and password from the profile state:
+  const { email, password } = profile.context;
+  console.log({ email, password });
+}
+```
+
+You might have missed it, but we never explicitly assigned the profile state! Where did it get from?!
+
+This is where magic happens! The final substate context automatically merges with the parent context and assign it to the next state.
+
+When binding the final state, Superstate checks if when merging the given final state context with the parent state context produces exact context of the target state. If it doesn't you'll see a type error when trying to bind such states.
+
+Likewise, when submitting the profile form, the `done` state will have both credentials and profile fields:
+
+```ts
+// Submit the profile form:
+signUp.send.profile.form.submit("-> complete", ($, { fullName, company }) =>
+  $({ fullName, company })
+);
+
+const done = signUp.in("done");
+if (done) {
+  // You can access all the context fields:
+  const { email, password, fullName, company } = done.context;
+  console.log({ email, password, fullName, company });
+}
 ```
 
 ## API
@@ -603,6 +779,8 @@ const state = superstate<SwitchState>("name")
   // is sent before transitioning to the `off` state.
   .state("on", "turnOff() -> onOff! -> off");
 ```
+
+---
 
 There are six types of available definitions:
 
@@ -703,6 +881,8 @@ const pcState = superstate<PCState>("pc")
   );
 ```
 
+---
+
 There are four types of available definitions:
 
 | Name                           | Definition                                         | Description                                                                                       |
@@ -747,6 +927,8 @@ const pcState = superstate<PCState>("pc")
     $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
   );
 ```
+
+---
 
 There are four types of available guarded definitions:
 
@@ -843,9 +1025,9 @@ const pcState = superstate<PCState>("pc")
   );
 ```
 
-The transitions consists of the final substate `terminated`, the event `shutdown()`, and the parent state `off`.
+The transitions consist of the final substate `os.terminated` (prefixed with the substate name `os`), the event `shutdown()`, and the parent state `off`.
 
-So that after the substate OS enters the final `terminated` state, the parent PC will receive `shutdown()` and event and automatically transition to the `off` state.
+After the substate OS enters the final `terminated` state, the parent PC will receive `shutdown()` and event and automatically transition to the `off` state.
 
 The final transitions can be a `string` or `string[]`, allowing you to connect multiple final states to the parent state.
 
@@ -855,7 +1037,7 @@ There are no limits on the number of substates you can define.
 
 #### `builder.final`
 
-The method works the same as the `state` method but marks the state as final.
+The method works like the `state` method but marks the state as final.
 
 [See `state` docs](#builderstate) for more info.
 
@@ -946,13 +1128,49 @@ const pc = pcState.host({
 
 The hierarchy of the statecharts is preserved, so you bind each state and substate actions individually.
 
-There are three types of available bindings:
+When the statechart's or a substate's initial state has assigned context, you must pass the context when hosting the statechart:
+
+```ts
+const signUp = signUpState.host({
+  // The statechart's initial context:
+  context: {
+    ref: "unknown",
+  },
+
+  credentials: {
+    form: {
+      // Initial context for the credentials form:
+      context: {
+        email: "",
+        password: "",
+      },
+    },
+  },
+
+  profile: {
+    form: {
+      // Initial context for the profile form:
+      context: {
+        company: "",
+        fullName: "",
+      },
+    },
+  },
+});
+```
+
+If all the context fields are optional, you can skip assigning it when hosting the statechart. Otherwise, you'll see a type error.
+
+---
+
+There are four types of available bindings:
 
 | Name              | Definition                   | Description                                                 |
 | ----------------- | ---------------------------- | ----------------------------------------------------------- |
 | Enter action      | `-> actionName!`             | The action that is called when the state is entered.        |
 | Exit action       | `actionName! ->`             | The action that is called when the state is exited.         |
 | Transition action | `eventName() -> actionName!` | The action that is called when the transition is triggered. |
+| Context           | `context`                    | The context that is passed to the initial statechart state. |
 
 #### `factory.name`
 
@@ -983,7 +1201,7 @@ Here are the available methods and properties:
 - [`finalized`](#instancefinalized) - is the statechart in the final state?
 - [`in`](#instancein) - checks if the statechart is in the given state.
 - [`on`](#instanceon) - subscribes to the state and transition updates.
-- [`send`](#instancesend) - sends an event to the statechart.
+- [`send`](#instancesend) - proxy object that allows to send events to the statechart.
 - [`off`](#instanceoff) - unsubscribes all the statechart listeners.
 
 #### `instance.state`
@@ -1061,6 +1279,8 @@ if (state) {
   //=> "on"
 }
 ```
+
+---
 
 There are two types of available checks:
 
@@ -1175,6 +1395,8 @@ instance.on("**", (update) => {
 });
 ```
 
+---
+
 There are seven types of available update targets:
 
 | Name                  | Definition                       | Description                                                        |
@@ -1189,7 +1411,7 @@ There are seven types of available update targets:
 
 #### `instance.send`
 
-The method sends an event to the statechart.
+This proxy object allows to send events to the statechart.
 
 ```ts
 instance.on("playing", () => console.log("Playing!"));
@@ -1198,7 +1420,7 @@ instance.on("playing", () => console.log("Playing!"));
 instance.send.play();
 ```
 
-The first argument is the event name. Guarded events receive the condition as part of the event name:
+Pass the condition as the argument to trigger the guarded event:
 
 ```ts
 const instance = pcMachine.host();
@@ -1212,7 +1434,7 @@ instance.send.press();
 instance.send.press("long");
 ```
 
-The method returns the next state if the event leads to a transition or `null` otherwise:
+The event methods return the next state if the event leads to a transition or `null` otherwise:
 
 ```ts
 const nextState = instance.send.play();
@@ -1223,13 +1445,32 @@ if (nextState) {
 }
 ```
 
-To send the event to a substate, use the dot-notation path:
+To send the event to a substate, access it by the parent state and the substate's name:
 
 ```ts
 instance.on("playing.volume.up()", () => console.log("Volume up!"));
 
 // Will trigger the listener and print "Volume up!":
 instance.send.playing.volume.up();
+```
+
+When sending the event transitions to a state with a context, you have to pass the destination and the context as arguments:
+
+```ts
+instance.send.form.submit("-> complete", {
+  email: "koss@nocorp.me",
+  password: "123456",
+});
+```
+
+When sending a guarded event with a context, pass the condition as the first argument:
+
+```ts
+instance.send.form.submit("error", "-> errored", {
+  email: "",
+  password: "123456",
+  error: "Email is missing",
+});
 ```
 
 #### `instance.off`

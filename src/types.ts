@@ -1119,20 +1119,124 @@ export namespace Superstate {
                 (condition: Trait["condition"]) => Trait["next"] | null
             : Condition extends null
             ? // No condition, with context
-              <PassedContext extends Trait["next"]["context"]>(
+              <
+                A,
+                B,
+                C,
+                D,
+                E,
+                F,
+                G,
+                H,
+                I,
+                J,
+                K,
+                L,
+                M,
+                N,
+                O,
+                P,
+                Q,
+                R,
+                S,
+                T,
+                U,
+                V,
+                W,
+                X,
+                Y,
+                Z
+              >(
                 to: `-> ${Trait["next"]["name"]}`,
                 context: Contexts.ContextArg<
-                  PassedContext,
+                  | A
+                  | B
+                  | C
+                  | D
+                  | E
+                  | F
+                  | G
+                  | H
+                  | I
+                  | J
+                  | K
+                  | L
+                  | M
+                  | N
+                  | O
+                  | P
+                  | Q
+                  | R
+                  | S
+                  | T
+                  | U
+                  | V
+                  | W
+                  | X
+                  | Y
+                  | Z,
                   Trait["next"]["context"],
                   Trait["from"]["context"]
                 >
               ) => Trait["next"] | null
             : // With condition, with context
-              <PassedContext extends Trait["next"]["context"]>(
+              <
+                A,
+                B,
+                C,
+                D,
+                E,
+                F,
+                G,
+                H,
+                I,
+                J,
+                K,
+                L,
+                M,
+                N,
+                O,
+                P,
+                Q,
+                R,
+                S,
+                T,
+                U,
+                V,
+                W,
+                X,
+                Y,
+                Z
+              >(
                 condition: Trait["condition"],
                 to: `-> ${Trait["next"]["name"]}`,
                 context: Contexts.ContextArg<
-                  PassedContext,
+                  | A
+                  | B
+                  | C
+                  | D
+                  | E
+                  | F
+                  | G
+                  | H
+                  | I
+                  | J
+                  | K
+                  | L
+                  | M
+                  | N
+                  | O
+                  | P
+                  | Q
+                  | R
+                  | S
+                  | T
+                  | U
+                  | V
+                  | W
+                  | X
+                  | Y
+                  | Z,
                   Trait["next"]["context"],
                   Trait["from"]["context"]
                 >
@@ -1527,6 +1631,7 @@ export namespace Superstate {
           EventFromState<State, ParentState, Namespace>
           // Assign substates
           | (State extends {
+              name: Namespace;
               sub: infer Substates;
             }
               ? keyof Substates extends never
@@ -1716,11 +1821,7 @@ export namespace Superstate {
      */
     export type EnsureObject<Context> = Context extends null ? {} : Context;
 
-    export type ContextArg<
-      PassedContext extends Context,
-      Context,
-      PrevContext
-    > =
+    export type ContextArg<PassedContext, Context, PrevContext> =
       | Utils.Exact<Context, PassedContext>
       | ContextArgFn<Context, PrevContext>;
 
@@ -1729,8 +1830,63 @@ export namespace Superstate {
       context: PrevContext
     ) => ExactContext<Context>;
 
-    export type ContextUpdater<Context> = <PassedContext extends Context>(
-      context: Utils.Exact<Context, PassedContext>
+    export type ContextUpdater<Context> = <
+      A,
+      B,
+      C,
+      D,
+      E,
+      F,
+      G,
+      H,
+      I,
+      J,
+      K,
+      L,
+      M,
+      N,
+      O,
+      P,
+      Q,
+      R,
+      S,
+      T,
+      U,
+      V,
+      W,
+      X,
+      Y,
+      Z
+    >(
+      context: Utils.Exact<
+        Context,
+        | A
+        | B
+        | C
+        | D
+        | E
+        | F
+        | G
+        | H
+        | I
+        | J
+        | K
+        | L
+        | M
+        | N
+        | O
+        | P
+        | Q
+        | R
+        | S
+        | T
+        | U
+        | V
+        | W
+        | X
+        | Y
+        | Z
+      >
     ) => ExactContext<Context>;
 
     export type ExactContext<Context> = Context & {
@@ -1835,9 +1991,11 @@ export namespace Superstate {
      * Resolves true if both types are equal.
      * Source: https://github.com/microsoft/TypeScript/issues/48100#issuecomment-1193266100
      */
-    export type Compare<TypeA, TypeB> = (<T>() => T extends Simplify<TypeA>
-      ? 1
-      : 2) extends <T>() => T extends Simplify<TypeB> ? 1 : 2
+    export type Compare<TypeA, TypeB> = (<
+      Type
+    >() => Type extends Simplify<TypeA> ? 1 : 2) extends <
+      Type
+    >() => Type extends Simplify<TypeB> ? 1 : 2
       ? true
       : false;
 
@@ -1860,15 +2018,21 @@ export namespace Superstate {
       : never;
 
     /**
-     * Source: https://github.com/microsoft/TypeScript/issues/12936#issuecomment-2088768988
+     * Resolves type that prevents extending the reference type. It resolves
+     * the reference for primitives and constructs a new type for objects where
+     * the extra fields are set to never.
      */
-    export type Exact<OriginalType, Type extends OriginalType> = {
-      [Key in keyof Type]: Key extends keyof OriginalType
-        ? Type[Key] extends object
-          ? Exact<OriginalType[Key], Type[Key]>
-          : Type[Key]
-        : never;
-    };
+    export type Exact<Reference, Type> =
+      // Bypass primitives
+      Reference extends object
+        ? // Mixing in the reference type prevents empty objects
+          Reference & {
+            [Key in keyof Type]: Key extends keyof Reference
+              ? Type[Key]
+              : never;
+          }
+        : // Check primitives against the reference
+          Reference;
   }
   //#endregion
 }
