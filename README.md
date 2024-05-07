@@ -652,9 +652,9 @@ const signUp = signUpState.host({
 });
 ```
 
-We could have made the initial context optional (`State<"pending", Partial<FormFields> >`) and skipped specifying the initial context when hosting, but then you wouldn't learn about it, would you?
+We could have made the initial context optional (`State<"pending", Partial<FormFields>>`) and skipped specifying the initial context when hosting, but then you wouldn't learn about it, would you?
 
-Now, let's fill the first form and submit it:
+Now, let's fill out the first form and submit it:
 
 ```ts
 // Fill in the email field:
@@ -688,7 +688,7 @@ You might have missed it, but we never explicitly assigned the profile state! Wh
 
 This is where magic happens! The final substate context automatically merges with the parent context and assign it to the next state.
 
-When binding the final state, Superstate checks if when merging the given final state context with the parent state context produces exact context of the target state. If it doesn't you'll see a type error when trying to bind such states.
+When binding the final state, Superstate checks if merging the given final state context with the parent state context produces the exact context of the target state. If it doesn't, you'll see a type error when trying to bind incompatible states.
 
 Likewise, when submitting the profile form, the `done` state will have both credentials and profile fields:
 
