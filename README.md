@@ -500,11 +500,11 @@ form.on("*", (update) => {
   if (update.type === "event") {
     // Access the context in the transition:
     if (update.transition.to === "errored")
-      update.transition.context satisfies FieldsWithErrors;
+      update.transition.context satisfies Fields & ErrorFields;
   } else {
     // Access the context in the state:
     if (update.state.name === "errored")
-      update.state.context satisfies FieldsWithErrors;
+      update.state.context satisfies Fields & ErrorFields;
   }
 });
 ```
