@@ -1018,6 +1018,57 @@ import { State, Superstate, superstate } from ".";
 }
 //#endregion
 
+//#region Substate lists
+{
+  type MonorepoState = "loading" | "running" | "exited";
+
+  type PackageState = "loading" | "errored" | "loaded";
+
+  const packageState = superstate<PackageState>("package")
+    .state("loading", ["load() -> loaded", "error() -> errored"])
+    .state("errored", "retry() -> loading")
+    .final("loaded");
+
+  const monorepoState = superstate<MonorepoState>("monorepo")
+    .state("loading", ($) =>
+      $.sub("package", packageState, "package.loaded -> load() -> running")
+    )
+    .state("running", ($) => $.subs("packages", packageState))
+    .final("exited");
+
+  const monorepo = monorepoState.host();
+
+  const running = monorepo.in("running");
+  if (running) {
+    //! It allows to access substates as an array
+    const pkg = running.sub.packages[0];
+    if (pkg) {
+      pkg.in("loading");
+    } else {
+      pkg satisfies undefined;
+    }
+  }
+
+  //! send
+  {
+    //! It allows to send events to individual list substates
+    monorepo.send.running.packages[0]?.load();
+
+    //! It doesn't allow to send events to list substates as it's a single state
+    // @ts-expect-error
+    monorepo.send.running.packages.load();
+
+    //! It still should be possible to send events to single substates
+    monorepo.send.loading.package.load();
+  }
+
+  //! on
+  {
+    // [TODO] on tysts
+  }
+}
+//#endregion
+
 //#region Context
 {
   //! Simple context

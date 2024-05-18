@@ -613,6 +613,10 @@ export namespace Superstate {
      */
     export type AnyState = State<any, any, any, any, any, any>;
 
+    /**
+     * Transforms {@link Builder.State} to the instance state. It replaces
+     * builder substates that contains factory to its instance.
+     */
     export type BuilderStateToInstance<State extends AnyState> = State extends {
       sub: Substates.BuilderSubstatesMap<infer Substate>;
     }
@@ -740,6 +744,37 @@ export namespace Superstate {
         TransitionDef,
         | Substate
         | Substates.Substate<
+            "single",
+            SubstateName,
+            SubstateFactory,
+            Substates.SubstateFinalTransitionFromDef<
+              StatechartInit,
+              TrasitionDef
+            >
+          >
+      >;
+
+      subs<
+        SubstateName extends string,
+        SubstateFactory extends Factories.AnyFactory,
+        TrasitionDef extends Transitions.SubstateTransitionDef<
+          StatechartInit,
+          StateInit,
+          SubstateName,
+          SubstateFactory
+        > = never
+      >(
+        name: SubstateName,
+        factory: SubstateFactory,
+        defs?: TrasitionDef | TrasitionDef[]
+      ): StateFnGeneratorBuilder<
+        StatechartInit,
+        StateInit,
+        Action,
+        TransitionDef,
+        | Substate
+        | Substates.Substate<
+            "list",
             SubstateName,
             SubstateFactory,
             Substates.SubstateFinalTransitionFromDef<
@@ -817,7 +852,7 @@ export namespace Superstate {
 
     /**
      * Builder state. It constructs the state object from the builder chain
-     * types.
+     * types. It is transformed to instance by {@link States.BuilderStateToInstance}.
      */
     export type State<
       StatechartInit extends States.AnyInit,
@@ -842,6 +877,8 @@ export namespace Superstate {
           ? StateDef_
           : never
       >[];
+      /** Substates map. Value is the substate instance of list of instances
+       * in case of list substate. */
       sub: Substates.BuilderSubstatesMap<Substate>;
       initial: Initial;
       final: Final;
@@ -1081,7 +1118,9 @@ export namespace Superstate {
      */
     export type SendProxy<SendMap extends Traits.Send.MapConstraint> = {
       // Namespace can be an event name or a state name.
-      [Namespace in keyof SendMap]: SendMap[Namespace] extends infer SendTrait
+      [Namespace in keyof SendMap]: SendMap[Namespace] extends Array<infer Asd>
+        ? never
+        : SendMap[Namespace] extends infer SendTrait
         ? // Functions union will collapse into a single function, converting it
           // to an intersection will enable multiple overloads and also join
           // any states with substates if needed.
@@ -1092,9 +1131,15 @@ export namespace Superstate {
               : // Add the state with substates to union
               SendTrait extends Traits.Send.StateConstraint
               ? {
-                  [SubstateName in keyof SendTrait["sub"]]: SendProxy<
-                    SendTrait["sub"][SubstateName]
-                  >;
+                  [SubstateName in keyof SendTrait["sub"]]: SendTrait["sub"][SubstateName] extends infer Substate
+                    ? Substate extends Traits.Send.MapConstraint
+                      ? SendProxy<Substate>
+                      : Substate extends Array<
+                          infer Map extends Traits.Send.MapConstraint
+                        >
+                      ? SendProxy<Map>[]
+                      : never
+                    : never;
                 }
               : never
           >
@@ -1349,24 +1394,44 @@ export namespace Superstate {
    * the entity that represents a nested statechart relation to the parent.
    */
   export namespace Substates {
-    export type AnySubstate = Substate<any, any, any>;
+    /** Substate type placeholder, used as generic constrain. */
+    export type AnySubstate = Substate<any, any, any, any>;
 
     /**
      * Substate type.
      */
-    export interface Substate<Name, Factory, Transition> {
+    export interface Substate<Type_ extends Type, Name, Factory, Transition> {
+      /** Type, either "single" or "list". The latter means there might be
+       * multiple instances. */
+      type: Type_;
+      /** Name registered on the parent. */
       name: Name;
+      /** Factory that creates instances. */
       factory: Factory;
+      /** Transitions mapped from substate final states to parent states. */
       transitions: Transition[];
     }
 
+    /**
+     * Substate type. "list" denotes that the substate might have multiple
+     * instances and is treated as a list.
+     */
+    export type Type = "single" | "list";
+
+    /**
+     * Builder substates map. Map of names to substates.
+     */
     export type BuilderSubstatesMap<Substate extends AnySubstate> = Record<
       Substate["name"],
       Substate
     >;
 
+    /**
+     * Transforms {@link BuilderSubstatesMap} to the instance substates map.
+     */
     export type InstanceSubstatesMap<Substate extends AnySubstate> = {
       [Name in Substate["name"]]: Substate extends {
+        type: infer Type;
         name: Name;
         factory: infer Factory;
       }
@@ -1375,7 +1440,11 @@ export namespace Superstate {
               SubstateState,
               Traits.Traits<SubstateState>,
               Substate
-            >
+            > extends infer Instance
+            ? Type extends "single"
+              ? Instance
+              : Instance[]
+            : never
           : never
         : never;
     };
@@ -1622,6 +1691,9 @@ export namespace Superstate {
 
     //#region Traits.Send
     export namespace Send {
+      /**
+       * Resolves send map from a state.
+       */
       export type FromState<
         State extends States.AnyState,
         ParentState extends States.AnyState | null = null
@@ -1640,9 +1712,14 @@ export namespace Superstate {
                     type: "state";
                     namespace: Namespace;
                     sub: {
-                      [SubstateName in keyof Substates]: Substates[SubstateName] extends {
+                      // Substate can be a list or a single substate
+                      [SubstateName in keyof Substates]: Substates[SubstateName] extends Array<{
                         state: infer SubstateState extends States.AnyState;
-                      }
+                      }>
+                        ? FromState<SubstateState, State>[]
+                        : Substates[SubstateName] extends {
+                            state: infer SubstateState extends States.AnyState;
+                          }
                         ? FromState<SubstateState, State>
                         : never;
                     };
@@ -1704,28 +1781,27 @@ export namespace Superstate {
         EventConstraint | StateConstraint
       >;
 
-      export interface EventConstraint
-        extends Event<
-          string,
-          string | null,
-          States.AnyState,
-          States.AnyState,
-          States.AnyState | null
-        > {}
+      export type EventConstraint = Event<
+        string,
+        string | null,
+        States.AnyState,
+        States.AnyState,
+        States.AnyState | null
+      >;
 
-      export interface StateConstraint extends State<string, SubstateMap> {}
+      export type StateConstraint = State<string, SubstateMap>;
 
       export interface Base<Type extends string, Namespace extends string> {
         type: Type;
         namespace: Namespace;
       }
 
-      export type SubstateMap = Record<string, MapConstraint>;
-
       export interface State<Namespace extends string, Sub extends SubstateMap>
         extends Base<"state", Namespace> {
         sub: Sub;
       }
+
+      export type SubstateMap = Record<string, MapConstraint[] | MapConstraint>;
 
       export interface Event<
         Namespace extends string,
@@ -2033,6 +2109,11 @@ export namespace Superstate {
           }
         : // Check primitives against the reference
           Reference;
+
+    /**
+     * Resolves type or an array of types.
+     */
+    export type MaybeArray<Type> = Type | Type[];
   }
   //#endregion
 }
