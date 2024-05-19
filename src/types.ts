@@ -1592,46 +1592,86 @@ export namespace Superstate {
             // > Type instantiation is excessively deep and possibly infinite.
             keyof Substates extends infer SubstateName extends string
             ? SubstateName extends SubstateName
-              ? Substates[SubstateName] extends {
-                  sub: {
-                    transitions: Array<
-                      infer FinalTransition extends Substates.AnyFinalTransition
-                    >;
-                  };
-                  state: infer SubstateState extends States.AnyState;
-                }
-                ?
-                    | Event<
-                        SubstateState,
-                        `${Prefix}${StateName}.${SubstateName}.`
-                      >
-                    // Add final transitions
-                    | (FinalTransition extends {
-                        event: infer EventName extends string;
-                      }
-                        ? Transitions.MatchNextState<
-                            Statechart,
-                            EventName,
-                            null
-                          > extends infer NextState
-                          ? {
-                              key: `${Prefix}${EventName}`;
-                              wildcard: `${Prefix}*`;
-                              send: null;
-                              condition: null;
-                              transition: FinalTransition;
-                              from: States.FilterState<Statechart, StateName>;
-                              next: NextState;
-                              final: true;
-                              nested: true;
-                              context: null;
-                            }
-                          : never
-                        : never)
+              ? // Substate can be a list or a single substate. The difference
+                // is that events for list substates are suffixed with `[*]`
+                // or `[${number}]`.
+                Substates[SubstateName] extends Array<infer Substate>
+                ? EventSubstate<
+                    Statechart,
+                    Prefix,
+                    StateName,
+                    SubstateName,
+                    Substate,
+                    true // Denotes that it's a list substate
+                  >
+                : Substates[SubstateName] extends infer Substate
+                ? EventSubstate<
+                    Statechart,
+                    Prefix,
+                    StateName,
+                    SubstateName,
+                    Substate,
+                    false // Denotes that it's a single substate
+                  >
                 : never
               : never
             : never
           : never);
+
+    export type EventSubstate<
+      Statechart extends States.AnyState,
+      Prefix extends string,
+      StateName extends string,
+      SubstateName extends string,
+      Substate,
+      IsListSubstate extends boolean
+    > = Substate extends {
+      sub: {
+        transitions: Array<
+          infer FinalTransition extends Substates.AnyFinalTransition
+        >;
+      };
+      // [TODO] Do I need this?!
+      // | Array<{
+      //     transitions: Array<
+      //       infer FinalTransition extends Substates.AnyFinalTransition
+      //     >;
+      //   }>;
+      state: infer SubstateState extends States.AnyState;
+    }
+      ?
+          | Event<
+              SubstateState,
+              true extends IsListSubstate
+                ?
+                    | `${Prefix}${StateName}.${SubstateName}[${number}].`
+                    | `${Prefix}${StateName}.${SubstateName}[*].`
+                : `${Prefix}${StateName}.${SubstateName}.`
+            >
+          // Add final transitions
+          | (FinalTransition extends {
+              event: infer EventName extends string;
+            }
+              ? Transitions.MatchNextState<
+                  Statechart,
+                  EventName,
+                  null
+                > extends infer NextState
+                ? {
+                    key: `${Prefix}${EventName}`;
+                    wildcard: `${Prefix}*`;
+                    send: null;
+                    condition: null;
+                    transition: FinalTransition;
+                    from: States.FilterState<Statechart, StateName>;
+                    next: NextState;
+                    final: true;
+                    nested: true;
+                    context: null;
+                  }
+                : never
+              : never)
+      : never;
 
     export type State<
       Statechart extends States.AnyState,
@@ -1658,10 +1698,18 @@ export namespace Superstate {
             // > Type instantiation is excessively deep and possibly infinite.
             keyof Substates extends string
             ? {
-                [SubstateName in keyof Substates]: Substates[SubstateName] extends {
-                  state: infer SubstateState extends States.AnyState;
-                }
-                  ? SubstateName extends string
+                [SubstateName in keyof Substates]: SubstateName extends string
+                  ? Substates[SubstateName] extends Array<{
+                      state: infer SubstateState extends States.AnyState;
+                    }>
+                    ? State<
+                        SubstateState,
+                        | `${Prefix}${StateName}.${SubstateName}[${number}].`
+                        | `${Prefix}${StateName}.${SubstateName}[*].`
+                      >
+                    : Substates[SubstateName] extends {
+                        state: infer SubstateState extends States.AnyState;
+                      }
                     ? State<
                         SubstateState,
                         `${Prefix}${StateName}.${SubstateName}.`

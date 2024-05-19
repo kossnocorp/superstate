@@ -1064,7 +1064,43 @@ import { State, Superstate, superstate } from ".";
 
   //! on
   {
-    // [TODO] on tysts
+    monorepo.on("loading.package.*", () => {});
+    monorepo.on("loading.package.error()", () => {});
+    monorepo.on("loading.package.errored", () => {});
+
+    //! It allows to subscribe to substate in a list substate
+
+    //! Subscribe to all updates
+    monorepo.on("running.packages[0].*", (update) => {});
+
+    //! Subscribe to events
+    monorepo.on("running.packages[0].error()", (update) => {});
+
+    //! Subscribe to states
+    monorepo.on("running.packages[0].errored", (update) => {});
+
+    //! It allows to subscribe to all substates in a list substate
+
+    //! Subscribe to all updates
+    monorepo.on("running.packages[*].*", (update) => {});
+
+    //! Subscribe to events
+    monorepo.on("running.packages[*].error()", (update) => {});
+
+    //! Subscribe to states
+    monorepo.on("running.packages[*].errored", (update) => {});
+
+    //! It disallows subscribing as it's a single state
+    // @ts-expect-error
+    monorepo.on("running.packages.errored", (update) => {});
+
+    //! It disallows subscribing to invalid updates
+    // @ts-expect-error
+    monorepo.on("running.packages[0].nope", (update) => {});
+
+    //! It disallows using non-number indicies
+    // @ts-expect-error
+    monorepo.on("running.packages[nah].nope", (update) => {});
   }
 }
 //#endregion
