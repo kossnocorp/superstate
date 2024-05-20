@@ -1327,24 +1327,45 @@ export namespace Superstate {
         : never;
 
     /**
-     * Matches the target state.
+     * Matches the target state. It accepts the state trait and resolves
+     * the state matching the target string.
      */
     export type MatchState<
-      FlatState extends Traits.StateConstraint,
+      State extends Traits.StateConstraint,
       Target extends string
-    > = FlatState extends { key: Target } ? FlatState["state"] : never;
+    > =
+      // [NOTE] Inferring the key type first is necessary as simple
+      // `State extends { key: Target }` won't match when `key`
+      // is a template string, i.e., `running.packages[${number}].loading` and
+      // target is a string, i.e. `running.packages[0].loading`. However,
+      // inferring the key type first and comparing it to the target works.
+      State extends { key: infer Key }
+        ? Target extends Key
+          ? State extends { key: Key }
+            ? State["state"]
+            : never
+          : never
+        : never;
 
     /**
-     * Matches the target event.
+     * Matches the target event. It accepts the event trait and resolves
+     * the event matching the target string.
      */
-    export type MatchEvent<
-      FlatEvent extends Traits.EventConstraint,
-      Target
-    > = Target extends `${infer Key}()`
-      ? FlatEvent extends { key: Key }
-        ? FlatEvent["transition"]
-        : never
-      : never;
+    export type MatchEvent<Event extends Traits.EventConstraint, Target> =
+      // [NOTE] Inferring the key type first is necessary as simple
+      // `Event extends { key: TargetKey }` won't match when `key`
+      // is a template string, i.e., `running.packages[${number}].error` and
+      // target key is a string, i.e. `running.packages[0].error`. However,
+      // inferring the key type first and comparing it to the target works.
+      Target extends `${infer TargetKey}()`
+        ? Event extends { key: infer Key }
+          ? TargetKey extends Key
+            ? Event extends { key: Key }
+              ? Event["transition"]
+              : never
+            : never
+          : never
+        : never;
 
     /**
      * String constraint for wildcard targets.
@@ -1360,29 +1381,63 @@ export namespace Superstate {
    * transitions.
    */
   export namespace Updates {
+    /**
+     * Resovles the deep wildcard updates. It includes each state and event
+     * update in the statechart including all the substates.
+     */
     export type DeepWildcardUpdate<Traits extends Traits.TraitsConstraint> =
       | StateUpdate<Traits["state"]["state"]>
       | EventUpdate<Traits["event"]["transition"]>;
 
+    /**
+     * Resolves wildcard updates by target.
+     */
     export type WildcardUpdate<
       State extends Traits.StateConstraint,
       Event extends Traits.EventConstraint,
       Target extends Targets.WildcardConstraint
     > =
-      | (State extends { wildcard: Target }
-          ? StateUpdate<State["state"]>
+      // [NOTE] Inferring the wildcard type first is necessary as simple
+      // `Trait extends { wildcard: Target }` won't match when `wildcard`
+      // is a template string, i.e., `running.packages[${number}].*` and target
+      // is a string, i.e. `running.packages[0].*`. However, inferring
+      // the wildcard type first and comparing it to the target works.
+      // ---
+      // Match state updates
+      | (State extends { wildcard: infer Wildcard }
+          ? Target extends Wildcard
+            ? State extends { wildcard: Wildcard }
+              ? StateUpdate<State["state"]>
+              : never
+            : never
           : never)
-      | (Event extends { wildcard: Target }
-          ? EventUpdate<Event["transition"]>
+      // Match event updates
+      | (Event extends { wildcard: infer Wildcard }
+          ? Target extends Wildcard
+            ? Event extends { wildcard: Wildcard }
+              ? EventUpdate<Event["transition"]>
+              : never
+            : never
           : never);
 
-    export interface StateUpdate<_State extends { name: string }> {
+    /**
+     * State update interface. It represents the object passed to the listener
+     * function.
+     */
+    export interface StateUpdate<State extends { name: string }> {
+      /** Update type. */
       type: "state";
-      state: _State;
+      /** State that statechart just transition into. */
+      state: State;
     }
-
+    /**
+     * Event update interface.  It represents the object passed to the listener
+     * function.
+     */
     export interface EventUpdate<Transition> {
+      /** Update type. */
       type: "event";
+      /** Transition that just occured. */
       transition: Transition;
     }
   }
@@ -1394,7 +1449,9 @@ export namespace Superstate {
    * the entity that represents a nested statechart relation to the parent.
    */
   export namespace Substates {
-    /** Substate type placeholder, used as generic constrain. */
+    /**
+     * Substate type placeholder, used as generic constrain.
+     */
     export type AnySubstate = Substate<any, any, any, any>;
 
     /**
@@ -1559,64 +1616,68 @@ export namespace Superstate {
       Statechart extends States.AnyState,
       Prefix extends string | "" = ""
     > =
-      // First we get the root level events
-      | (Transition<Statechart> extends infer Transition extends TransitionConstraint
-          ? Transition extends Transition
-            ? {
-                key: `${Prefix}${Transition["transition"]["event"]}`;
-                wildcard: `${Prefix}*`;
-                send: `${Prefix}${Transition["transition"]["event"]}(${Transition["transition"]["condition"] extends string
-                  ? Transition["transition"]["condition"]
-                  : ""})${Transition["context"] extends null
-                  ? ""
-                  : ` -> ${Prefix extends ""
-                      ? ""
-                      : "."}${Transition["next"]["name"]}`}`;
-                condition: Transition["transition"]["condition"];
-                transition: Transition["transition"];
-                from: Transition["from"];
-                next: Transition["next"];
-                final: false;
-                nested: Prefix extends "" ? false : true;
-                context: Transition["context"];
+      // Distribute Prefix as it can be an union, i.e. with substate lists
+      // assigning multiple prefixes. It allows to match targets from on method.
+      Prefix extends Prefix
+        ? // First we get the root level events
+          | (Transition<Statechart> extends infer Transition extends TransitionConstraint
+                ? Transition extends Transition
+                  ? {
+                      key: `${Prefix}${Transition["transition"]["event"]}`;
+                      wildcard: `${Prefix}*`;
+                      send: `${Prefix}${Transition["transition"]["event"]}(${Transition["transition"]["condition"] extends string
+                        ? Transition["transition"]["condition"]
+                        : ""})${Transition["context"] extends null
+                        ? ""
+                        : ` -> ${Prefix extends ""
+                            ? ""
+                            : "."}${Transition["next"]["name"]}`}`;
+                      condition: Transition["transition"]["condition"];
+                      transition: Transition["transition"];
+                      from: Transition["from"];
+                      next: Transition["next"];
+                      final: false;
+                      nested: Prefix extends "" ? false : true;
+                      context: Transition["context"];
+                    }
+                  : never
+                : never)
+            // Now we add the substate events
+            | (Statechart extends {
+                name: infer StateName extends string;
+                sub: infer Substates extends Record<string, any>;
               }
-            : never
-          : never)
-      // Now we add the substate events
-      | (Statechart extends {
-          name: infer StateName extends string;
-          sub: infer Substates extends Record<string, any>;
-        }
-          ? // [NOTE] Here we prevent the infinite recursion when Substates is
-            // unknown and keyof Substates resolves to `string | number | symbol`:
-            // > Type instantiation is excessively deep and possibly infinite.
-            keyof Substates extends infer SubstateName extends string
-            ? SubstateName extends SubstateName
-              ? // Substate can be a list or a single substate. The difference
-                // is that events for list substates are suffixed with `[*]`
-                // or `[${number}]`.
-                Substates[SubstateName] extends Array<infer Substate>
-                ? EventSubstate<
-                    Statechart,
-                    Prefix,
-                    StateName,
-                    SubstateName,
-                    Substate,
-                    true // Denotes that it's a list substate
-                  >
-                : Substates[SubstateName] extends infer Substate
-                ? EventSubstate<
-                    Statechart,
-                    Prefix,
-                    StateName,
-                    SubstateName,
-                    Substate,
-                    false // Denotes that it's a single substate
-                  >
-                : never
-              : never
-            : never
-          : never);
+                ? // [NOTE] Here we prevent the infinite recursion when Substates is
+                  // unknown and keyof Substates resolves to `string | number | symbol`:
+                  // > Type instantiation is excessively deep and possibly infinite.
+                  keyof Substates extends infer SubstateName extends string
+                  ? SubstateName extends SubstateName
+                    ? // Substate can be a list or a single substate. The difference
+                      // is that events for list substates are suffixed with `[*]`
+                      // or `[${number}]`.
+                      Substates[SubstateName] extends Array<infer Substate>
+                      ? EventSubstate<
+                          Statechart,
+                          Prefix,
+                          StateName,
+                          SubstateName,
+                          Substate,
+                          true // Denotes that it's a list substate
+                        >
+                      : Substates[SubstateName] extends infer Substate
+                      ? EventSubstate<
+                          Statechart,
+                          Prefix,
+                          StateName,
+                          SubstateName,
+                          Substate,
+                          false // Denotes that it's a single substate
+                        >
+                      : never
+                    : never
+                  : never
+                : never)
+        : never;
 
     export type EventSubstate<
       Statechart extends States.AnyState,
@@ -1677,48 +1738,52 @@ export namespace Superstate {
       Statechart extends States.AnyState,
       Prefix extends string | "" = ""
     > =
-      // First we get the root level states
-      | (Statechart extends {
-          name: infer Name extends string;
-        }
-          ? {
-              key: `${Prefix}${Name}`;
-              wildcard: `${Prefix}*`;
-              state: Statechart;
-              nested: Prefix extends "" ? false : true;
-            }
-          : never)
-      // Now we add the substates
-      | (Statechart extends {
-          name: infer StateName extends string;
-          sub: infer Substates extends Record<string, any>;
-        }
-          ? // Here we prevent the infinite recursion when Substates is uknown and
-            // keyof Substates resolves to `string | number | symbol`:
-            // > Type instantiation is excessively deep and possibly infinite.
-            keyof Substates extends string
-            ? {
-                [SubstateName in keyof Substates]: SubstateName extends string
-                  ? Substates[SubstateName] extends Array<{
-                      state: infer SubstateState extends States.AnyState;
-                    }>
-                    ? State<
-                        SubstateState,
-                        | `${Prefix}${StateName}.${SubstateName}[${number}].`
-                        | `${Prefix}${StateName}.${SubstateName}[*].`
-                      >
-                    : Substates[SubstateName] extends {
-                        state: infer SubstateState extends States.AnyState;
-                      }
-                    ? State<
-                        SubstateState,
-                        `${Prefix}${StateName}.${SubstateName}.`
-                      >
-                    : never
-                  : never;
-              }[keyof Substates]
-            : never
-          : never);
+      // Distribute Prefix as it can be an union, i.e. with substate lists
+      // assigning multiple prefixes. It allows to match targets from on method.
+      Prefix extends Prefix
+        ? // First we get the root level states
+          | (Statechart extends {
+                name: infer Name extends string;
+              }
+                ? {
+                    key: `${Prefix}${Name}`;
+                    wildcard: `${Prefix}*`;
+                    state: Statechart;
+                    nested: Prefix extends "" ? false : true;
+                  }
+                : never)
+            // Now we add the substates
+            | (Statechart extends {
+                name: infer StateName extends string;
+                sub: infer Substates extends Record<string, any>;
+              }
+                ? // Here we prevent the infinite recursion when Substates is uknown and
+                  // keyof Substates resolves to `string | number | symbol`:
+                  // > Type instantiation is excessively deep and possibly infinite.
+                  keyof Substates extends string
+                  ? {
+                      [SubstateName in keyof Substates]: SubstateName extends string
+                        ? Substates[SubstateName] extends Array<{
+                            state: infer SubstateState extends States.AnyState;
+                          }>
+                          ? State<
+                              SubstateState,
+                              | `${Prefix}${StateName}.${SubstateName}[${number}].`
+                              | `${Prefix}${StateName}.${SubstateName}[*].`
+                            >
+                          : Substates[SubstateName] extends {
+                              state: infer SubstateState extends States.AnyState;
+                            }
+                          ? State<
+                              SubstateState,
+                              `${Prefix}${StateName}.${SubstateName}.`
+                            >
+                          : never
+                        : never;
+                    }[keyof Substates]
+                  : never
+                : never)
+        : never;
 
     export type Transition<State extends States.AnyState> =
       Transitions.FromState<State> extends infer Transition extends Transitions.AnyTransition

@@ -1044,6 +1044,10 @@ import { State, Superstate, superstate } from ".";
     const pkg = running.sub.packages[0];
     if (pkg) {
       pkg.in("loading");
+
+      //! It assigns the statechart index
+      pkg.sub.type satisfies "list";
+      pkg.sub.index satisfies number;
     } else {
       pkg satisfies undefined;
     }
@@ -1064,31 +1068,59 @@ import { State, Superstate, superstate } from ".";
 
   //! on
   {
-    monorepo.on("loading.package.*", () => {});
-    monorepo.on("loading.package.error()", () => {});
-    monorepo.on("loading.package.errored", () => {});
-
-    //! It allows to subscribe to substate in a list substate
+    //! It includes the substate lists events and states in the deep wildcard subscription
+    monorepo.on("**", (update) => {
+      if (update.type === "state") {
+        update.state.name satisfies
+          | "loading"
+          | "running"
+          | "exited"
+          | "errored"
+          | "loaded";
+      } else {
+        update.transition.event satisfies "load" | "error" | "retry";
+      }
+    });
 
     //! Subscribe to all updates
-    monorepo.on("running.packages[0].*", (update) => {});
+    monorepo.on("running.packages[0].*", (update) => {
+      if (update.type === "state") {
+        update.state.name satisfies "loading" | "errored" | "loaded";
+      } else {
+        update.transition.event satisfies "load" | "error" | "retry";
+      }
+    });
 
     //! Subscribe to events
-    monorepo.on("running.packages[0].error()", (update) => {});
+    monorepo.on("running.packages[0].error()", (update) => {
+      update.transition.event satisfies "error";
+    });
 
     //! Subscribe to states
-    monorepo.on("running.packages[0].errored", (update) => {});
+    monorepo.on("running.packages[0].errored", (update) => {
+      update.state.name satisfies "errored";
+    });
 
     //! It allows to subscribe to all substates in a list substate
 
     //! Subscribe to all updates
-    monorepo.on("running.packages[*].*", (update) => {});
+    monorepo.on("running.packages[*].*", (update) => {
+      if (update.type === "state") {
+        update.state.name satisfies "loading" | "errored" | "loaded";
+      } else {
+        update.transition.event satisfies "load" | "error" | "retry";
+      }
+    });
 
     //! Subscribe to events
-    monorepo.on("running.packages[*].error()", (update) => {});
+    monorepo.on("running.packages[*].error()", (update) => {
+      update.transition.event satisfies "error";
+    });
 
     //! Subscribe to states
-    monorepo.on("running.packages[*].errored", (update) => {});
+    monorepo.on("running.packages[*].errored", (update) => {
+      update.state.name satisfies "errored";
+    });
 
     //! It disallows subscribing as it's a single state
     // @ts-expect-error
@@ -1101,6 +1133,31 @@ import { State, Superstate, superstate } from ".";
     //! It disallows using non-number indicies
     // @ts-expect-error
     monorepo.on("running.packages[nah].nope", (update) => {});
+  }
+
+  //! Mapping final states
+  {
+    //! It allows to map final states
+
+    type PackageState = "loading" | "crashed" | "loaded";
+
+    const packageState = superstate<PackageState>("package")
+      .state("loading", ["load() -> loaded", "crash() -> crashed"])
+      .final("crashed")
+      .final("loaded");
+
+    const monorepoState = superstate<MonorepoState>("monorepo")
+      .state("loading", ($) =>
+        $.sub("package", packageState, "package.loaded -> load() -> running")
+      )
+      .state("running", ($) =>
+        $.subs(
+          "packages",
+          packageState,
+          "packages.crashed -> crash() -> exited"
+        )
+      )
+      .final("exited");
   }
 }
 //#endregion
