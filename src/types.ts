@@ -1463,6 +1463,8 @@ export namespace Superstate {
       type: Type_;
       /** Name registered on the parent. */
       name: Name;
+      /** The list index. */
+      index: Type_ extends "list" ? number : never;
       /** Factory that creates instances. */
       factory: Factory;
       /** Transitions mapped from substate final states to parent states. */

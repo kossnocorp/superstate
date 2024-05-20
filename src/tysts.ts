@@ -1048,6 +1048,13 @@ import { State, Superstate, superstate } from ".";
       //! It assigns the statechart index
       pkg.sub.type satisfies "list";
       pkg.sub.index satisfies number;
+
+      //! Assigns index to never for single states
+      const loading = monorepo.in("loading");
+      if (loading) {
+        loading.sub.package.type satisfies "single";
+        loading.sub.package.index satisfies never;
+      }
     } else {
       pkg satisfies undefined;
     }
