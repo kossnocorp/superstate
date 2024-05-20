@@ -1040,7 +1040,7 @@ import { State, Superstate, superstate } from ".";
 
   const running = monorepo.in("running");
   if (running) {
-    //! It allows to access substates as an array
+    //! It allows to access substates by index
     const pkg = running.sub.packages[0];
     if (pkg) {
       pkg.in("loading");
@@ -1058,6 +1058,27 @@ import { State, Superstate, superstate } from ".";
     } else {
       pkg satisfies undefined;
     }
+
+    //! It exposes the list length
+    running.sub.packages.length satisfies number;
+
+    //! It only allows number indicies
+    // @ts-expect-error
+    running.sub.packages["hello"];
+
+    //! It doesn't have the array API
+    // @ts-expect-error
+    running.sub.packages.push;
+
+    //! It allows to iterate the list
+    for (const pkg of running.sub.packages) {
+      pkg.in("loading");
+    }
+
+    //! It allows to add new items
+    // [TODO]
+
+    // [TODO] Outline API methods
   }
 
   //! send
