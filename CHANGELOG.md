@@ -8,6 +8,12 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v1.0.0-beta.7 - 2025-10-16
+
+### Added
+
+- Added `once` function to listen to the next event only once.
+
 ## v1.0.0-beta.6 - 2025-10-16
 
 ### Changed

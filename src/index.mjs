@@ -150,6 +150,15 @@ export function superstate(name) {
       on(targetStr, listener) {
         const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
 
+        function off() {
+          const index = subscriptions.indexOf(subscription);
+          const unsubscribed = subscriptions.splice(index, 1);
+          unsubscribed.forEach((subscription) =>
+            subscriptionOffs.get(subscription)?.forEach((off) => off()),
+          );
+          subscriptionOffs.delete(subscription);
+        }
+
         const subscription = {
           targets,
           listener,
@@ -159,14 +168,38 @@ export function superstate(name) {
 
         subscriptions.push(subscription);
 
-        return () => {
+        return off;
+      },
+      //#endregion
+
+      //#region once
+      once(targetStr, listenerArg) {
+        const targets = [].concat(targetStr).map(subscriptionTargetFromStr);
+
+        function listener(update) {
+          listenerArg(update);
+          off();
+        }
+
+        function off() {
           const index = subscriptions.indexOf(subscription);
           const unsubscribed = subscriptions.splice(index, 1);
           unsubscribed.forEach((subscription) =>
             subscriptionOffs.get(subscription)?.forEach((off) => off()),
           );
           subscriptionOffs.delete(subscription);
+        }
+
+        const subscription = {
+          targets,
+          listener,
         };
+
+        subcribeSubstates(subscription);
+
+        subscriptions.push(subscription);
+
+        return off;
       },
       //#endregion
 

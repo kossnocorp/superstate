@@ -2926,6 +2926,94 @@ import { Superstate, superstate } from ".";
       });
     }
 
+    //! instance.once
+
+    {
+      const instance = playerState.host();
+
+      // Trigger when the instances tranisitions into the "paused" state:
+      instance.once("paused", (update) => {
+        console.log("The player is now paused");
+
+        update.type satisfies "state";
+        update.state.name satisfies "paused";
+      });
+
+      // Trigger when the "pause()" event is sent:
+      instance.once("pause()", (update) => {
+        console.log("The player is paused");
+
+        update.type satisfies "event";
+        update.transition.event satisfies "pause";
+      });
+
+      const off = instance.once("paused", () => {});
+
+      off();
+
+      // Won't trigger the listener:
+      instance.send.pause();
+
+      // Trigger on "pause()" event and "paused" state:
+      instance.once(["paused", "pause()"], (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "paused";
+        } else {
+          update.transition.event satisfies "pause";
+        }
+      });
+
+      // Subscribe to all updates:
+      instance.once("*", (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "stopped" | "playing" | "paused";
+        } else {
+          update.transition.event satisfies "play" | "pause" | "stop";
+        }
+      });
+
+      // Subscribe to substate updates:
+      instance.once(
+        ["playing.volume.down()", "playing.volume.low"],
+        (update) => {
+          if (update.type === "state") {
+            update.state.name satisfies "low";
+          } else {
+            update.transition.event satisfies "down";
+          }
+        },
+      );
+
+      // Subscribe to all substate updates:
+      instance.once("playing.volume.*", (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies "low" | "medium" | "high";
+        } else {
+          update.transition.event satisfies "up" | "down";
+        }
+      });
+
+      // Subscribe to all updates:
+      instance.once("**", (update) => {
+        if (update.type === "state") {
+          update.state.name satisfies
+            | "stopped"
+            | "playing"
+            | "paused"
+            | "low"
+            | "medium"
+            | "high";
+        } else {
+          update.transition.event satisfies
+            | "play"
+            | "pause"
+            | "stop"
+            | "up"
+            | "down";
+        }
+      });
+    }
+
     //! instance.send
     {
       const instance = playerState.host();
