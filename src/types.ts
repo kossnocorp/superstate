@@ -1034,6 +1034,8 @@ export namespace Superstate {
     > {
       on: Listeners.On<Traits>;
 
+      once: Listeners.On<Traits>;
+
       send: Listeners.SendProxy<Traits["send"]>;
 
       off(): void;

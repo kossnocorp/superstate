@@ -951,7 +951,7 @@ describe("Superstate", () => {
           doll.send.open.doll.open();
           doll.send.open.doll.close();
 
-          expect(bigDollListener).not.toHaveBeenCalled();
+          expect(bigDollListener).not.toBeCalled();
         });
 
         it("allows to send events to deeply nested substates", () => {
@@ -982,7 +982,7 @@ describe("Superstate", () => {
               doll.state.sub.doll.state.sub.doll.state.name,
           ).toBe("open");
 
-          expect(smallDollListener).toHaveBeenCalledOnce();
+          expect(smallDollListener).toBeCalledTimes(1);
         });
       });
 
@@ -1192,10 +1192,17 @@ describe("Superstate", () => {
           const player = playerState.host();
           player.on("*", listener);
           player.send.play();
+          player.send.pause();
+          player.send.play();
           expect(listener).toBeCalledWith({
-            type: "state",
-            state: expect.objectContaining({ name: "playing" }),
+            type: "event",
+            transition: expect.objectContaining({ to: "playing" }),
           });
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ to: "paused" }),
+          });
+          expect(listener).toBeCalledTimes(6);
         });
 
         it("allows to subscribe to specific state updates", () => {
@@ -1203,6 +1210,8 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("paused", listener);
+          player.send.play();
+          player.send.pause();
           player.send.play();
           player.send.pause();
           expect(listener).not.toBeCalledWith({
@@ -1217,6 +1226,7 @@ describe("Superstate", () => {
             type: "state",
             state: expect.objectContaining({ name: "paused" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("allows to subscribe to few state updates", () => {
@@ -1243,6 +1253,7 @@ describe("Superstate", () => {
             type: "state",
             state: expect.objectContaining({ name: "stopped" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("subscribes to the right state updates on common event", () => {
@@ -1253,17 +1264,17 @@ describe("Superstate", () => {
           const light = lightState.host();
           light.on(["on", "off"], listener);
           light.send.toggle();
-          expect(listener).toHaveBeenCalledOnce();
+          expect(listener).toBeCalledTimes(1);
           expect(listener).toBeCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "on" }),
           });
           light.send.toggle();
-          expect(listener).toHaveBeenCalledTimes(2);
           expect(listener).toBeCalledWith({
             type: "state",
             state: expect.objectContaining({ name: "off" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         describe("substates", () => {
@@ -1282,6 +1293,7 @@ describe("Superstate", () => {
               type: "state",
               state: expect.objectContaining({ name: "steeping" }),
             });
+            expect(listener).toBeCalledTimes(1);
           });
 
           it("subscribes after hosting the substate", () => {
@@ -1299,6 +1311,7 @@ describe("Superstate", () => {
               type: "state",
               state: expect.objectContaining({ name: "steeping" }),
             });
+            expect(listener).toBeCalledTimes(1);
           });
 
           it("unsubscribes when leaving the state", () => {
@@ -1355,8 +1368,8 @@ describe("Superstate", () => {
 
             mug.send.full.tea.infuse();
 
-            expect(bListener).toHaveBeenCalledTimes(5);
-            expect(aListener).toHaveBeenCalledTimes(2);
+            expect(bListener).toBeCalledTimes(5);
+            expect(aListener).toBeCalledTimes(2);
           });
 
           describe("wildcard", () => {
@@ -1373,13 +1386,14 @@ describe("Superstate", () => {
               mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "steeping" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
               });
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "ready" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
               });
+              expect(listener).toBeCalledTimes(4);
             });
 
             it("subscribes after hosting the substate", () => {
@@ -1395,13 +1409,14 @@ describe("Superstate", () => {
               mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "steeping" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
               });
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "ready" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
               });
+              expect(listener).toBeCalledTimes(4);
             });
           });
 
@@ -1419,21 +1434,18 @@ describe("Superstate", () => {
               mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "full" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "full" }),
               });
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "water" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
               });
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "steeping" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
               });
-              expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "ready" }),
-              });
+              expect(listener).toBeCalledTimes(7);
             });
 
             it("subscribes after hosting the substate", () => {
@@ -1449,13 +1461,14 @@ describe("Superstate", () => {
               mug.send.full.tea.done();
 
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "steeping" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
               });
               expect(listener).toBeCalledWith({
-                type: "state",
-                state: expect.objectContaining({ name: "ready" }),
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
               });
+              expect(listener).toBeCalledTimes(4);
             });
           });
         });
@@ -1472,6 +1485,7 @@ describe("Superstate", () => {
             type: "event",
             transition: expect.objectContaining({ event: "play" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("sends event update before state update", () => {
@@ -1484,6 +1498,7 @@ describe("Superstate", () => {
             type: "state",
             state: expect.objectContaining({ name: "playing" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("allows to subscribe to specific event updates", () => {
@@ -1491,6 +1506,8 @@ describe("Superstate", () => {
           const playerState = createPlayerState();
           const player = playerState.host();
           player.on("pause()", listener);
+          player.send.play();
+          player.send.pause();
           player.send.play();
           player.send.pause();
           expect(listener).not.toBeCalledWith({
@@ -1505,6 +1522,7 @@ describe("Superstate", () => {
             type: "event",
             transition: expect.objectContaining({ event: "pause" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("allows to subscribe to few event updates", () => {
@@ -1531,6 +1549,7 @@ describe("Superstate", () => {
             type: "event",
             transition: expect.objectContaining({ event: "stop" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("allows to subscribe to mixed updates", () => {
@@ -1557,6 +1576,7 @@ describe("Superstate", () => {
             type: "state",
             state: expect.objectContaining({ name: "stopped" }),
           });
+          expect(listener).toBeCalledTimes(2);
         });
 
         it("subscribes to the right event updates on common event", () => {
@@ -1567,7 +1587,7 @@ describe("Superstate", () => {
           const light = lightState.host();
           light.on("toggle()", listener);
           light.send.toggle();
-          expect(listener).toHaveBeenCalledOnce();
+          expect(listener).toBeCalledTimes(1);
           expect(listener).toBeCalledWith({
             type: "event",
             transition: expect.objectContaining({
@@ -1577,7 +1597,7 @@ describe("Superstate", () => {
             }),
           });
           light.send.toggle();
-          expect(listener).toHaveBeenCalledTimes(2);
+          expect(listener).toBeCalledTimes(2);
           expect(listener).toBeCalledWith({
             type: "event",
             transition: expect.objectContaining({
@@ -1609,7 +1629,6 @@ describe("Superstate", () => {
             pc.on("press(long)", conditionListener);
             pc.on("press()", elseListener);
             pc.send.press("long");
-            expect(elseListener).not.toHaveBeenCalled();
             expect(conditionListener).toBeCalledWith({
               type: "event",
               transition: expect.objectContaining({
@@ -1617,6 +1636,8 @@ describe("Superstate", () => {
                 condition: "long",
               }),
             });
+            expect(elseListener).not.toBeCalled();
+            expect(conditionListener).toBeCalledTimes(1);
           });
         });
 
@@ -1636,6 +1657,7 @@ describe("Superstate", () => {
               type: "event",
               transition: expect.objectContaining({ event: "infuse" }),
             });
+            expect(listener).toBeCalledTimes(1);
           });
 
           it("subscribes after hosting the substate", () => {
@@ -1653,6 +1675,7 @@ describe("Superstate", () => {
               type: "event",
               transition: expect.objectContaining({ event: "infuse" }),
             });
+            expect(listener).toBeCalledTimes(1);
           });
 
           it("unsubscribes when leaving the state", () => {
@@ -1714,6 +1737,7 @@ describe("Superstate", () => {
                 type: "event",
                 transition: expect.objectContaining({ event: "done" }),
               });
+              expect(listener).toBeCalledTimes(4);
             });
 
             it("subscribes after hosting the substate", () => {
@@ -1736,6 +1760,7 @@ describe("Superstate", () => {
                 type: "event",
                 transition: expect.objectContaining({ event: "done" }),
               });
+              expect(listener).toBeCalledTimes(4);
             });
           });
 
@@ -1764,6 +1789,7 @@ describe("Superstate", () => {
                 type: "event",
                 transition: expect.objectContaining({ event: "done" }),
               });
+              expect(listener).toBeCalledTimes(7);
             });
 
             it("subscribes after hosting the substate", () => {
@@ -1786,6 +1812,7 @@ describe("Superstate", () => {
                 type: "event",
                 transition: expect.objectContaining({ event: "done" }),
               });
+              expect(listener).toBeCalledTimes(4);
             });
           });
         });
@@ -1799,7 +1826,16 @@ describe("Superstate", () => {
           const off = player.on("*", listener);
           off();
           player.send.play();
-          expect(listener).not.toHaveBeenCalled();
+          expect(listener).not.toBeCalled();
+        });
+
+        it("allows to call off multiple times", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          const off = player.on("*", listener);
+          off();
+          off();
         });
 
         describe("substates", () => {
@@ -1813,13 +1849,13 @@ describe("Superstate", () => {
             mug.send.pour();
             mug.send.full.tea.infuse();
 
-            expect(listener).toHaveBeenCalledOnce();
+            expect(listener).toBeCalledTimes(1);
 
             off();
 
             mug.send.full.tea.infuse();
 
-            expect(listener).toHaveBeenCalledOnce();
+            expect(listener).toBeCalledTimes(1);
           });
 
           it("unsubscribes from deeply nested substates", () => {
@@ -1862,13 +1898,13 @@ describe("Superstate", () => {
             mug.send.pour();
             mug.send.full.tea.infuse();
 
-            expect(listener).toHaveBeenCalledTimes(2);
+            expect(listener).toBeCalledTimes(2);
 
             off();
 
             mug.send.full.tea.done();
 
-            expect(listener).toHaveBeenCalledTimes(2);
+            expect(listener).toBeCalledTimes(2);
           });
 
           it("unsubscribes from deep wildcard updates", () => {
@@ -1881,13 +1917,13 @@ describe("Superstate", () => {
             mug.send.pour();
             mug.send.full.tea.infuse();
 
-            expect(listener).toHaveBeenCalledTimes(5);
+            expect(listener).toBeCalledTimes(5);
 
             off();
 
             mug.send.full.tea.done();
 
-            expect(listener).toHaveBeenCalledTimes(5);
+            expect(listener).toBeCalledTimes(5);
           });
         });
       });
@@ -1927,6 +1963,810 @@ describe("Superstate", () => {
           const signUp = signUpState.host();
 
           signUp.on("*", listener);
+
+          const receivedState = signUp.send.credentials.form.submit(
+            "-> complete",
+            {
+              email: "koss@nocorp.me",
+              password: "123456",
+            },
+          );
+
+          expect(listener).toBeCalledWith(
+            expect.objectContaining({
+              transition: expect.objectContaining({
+                context: {
+                  email: "koss@nocorp.me",
+                  password: "123456",
+                },
+              }),
+            }),
+          );
+        });
+      });
+    });
+    //#endregion
+
+    //#region once
+    describe("once", () => {
+      describe("state updates", () => {
+        it("allows to subscribe once to state updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once("*", listener);
+          player.send.play();
+          player.send.pause();
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ to: "playing" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ to: "paused" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("allows to subscribe once to specific state updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once("paused", listener);
+          player.send.play();
+          player.send.pause();
+          player.send.play();
+          player.send.pause();
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "playing" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "play" }),
+          });
+          expect(listener).toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "paused" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("allows to subscribe once to few state updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once(["paused", "stopped"], listener);
+          player.send.play();
+          player.send.pause();
+          player.send.stop();
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "playing" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "play" }),
+          });
+          expect(listener).toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "paused" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "stopped" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("subscribes once to the right state updates on common event", () => {
+          const listener = vi.fn();
+          const lightState = superstate<LightState>("light")
+            .state("off", "toggle() -> on")
+            .state("on", "toggle() -> off");
+          const light = lightState.host();
+          light.once(["on", "off"], listener);
+          light.send.toggle();
+          expect(listener).toBeCalledTimes(1);
+          expect(listener).toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "on" }),
+          });
+          light.send.toggle();
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "off" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        describe("substates", () => {
+          it("subscribes once to state updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+
+            mug.once("full.tea.steeping", listener);
+
+            mug.send.pour();
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledWith({
+              type: "state",
+              state: expect.objectContaining({ name: "steeping" }),
+            });
+            expect(listener).toBeCalledTimes(1);
+          });
+
+          it("subscribes once after hosting the substate", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            mug.send.pour();
+
+            mug.once("full.tea.steeping", listener);
+
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledWith({
+              type: "state",
+              state: expect.objectContaining({ name: "steeping" }),
+            });
+            expect(listener).toBeCalledTimes(1);
+          });
+
+          it("unsubscribes when leaving the state", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            mug.once("full.tea.steeping", listener);
+
+            mug.send.pour();
+            const teaSubstate = mug.in("full")?.sub.tea;
+            if (!teaSubstate) throw new Error("Invalid state");
+
+            mug.send.drink();
+
+            teaSubstate?.send.infuse();
+            mug.send.full.tea.infuse();
+
+            expect(listener).not.toBeCalled();
+          });
+
+          it("deeply unsubscribes when leaving the state", () => {
+            const listener = vi.fn();
+            const dollState = createRussianDollState();
+
+            const doll = dollState.host();
+            doll.once("open.doll.open.doll.open", listener);
+
+            doll.send.open();
+            doll.send.open.doll.open();
+
+            const smallDollSubstate = doll.in("open")?.sub.doll?.in("open")
+              ?.sub.doll;
+            if (!smallDollSubstate) throw new Error("Invalid state");
+
+            doll.send.close();
+
+            smallDollSubstate.send.open();
+            expect(listener).not.toBeCalled();
+          });
+
+          it("preserves subscription groups", () => {
+            const aListener = vi.fn();
+            const bListener = vi.fn();
+
+            const mug = createMugWithTeaState().host();
+
+            mug.send.pour();
+
+            mug.once(["**", "full.tea.*", "full.tea.infuse()"], aListener);
+            mug.once("**", bListener);
+            mug.once("full.tea.*", bListener);
+            mug.once("full.tea.infuse()", bListener);
+
+            mug.send.full.tea.infuse();
+
+            expect(bListener).toBeCalledTimes(3);
+            expect(aListener).toBeCalledTimes(1);
+          });
+
+          describe("wildcard", () => {
+            it("subscribes once to all updates", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+
+              mug.once("full.tea.*", listener);
+
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+
+            it("subscribes once after hosting the substate", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+              mug.send.pour();
+
+              mug.once("full.tea.*", listener);
+
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+          });
+
+          describe("deep wildcard", () => {
+            it("subscribes once to all updates in the hierarchy", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+
+              mug.once("**", listener);
+
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "full" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+
+            it("subscribes once after hosting the substate", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+              mug.send.pour();
+
+              mug.once("**", listener);
+
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "steeping" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ to: "ready" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+          });
+        });
+      });
+
+      describe("event updates", () => {
+        it("allows to subscribe once to event updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once("*", listener);
+          player.send.play();
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "play" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("sends event once update before state update", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once("*", listener);
+          player.send.play();
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "playing" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("allows to subscribe once to specific event updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once("pause()", listener);
+          player.send.play();
+          player.send.pause();
+          player.send.play();
+          player.send.pause();
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "play" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ event: "paused" }),
+          });
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "pause" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("allows to subscribe once to few event updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once(["pause()", "stop()"], listener);
+          player.send.play();
+          player.send.pause();
+          player.send.stop();
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "play" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ event: "paused" }),
+          });
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "pause" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "stop" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("allows to subscribe once to mixed updates", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          player.once(["pause()", "stopped"], listener);
+          player.send.play();
+          player.send.pause();
+          player.send.stop();
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "play" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ event: "paused" }),
+          });
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({ event: "pause" }),
+          });
+          expect(listener).not.toBeCalledWith({
+            type: "state",
+            state: expect.objectContaining({ name: "stopped" }),
+          });
+          expect(listener).toBeCalledTimes(1);
+        });
+
+        it("subscribes once to the right event updates on common event", () => {
+          const listener = vi.fn();
+          const lightState = superstate<LightState>("light")
+            .state("off", "toggle() -> on")
+            .state("on", "toggle() -> off");
+          const light = lightState.host();
+          light.once("toggle()", listener);
+          light.send.toggle();
+          expect(listener).toBeCalledTimes(1);
+          expect(listener).toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({
+              event: "toggle",
+              from: "off",
+              to: "on",
+            }),
+          });
+          light.send.toggle();
+          expect(listener).toBeCalledTimes(1);
+          expect(listener).not.toBeCalledWith({
+            type: "event",
+            transition: expect.objectContaining({
+              event: "toggle",
+              from: "on",
+              to: "off",
+            }),
+          });
+        });
+
+        describe("conditions", () => {
+          it("allows to subscribe once to conditions", () => {
+            const conditionListener = vi.fn();
+            const elseListener = vi.fn();
+            const pcState = superstate<PCState>("pc")
+              .state("off", "press() -> on")
+              .state("on", ($) =>
+                $.if("press", ["(long) -> off", "() -> sleep"]).on(
+                  "restart() -> on",
+                ),
+              )
+              .state("sleep", ($) =>
+                $.if("press", ["(long) -> off", "() -> on"]).on(
+                  "restart() -> on",
+                ),
+              );
+            const pc = pcState.host();
+            pc.send.press();
+            pc.once("press(long)", conditionListener);
+            pc.once("press()", elseListener);
+            pc.send.press("long");
+            pc.send.press("long");
+            expect(conditionListener).toBeCalledWith({
+              type: "event",
+              transition: expect.objectContaining({
+                event: "press",
+                condition: "long",
+              }),
+            });
+            expect(elseListener).not.toBeCalled();
+            expect(conditionListener).toBeCalledTimes(1);
+          });
+        });
+
+        describe("substates", () => {
+          it("subscribes to event updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+
+            mug.once("full.tea.infuse()", listener);
+
+            mug.send.pour();
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledWith({
+              type: "event",
+              transition: expect.objectContaining({ event: "infuse" }),
+            });
+            expect(listener).toBeCalledTimes(1);
+          });
+
+          it("subscribes once after hosting the substate", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            mug.send.pour();
+
+            mug.once("full.tea.infuse()", listener);
+
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledWith({
+              type: "event",
+              transition: expect.objectContaining({ event: "infuse" }),
+            });
+            expect(listener).toBeCalledTimes(1);
+          });
+
+          it("unsubscribes when leaving the state", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            mug.once("full.tea.infuse()", listener);
+
+            mug.send.pour();
+            const teaSubstate = mug.in("full")?.sub.tea;
+            if (!teaSubstate) throw new Error("Invalid state");
+
+            mug.send.drink();
+
+            teaSubstate?.send.infuse();
+            mug.send.full.tea.infuse();
+
+            expect(listener).not.toBeCalled();
+          });
+
+          it("deeply unsubscribes when leaving the state", () => {
+            const listener = vi.fn();
+            const dollState = createRussianDollState();
+
+            const doll = dollState.host();
+            doll.once("open.doll.open.doll.open()", listener);
+
+            doll.send.open();
+            doll.send.open.doll.open();
+
+            const smallDollSubstate = doll.in("open")?.sub.doll?.in("open")
+              ?.sub.doll;
+            if (!smallDollSubstate) throw new Error("Invalid state");
+
+            doll.send.close();
+
+            smallDollSubstate.send.open();
+            expect(listener).not.toBeCalled();
+          });
+
+          describe("wildcard", () => {
+            it("subscribes once to all updates", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+              mug.once("full.tea.*", listener);
+
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "infuse" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "done" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+
+            it("subscribes once after hosting the substate", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+              mug.send.pour();
+
+              mug.once("full.tea.*", listener);
+
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "infuse" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "done" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+          });
+
+          describe("deep wildcard", () => {
+            it("subscribes once to all updates in the hierarchy", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+
+              mug.once("**", listener);
+
+              mug.send.pour();
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "pour" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "infuse" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "done" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+
+            it("subscribes once after hosting the substate", () => {
+              const listener = vi.fn();
+              const mugState = createMugWithTeaState();
+
+              const mug = mugState.host();
+              mug.send.pour();
+
+              mug.once("**", listener);
+
+              mug.send.full.tea.infuse();
+              mug.send.full.tea.done();
+
+              expect(listener).toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "infuse" }),
+              });
+              expect(listener).not.toBeCalledWith({
+                type: "event",
+                transition: expect.objectContaining({ event: "done" }),
+              });
+              expect(listener).toBeCalledTimes(1);
+            });
+          });
+        });
+      });
+
+      describe("off", () => {
+        it("allows to unsubscribe", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          const off = player.once("*", listener);
+          off();
+          player.send.play();
+          expect(listener).not.toBeCalled();
+        });
+
+        it("allows to call off multiple times", () => {
+          const listener = vi.fn();
+          const playerState = createPlayerState();
+          const player = playerState.host();
+          const off = player.once("*", listener);
+          off();
+          off();
+        });
+
+        describe("substates", () => {
+          it("unsubscribes from substates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            const off = mug.once("full.tea.infuse()", listener);
+
+            mug.send.pour();
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledTimes(1);
+
+            off();
+
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledTimes(1);
+          });
+
+          it("unsubscribes from deeply nested substates", () => {
+            const listener = vi.fn();
+            const dollState = createRussianDollState();
+
+            const doll = dollState.host();
+            const off = doll.once("open.doll.open.doll.open()", listener);
+            doll.send.open.doll.open.doll.open();
+
+            expect(listener).not.toBeCalled();
+
+            doll.send.open();
+            expect(doll.state.name).toBe("open");
+
+            doll.send.open.doll.open();
+            expect(
+              doll.state.name === "open" && doll.state.sub.doll.state.name,
+            ).toBe("open");
+
+            off();
+
+            doll.send.open.doll.open.doll.open();
+            expect(
+              doll.state.name === "open" &&
+                doll.state.sub.doll.state.name === "open" &&
+                doll.state.sub.doll.state.sub.doll.state.name,
+            ).toBe("open");
+
+            expect(listener).not.toBeCalled();
+          });
+
+          it("unsubscribes from wildcard updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            const off = mug.once("full.tea.*", listener);
+
+            mug.send.pour();
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledTimes(1);
+
+            off();
+
+            mug.send.full.tea.done();
+
+            expect(listener).toBeCalledTimes(1);
+          });
+
+          it("unsubscribes from deep wildcard updates", () => {
+            const listener = vi.fn();
+            const mugState = createMugWithTeaState();
+
+            const mug = mugState.host();
+            const off = mug.once("**", listener);
+
+            mug.send.pour();
+            mug.send.full.tea.infuse();
+
+            expect(listener).toBeCalledTimes(1);
+
+            off();
+
+            mug.send.full.tea.done();
+
+            expect(listener).toBeCalledTimes(1);
+          });
+        });
+      });
+
+      describe("contexts", () => {
+        it("allows to access context in event updates", () => {
+          const listener = vi.fn();
+          const credentialsState = createFormState<CredentialsFields>();
+
+          const credentials = credentialsState.host({
+            context: { email: "", password: "" },
+          });
+          credentials.once("*", listener);
+
+          const erroredState = credentials.send.submit("error", "-> errored", {
+            email: "",
+            password: "123456",
+            error: "Email not found",
+          });
+
+          expect(listener).toBeCalledWith(
+            expect.objectContaining({
+              transition: expect.objectContaining({
+                context: {
+                  email: "",
+                  password: "123456",
+                  error: "Email not found",
+                },
+              }),
+            }),
+          );
+        });
+
+        it("allows to access context from substate event updates", () => {
+          const listener = vi.fn();
+          const signUpState = createSignUpState();
+          const signUp = signUpState.host();
+
+          signUp.once("*", listener);
 
           const receivedState = signUp.send.credentials.form.submit(
             "-> complete",
