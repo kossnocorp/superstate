@@ -27,7 +27,7 @@ type PlayerState = "stopped" | "playing" | "paused";
 const playerState = superstate<PlayerState>("player")
   .state("stopped", "play() -> playing")
   .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
-    $.sub("volume", volumeState)
+    $.sub("volume", volumeState),
   )
   .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -107,7 +107,7 @@ const volume = volumeState.host();
 
 // Subscribe to the state updates:
 volume.on(["low", "medium", "high"], (target) =>
-  sound.setVolume(target.state.name)
+  sound.setVolume(target.state.name),
 );
 
 // Trigger the events:
@@ -162,10 +162,10 @@ type PCState = "on" | "sleep" | "off";
 const pcState = superstate<PCState>("pc")
   .state("off", "press() -> on")
   .state("on", ($) =>
-    $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+    $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on"),
   )
   .state("sleep", ($) =>
-    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
   );
 ```
 
@@ -285,7 +285,7 @@ const playerState = superstate<PlayerState>("player")
   .state("stopped", "play() -> playing")
   .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
     // Nest the volume state as `volume`
-    $.sub("volume", volumeState)
+    $.sub("volume", volumeState),
   )
   .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -341,7 +341,7 @@ const pcState = superstate<PCState>("pc")
     $.on("power() -> off")
       // Nest the OS state as `os` and connect the `terminated` state
       // through `shutdown()` event to `off` state of the parent.
-      .sub("os", osState, "os.terminated -> shutdown() -> off")
+      .sub("os", osState, "os.terminated -> shutdown() -> off"),
   );
 ```
 
@@ -378,8 +378,8 @@ const pcState = superstate<PCState>("pc")
     $.on("power() -> turnOff! -> off").sub(
       "os",
       osState,
-      "os.terminated -> shutdown() -> off"
-    )
+      "os.terminated -> shutdown() -> off",
+    ),
   );
 ```
 
@@ -415,8 +415,7 @@ Superstate allows pairing states with a data structure called context. A state w
 To define states with context, use the `State` type that you can import from the library:
 
 ```ts
-// Import the `State` type:
-import { State, superstate } from "superstate";
+import { superstate } from "superstate";
 
 // Specify the context types:
 
@@ -433,9 +432,9 @@ interface ErrorFields {
 
 type FormState =
   // Pass the context as the second generic parameter:
-  | State<"pending", Fields>
-  | State<"errored", Fields & ErrorFields>
-  | State<"complete", Fields>
+  | superstate.State<"pending", Fields>
+  | superstate.State<"errored", Fields & ErrorFields>
+  | superstate.State<"complete", Fields>
   // You can also mix with strings:
   | "canceled";
 
@@ -518,7 +517,7 @@ When sending events, you have to pass a complete context data structure. To make
 ```ts
 // Build new context using the previous state context:
 form.send.submit("error", "-> errored", ($, context) =>
-  $({ ...context, error: "Email is missing" })
+  $({ ...context, error: "Email is missing" }),
 );
 ```
 
@@ -539,7 +538,7 @@ To fix the problem, cherry-pick the required properties:
 ```ts
 // Cherry-pick email and password:
 form.send.submit("-> complete", ($, { email, password }) =>
-  $({ email, password })
+  $({ email, password }),
 );
 ```
 
@@ -555,9 +554,9 @@ interface ErrorFields {
 // Accept form fields generic:
 function createFormState<FormFields>() {
   type FormState =
-    | State<"pending", FormFields & {}>
-    | State<"errored", FormFields & ErrorFields>
-    | State<"complete", FormFields & {}>;
+    | superstate.State<"pending", FormFields & {}>
+    | superstate.State<"errored", FormFields & ErrorFields>
+    | superstate.State<"complete", FormFields & {}>;
 
   return (
     superstate<FormState>("form")
@@ -594,8 +593,8 @@ interface ProfileFields {
 // Define the states with the context types:
 type SignUpState =
   | "credentials"
-  | State<"profile", CredentialsFields>
-  | State<"done", CredentialsFields & ProfileFields>;
+  | superstate.State<"profile", CredentialsFields>
+  | superstate.State<"done", CredentialsFields & ProfileFields>;
 
 // Create the credentials form statechart:
 const credentialsState = createFormState<CredentialsFields>();
@@ -609,13 +608,13 @@ const signUpState = superstate<SignUpState>("signUp")
     $.sub("form", credentialsState, [
       // When the form is complete, transition to profile:
       "form.complete -> submit() -> profile",
-    ])
+    ]),
   )
   .state("profile", ($) =>
     $.sub("form", profileState, [
       // When the form is complete, transition to done:
       "form.complete -> submit() -> done",
-    ])
+    ]),
   )
   .final("done");
 ```
@@ -659,17 +658,17 @@ Now, let's fill out the first form and submit it:
 ```ts
 // Fill in the email field:
 signUp.send.credentials.form.update("-> pending", ($, { password }) =>
-  $({ email: "koss@nocorp.me", password })
+  $({ email: "koss@nocorp.me", password }),
 );
 
 // Fill in the password field:
 signUp.send.credentials.form.update("-> pending", ($, { email }) =>
-  $({ email, password: "123456" })
+  $({ email, password: "123456" }),
 );
 
 // Submit the form:
 signUp.send.credentials.form.submit("-> complete", ($, { email, password }) =>
-  $({ email, password })
+  $({ email, password }),
 );
 ```
 
@@ -695,7 +694,7 @@ Likewise, when submitting the profile form, the `done` state will have both cred
 ```ts
 // Submit the profile form:
 signUp.send.profile.form.submit("-> complete", ($, { fullName, company }) =>
-  $({ fullName, company })
+  $({ fullName, company }),
 );
 
 const done = signUp.in("done");
@@ -703,6 +702,61 @@ if (done) {
   // You can access all the context fields:
   const { email, password, fullName, company } = done.context;
   console.log({ email, password, fullName, company });
+}
+```
+
+### TypeScript
+
+There're just two types that Superstate exports:
+
+1. `superstate` - Namespace exposing most common helper types (i.e., `superstate.Instance<typeof statechart>` or `superstate.State<"name", Context>`).
+2. `Superstate` - Namespace exposing all internal types used in the library.
+
+The former exposes the most common types that you might need when working with Superstate.
+
+## `superstate.State`
+
+`superstate.State` allows defining states with context:
+
+```ts
+import { superstate } from "superstate";
+
+interface Fields {
+  email: string;
+  password: string;
+}
+
+interface ErrorFields {
+  error: string;
+}
+
+type FormState =
+  | superstate.State<"pending", Fields>
+  | superstate.State<"errored", Fields & ErrorFields>
+  | superstate.State<"complete", Fields>
+  | "canceled";
+```
+
+## `superstate.Instance`
+
+`superstate.Instance` allows to define the type of the statechart instance created by the `host` method:
+
+```ts
+import { superstate } from "superstate";
+
+type VolumeState = "low" | "medium" | "high";
+
+const volumeState = superstate<VolumeState>("volume")
+  .state("low", "up() -> medium")
+  .state("medium", ["up() -> high", "down() -> low"])
+  .state("high", "down() -> medium");
+
+type VolumeStatechart = typeof volumeState;
+
+type VolumeInterpreter = superstate.Instance<VolumeStatechart>;
+
+function createVolume(state: VolumeStatechart): VolumeInterpreter {
+  return state.host();
 }
 ```
 
@@ -805,7 +859,7 @@ After `name` or `defs`, you can pass a function that accepts the state builder o
 // Define the state properties using the state builder object:
 const state = superstate<SwitchState>("switch")
   .state("off", ($) =>
-    $.enter("turnOffLights!").exit("turnOnLights!").on("turnOn() -> on")
+    $.enter("turnOffLights!").exit("turnOnLights!").on("turnOn() -> on"),
   )
   .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
 ```
@@ -816,7 +870,7 @@ You can combine the string definitions with the builder function:
 // Use both string and builder function definitions:
 const state = superstate<SwitchState>("switch")
   .state("off", "-> turnOffLights!", ($) =>
-    $.exit("turnOnLights!").on("turnOn() -> on")
+    $.exit("turnOnLights!").on("turnOn() -> on"),
   )
   .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
 ```
@@ -830,7 +884,7 @@ const playerState = superstate<PlayerState>("player")
   .state("stopped", "play() -> playing")
   .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
     // Define the substate using the builder function:
-    $.sub("volume", volumeState)
+    $.sub("volume", volumeState),
   )
   .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -871,11 +925,11 @@ const pcState = superstate<PCState>("pc")
   .state("off", "press() -> on")
   .state("on", ($) =>
     // Chain the transitions:
-    $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
+    $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on"),
   )
   .state("sleep", ($) =>
     // Pass all at once:
-    $.on(["press(long) -> off", "press() -> on", "restart() -> on"])
+    $.on(["press(long) -> off", "press() -> on", "restart() -> on"]),
   );
 ```
 
@@ -900,12 +954,12 @@ const pcState = superstate<PCState>("pc")
   .state("on", ($) =>
     // When `press` event with `long` condition is sent, transition to the `off` state.
     // Otherwise, transition to the `sleep` state.
-    $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+    $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on"),
   )
   .state("sleep", ($) =>
     // When `press` event with `long` condition is sent, transition to the `off` state.
     // Otherwise, transition to the `on` state.
-    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
   );
 ```
 
@@ -919,10 +973,10 @@ const pcState = superstate<PCState>("pc")
   // Mix with the `defs` argument:
   .state("on", "press() -> sleep", ($) =>
     // Single guarded transition:
-    $.if("press", "(long) -> off").on("restart() -> on")
+    $.if("press", "(long) -> off").on("restart() -> on"),
   )
   .state("sleep", ($) =>
-    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+    $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
   );
 ```
 
@@ -974,7 +1028,7 @@ const playerState = superstate<PlayerState>("player")
   .state("stopped", "play() -> playing")
   .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
     // Nest the volume statechart as `volume`
-    $.sub("volume", volumeState)
+    $.sub("volume", volumeState),
   )
   .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -1019,7 +1073,7 @@ const pcState = superstate<PCState>("pc")
     $.on("power() -> off")
       // Nest the OS state as `os` and connect the `terminated` state
       // through `shutdown()` event to `off` state of the parent.
-      .sub("os", osState, "os.terminated -> shutdown() -> off")
+      .sub("os", osState, "os.terminated -> shutdown() -> off"),
   );
 ```
 
@@ -1509,7 +1563,7 @@ type PlayerState = "stopped" | "playing" | "paused";
 const playerState = superstate<PlayerState>("player")
   .state("stopped", "play() -> playing")
   .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
-    $.sub("volume", volumeState)
+    $.sub("volume", volumeState),
   )
   .state("paused", ["play() -> playing", "stop() -> stopped"]);
 

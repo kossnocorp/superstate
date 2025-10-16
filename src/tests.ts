@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { State, Superstate, superstate } from ".";
+import { superstate } from ".";
 
 describe("Superstate", () => {
   //#region superstate
@@ -239,7 +239,7 @@ describe("Superstate", () => {
             const playerState = superstate<PlayerState>("player")
               .state("stopped", "play() -> playing")
               .state("playing", ($) =>
-                $.on(["pause() -> paused", "stop() -> stopped"])
+                $.on(["pause() -> paused", "stop() -> stopped"]),
               )
               .state("paused", ["play() -> playing", "stop() -> stopped"]);
             const player = playerState.host();
@@ -253,7 +253,7 @@ describe("Superstate", () => {
             const playerState = superstate<PlayerState>("player")
               .state("stopped", "play() -> playing")
               .state("playing", ($) =>
-                $.on("pause() -> paused").on("stop() -> stopped")
+                $.on("pause() -> paused").on("stop() -> stopped"),
               )
               .state("paused", ["play() -> playing", "stop() -> stopped"]);
             const player = playerState.host();
@@ -267,7 +267,7 @@ describe("Superstate", () => {
             const playerState = superstate<PlayerState>("player")
               .state("stopped", "play() -> playing")
               .state("playing", "pause() -> paused", ($) =>
-                $.on("stop() -> stopped")
+                $.on("stop() -> stopped"),
               )
               .state("paused", ["play() -> playing", "stop() -> stopped"]);
             const player = playerState.host();
@@ -284,12 +284,12 @@ describe("Superstate", () => {
                 .state("sleep", ($) =>
                   $.on("press(long) -> off")
                     .on("press() -> on")
-                    .on("restart() -> on")
+                    .on("restart() -> on"),
                 )
                 .state("on", ($) =>
                   $.on("press(long) -> off")
                     .on("press() -> sleep")
-                    .on("restart() -> on")
+                    .on("restart() -> on"),
                 );
               const pc = pcState.host();
               pc.send.press();
@@ -334,13 +334,13 @@ describe("Superstate", () => {
               .state("off", "press() -> on")
               .state("sleep", ($) =>
                 $.if("press", ["(long) -> off", "() -> on"]).on(
-                  "restart() -> on"
-                )
+                  "restart() -> on",
+                ),
               )
               .state("on", ($) =>
                 $.if("press", ["(long) -> off", "() -> sleep"]).on(
-                  "restart() -> on"
-                )
+                  "restart() -> on",
+                ),
               );
             const pc = pcState.host();
             pc.send.press();
@@ -358,12 +358,12 @@ describe("Superstate", () => {
             const pcState = superstate<PCState>("pc")
               .state("off", "press() -> on")
               .state("sleep", "press() -> on", ($) =>
-                $.if("press", ["(long) -> off"]).on("restart() -> on")
+                $.if("press", ["(long) -> off"]).on("restart() -> on"),
               )
               .state("on", ($) =>
                 $.on("press(long) -> off")
                   .if("press", "() -> sleep")
-                  .on("restart() -> on")
+                  .on("restart() -> on"),
               );
             const pc = pcState.host();
             pc.send.press();
@@ -386,13 +386,13 @@ describe("Superstate", () => {
               const pcState = superstate<PCState>("pc")
                 .state("off", "press() -> on! -> on")
                 .state("sleep", ($) =>
-                  $.if("press", ["(long) -> off! -> off", "() -> on! -> on"])
+                  $.if("press", ["(long) -> off! -> off", "() -> on! -> on"]),
                 )
                 .state("on", ($) =>
                   $.if("press", [
                     "(long) -> off! -> off",
                     "() -> sleep! -> sleep",
-                  ])
+                  ]),
                 );
 
               const pc = pcState.host({
@@ -485,7 +485,7 @@ describe("Superstate", () => {
                 $.sub("tea", teaState, [
                   "tea.finished -> finish() -> dirty",
                   "tea.oversteeped -> oversteep() -> undrinkable",
-                ])
+                ]),
               )
               .state("undrinkable", "drain() -> dirty")
               .state("dirty", ["clean() -> clear"]);
@@ -606,10 +606,10 @@ describe("Superstate", () => {
             });
             const lightState = superstate<LightState>("light")
               .state("off", ($) =>
-                $.enter("offEnter!").exit("offExit!").on("toggle() -> on")
+                $.enter("offEnter!").exit("offExit!").on("toggle() -> on"),
               )
               .state("on", ($) =>
-                $.enter("onEnter!").exit("onExit!").on("toggle() -> off")
+                $.enter("onEnter!").exit("onExit!").on("toggle() -> off"),
               );
             const light = lightState.host({
               off: {
@@ -722,13 +722,13 @@ describe("Superstate", () => {
           const mediumDollState = superstate<DollState>("mediumDoll")
             .state("closed", ($) => $.on("open() -> open! -> open"))
             .state("open", ["close() -> closed", "close! ->"], ($) =>
-              $.sub("doll", smallDollState)
+              $.sub("doll", smallDollState),
             );
 
           const bigDollState = superstate<DollState>("bigDoll")
             .state("closed", "open() -> open")
             .state("open", "close() -> closed", ($) =>
-              $.sub("doll", mediumDollState)
+              $.sub("doll", mediumDollState),
             );
 
           const bigDoll = bigDollState.host({
@@ -836,12 +836,14 @@ describe("Superstate", () => {
           const pcState = superstate<PCState>("pc")
             .state("off", "press() -> on")
             .state("sleep", ($) =>
-              $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+              $.if("press", ["(long) -> off", "() -> on"]).on(
+                "restart() -> on",
+              ),
             )
             .state("on", ($) =>
               $.if("press", ["(long) -> off", "() -> sleep"]).on(
-                "restart() -> on"
-              )
+                "restart() -> on",
+              ),
             );
           const pc = pcState.host();
           pc.send.press();
@@ -863,14 +865,14 @@ describe("Superstate", () => {
                 "(long) -> off",
                 "(double) -> restarting",
                 "() -> on",
-              ]).on("restart() -> on")
+              ]).on("restart() -> on"),
             )
             .state("on", ($) =>
               $.if("press", [
                 "(long) -> off",
                 "(double) -> restarting",
                 "() -> sleep",
-              ]).on("restart() -> on")
+              ]).on("restart() -> on"),
             )
             .state("restarting", "restarted() -> on");
           const pc = pcState.host();
@@ -888,7 +890,7 @@ describe("Superstate", () => {
         it("works with only-conditional events", () => {
           const catState = superstate<CatState>("cat")
             .state("boxed", ($) =>
-              $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"])
+              $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"]),
             )
             .state("alive", ($) => $.on("pet() -> alive"))
             .state("dead");
@@ -902,12 +904,14 @@ describe("Superstate", () => {
           const pcState = superstate<PCState>("pc")
             .state("off", "press() -> on")
             .state("sleep", ($) =>
-              $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+              $.if("press", ["(long) -> off", "() -> on"]).on(
+                "restart() -> on",
+              ),
             )
             .state("on", ($) =>
               $.if("press", ["(long) -> off", "() -> sleep"]).on(
-                "restart() -> on"
-              )
+                "restart() -> on",
+              ),
             );
           const pc = pcState.host();
           pc.send.press();
@@ -932,7 +936,7 @@ describe("Superstate", () => {
 
           expect(
             mug.state.name === "full" &&
-              mug.state.sub.tea.state.name === "steeping"
+              mug.state.sub.tea.state.name === "steeping",
           ).toBe(true);
         });
 
@@ -968,14 +972,14 @@ describe("Superstate", () => {
 
           doll.send.open.doll.open();
           expect(
-            doll.state.name === "open" && doll.state.sub.doll.state.name
+            doll.state.name === "open" && doll.state.sub.doll.state.name,
           ).toBe("open");
 
           doll.send.open.doll.open.doll.open();
           expect(
             doll.state.name === "open" &&
               doll.state.sub.doll.state.name === "open" &&
-              doll.state.sub.doll.state.sub.doll.state.name
+              doll.state.sub.doll.state.sub.doll.state.name,
           ).toBe("open");
 
           expect(smallDollListener).toHaveBeenCalledOnce();
@@ -992,7 +996,7 @@ describe("Superstate", () => {
             {
               email: "koss@nocorp.me",
               password: "123456",
-            }
+            },
           );
 
           expect(receivedState?.context).toEqual({
@@ -1012,7 +1016,7 @@ describe("Superstate", () => {
             {
               email: "koss@nocorp.me",
               password: "123456",
-            }
+            },
           );
 
           expect(receivedState?.context).toEqual({
@@ -1054,7 +1058,7 @@ describe("Superstate", () => {
               $({
                 password: context.password,
                 email: "koss@nocorp.me",
-              })
+              }),
           );
 
           expect(submittedState?.context).toEqual({
@@ -1074,7 +1078,7 @@ describe("Superstate", () => {
               email: "",
               password: "123456",
               error: "Email is missing",
-            }
+            },
           );
 
           expect(receivedState?.context).toEqual({
@@ -1141,7 +1145,7 @@ describe("Superstate", () => {
 
           const receivedState = signUp.send.credentials.form.submit(
             "-> complete",
-            ($, { email, password }) => $({ email, password })
+            ($, { email, password }) => $({ email, password }),
           );
 
           expect(receivedState?.context).toEqual({
@@ -1167,7 +1171,7 @@ describe("Superstate", () => {
 
           const receivedState = signUp.send.credentials.form.submit(
             "-> complete",
-            ($, { email, password }) => $({ email, password })
+            ($, { email, password }) => $({ email, password }),
           );
 
           expect(receivedState?.context).toEqual({
@@ -1592,13 +1596,13 @@ describe("Superstate", () => {
               .state("off", "press() -> on")
               .state("on", ($) =>
                 $.if("press", ["(long) -> off", "() -> sleep"]).on(
-                  "restart() -> on"
-                )
+                  "restart() -> on",
+                ),
               )
               .state("sleep", ($) =>
                 $.if("press", ["(long) -> off", "() -> on"]).on(
-                  "restart() -> on"
-                )
+                  "restart() -> on",
+                ),
               );
             const pc = pcState.host();
             pc.send.press();
@@ -1833,7 +1837,7 @@ describe("Superstate", () => {
 
             doll.send.open.doll.open();
             expect(
-              doll.state.name === "open" && doll.state.sub.doll.state.name
+              doll.state.name === "open" && doll.state.sub.doll.state.name,
             ).toBe("open");
 
             off();
@@ -1842,7 +1846,7 @@ describe("Superstate", () => {
             expect(
               doll.state.name === "open" &&
                 doll.state.sub.doll.state.name === "open" &&
-                doll.state.sub.doll.state.sub.doll.state.name
+                doll.state.sub.doll.state.sub.doll.state.name,
             ).toBe("open");
 
             expect(listener).not.toBeCalled();
@@ -1913,7 +1917,7 @@ describe("Superstate", () => {
                   error: "Email not found",
                 },
               }),
-            })
+            }),
           );
         });
 
@@ -1929,7 +1933,7 @@ describe("Superstate", () => {
             {
               email: "koss@nocorp.me",
               password: "123456",
-            }
+            },
           );
 
           expect(listener).toBeCalledWith(
@@ -1940,7 +1944,7 @@ describe("Superstate", () => {
                   password: "123456",
                 },
               }),
-            })
+            }),
           );
         });
       });
@@ -1965,11 +1969,11 @@ describe("Superstate", () => {
           .state("on");
         const light = lightState.host();
         expect(light.in(["on", "off"])).toEqual(
-          expect.objectContaining({ name: "off" })
+          expect.objectContaining({ name: "off" }),
         );
         light.send.toggle();
         expect(light.in(["on", "off"])).toEqual(
-          expect.objectContaining({ name: "on" })
+          expect.objectContaining({ name: "on" }),
         );
       });
 
@@ -1979,10 +1983,10 @@ describe("Superstate", () => {
           const mug = mugState.host();
           mug.send.pour();
           expect(mug.in("full")).toEqual(
-            expect.objectContaining({ name: "full" })
+            expect.objectContaining({ name: "full" }),
           );
           expect(mug.in("full.tea.water")).toEqual(
-            expect.objectContaining({ name: "water" })
+            expect.objectContaining({ name: "water" }),
           );
         });
 
@@ -1991,7 +1995,7 @@ describe("Superstate", () => {
           const mug = mugState.host();
           mug.send.pour();
           expect(mug.in(["full.tea.steeping", "full.tea.water"])).toEqual(
-            expect.objectContaining({ name: "water" })
+            expect.objectContaining({ name: "water" }),
           );
         });
 
@@ -2094,7 +2098,7 @@ function createMugWithTeaState() {
   return superstate<MugState>("mug")
     .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub("tea", teaState, "tea.finished -> finish() -> dirty")
+      $.sub("tea", teaState, "tea.finished -> finish() -> dirty"),
     )
     .state("dirty", ["clean() -> clear"]);
 }
@@ -2125,9 +2129,9 @@ function createFormState<FormFields>() {
   type Context = FormFields & ErrorFields;
 
   type FormState =
-    | State<"pending", Context>
-    | State<"errored", Context>
-    | State<"complete", FormFields & {}>
+    | superstate.State<"pending", Context>
+    | superstate.State<"errored", Context>
+    | superstate.State<"complete", FormFields & {}>
     | "canceled";
 
   return superstate<FormState>("form")
@@ -2154,9 +2158,9 @@ type ProfileContext = RefFields & CredentialsFields;
 type DoneContext = RefFields & CredentialsFields & ProfileFields;
 
 type SignUpState =
-  | State<"credentials", RefFields>
-  | State<"profile", ProfileContext>
-  | State<"done", DoneContext>;
+  | superstate.State<"credentials", RefFields>
+  | superstate.State<"profile", ProfileContext>
+  | superstate.State<"done", DoneContext>;
 
 interface CredentialsFields {
   email: string;
@@ -2175,18 +2179,18 @@ function createSignUpState() {
 
   return superstate<SignUpState>("signUp")
     .state("credentials", ($) =>
-      $.sub("form", credentialsState, ["form.complete -> submit() -> profile"])
+      $.sub("form", credentialsState, ["form.complete -> submit() -> profile"]),
     )
     .state("profile", ($) =>
-      $.sub("form", profileState, ["form.complete -> submit() -> done"])
+      $.sub("form", profileState, ["form.complete -> submit() -> done"]),
     )
     .final("done");
 }
 
 type WizardState =
   | "credentials"
-  | State<"profile", ProfileContext>
-  | State<"done", ProfileFields & CredentialsFields>;
+  | superstate.State<"profile", ProfileContext>
+  | superstate.State<"done", ProfileFields & CredentialsFields>;
 
 function createWizardState() {
   return superstate<WizardState>("wizard")
