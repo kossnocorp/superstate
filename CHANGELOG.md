@@ -8,6 +8,16 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v1.0.0-beta.5 - 2025-10-16
+
+### Changed
+
+- **BREAKING**: Renamed `State` type to `superstate.Def` to avoid conflicts with other libraries.
+
+### Added
+
+- Added `superstate` namespace to access helper types, i.e., `superstate.State` and `superstate.Instance`.
+
 ## v1.0.0-beta.4 - 2024-05-07
 
 ### Fixed
