@@ -1,4 +1,4 @@
-import { State, Superstate, superstate } from ".";
+import { Superstate, superstate } from ".";
 
 //#region Simple machine
 {
@@ -26,6 +26,9 @@ import { State, Superstate, superstate } from ".";
   playerState.state;
 
   const player = playerState.host();
+
+  type PlayerInterpreter = superstate.Instance<typeof playerState>;
+  player satisfies PlayerInterpreter;
 
   //! send
 
@@ -261,6 +264,9 @@ import { State, Superstate, superstate } from ".";
 
   const light = lightState.host();
 
+  type LightInterpreter = superstate.Instance<typeof lightState>;
+  light satisfies LightInterpreter;
+
   //! Can send events to multiple targets
   const nextState = light.send.toggle();
   if (nextState) {
@@ -286,6 +292,9 @@ import { State, Superstate, superstate } from ".";
     .final("ejected");
 
   const cassete = casseteState.host();
+
+  type CassetteInterpreter = superstate.Instance<typeof casseteState>;
+  cassete satisfies CassetteInterpreter;
 
   //! Should be able to send exit events
   const nextState = cassete.send.eject();
@@ -313,13 +322,16 @@ import { State, Superstate, superstate } from ".";
   const pcState = superstate<PCState>("pc")
     .state("off", "press() -> on")
     .state("sleep", ($) =>
-      $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+      $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
     )
     .state("on", ($) =>
-      $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
+      $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on"),
     );
 
   const pc = pcState.host();
+
+  type PCInterpreter = superstate.Instance<typeof pcState>;
+  pc satisfies PCInterpreter;
 
   //! Allows to send an event without the condition
   {
@@ -386,12 +398,15 @@ import { State, Superstate, superstate } from ".";
 
   const catState = superstate<CatState>("cat")
     .state("boxed", ($) =>
-      $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"])
+      $.if("reveal", ["(lucky) -> alive", "(unlucky) -> dead"]),
     )
     .state("alive", ($) => $.on("pet() -> alive"))
     .state("dead");
 
   const cat = catState.host();
+
+  type CatInterpreter = superstate.Instance<typeof catState>;
+  cat satisfies CatInterpreter;
 
   //! Allows to send conditional exit events
   cat.send.reveal("lucky");
@@ -450,8 +465,8 @@ import { State, Superstate, superstate } from ".";
         teaState,
         //! The exit must be a correct state
         // @ts-expect-error
-        "tea.finishe -> finish() -> dirty"
-      )
+        "tea.finishe -> finish() -> dirty",
+      ),
     )
     .state("dirty", ["clean() -> clear"]);
 
@@ -463,8 +478,8 @@ import { State, Superstate, superstate } from ".";
         teaState,
         //! The exit must be a final strate
         // @ts-expect-error
-        "tea.water -> finish() -> dirty"
-      )
+        "tea.water -> finish() -> dirty",
+      ),
     )
     .state("dirty", ["clean() -> clear"]);
 
@@ -476,20 +491,27 @@ import { State, Superstate, superstate } from ".";
         teaState,
         //! The exiting state must be correct
         // @ts-expect-error
-        "tea.finished -> finish() -> dity"
-      )
+        "tea.finished -> finish() -> dity",
+      ),
     )
     .state("dirty", ["clean() -> clear"]);
 
   const mugState = superstate<MugState>("mug")
     .state("clear", "pour() -> full")
     .state("full", ["drink() -> clear"], ($) =>
-      $.sub("tea", teaState, "tea.finished -> finish() -> dirty")
+      $.sub("tea", teaState, "tea.finished -> finish() -> dirty"),
     )
     .state("dirty", ["clean() -> clear"]);
 
   const tea = teaState.host();
+
+  type TeaInterpreter = superstate.Instance<typeof teaState>;
+  tea satisfies TeaInterpreter;
+
   const mug = mugState.host();
+
+  type MugInterpreter = superstate.Instance<typeof mugState>;
+  mug satisfies MugInterpreter;
 
   //! on
 
@@ -629,12 +651,15 @@ import { State, Superstate, superstate } from ".";
     .state("unpacked", ($) =>
       $.sub("expire", expireState)
         .sub("heat", heatState)
-        .sub("eat", eatState, "eat.finished -> finish() -> finished")
+        .sub("eat", eatState, "eat.finished -> finish() -> finished"),
     )
     .state("cooked")
     .final("finished");
 
   const meatPie = meatPieState.host();
+
+  type MeatPieInterpreter = superstate.Instance<typeof meatPieState>;
+  meatPie satisfies MeatPieInterpreter;
 
   //! on
 
@@ -688,7 +713,7 @@ import { State, Superstate, superstate } from ".";
   const switchStateSingle = superstate<SwitchState>("switch")
     .state("off", "toggle() -> on")
     .state("on", ($) =>
-      $.enter("turnOn!").exit("turnOff!").on("toggle() -> off")
+      $.enter("turnOn!").exit("turnOff!").on("toggle() -> off"),
     );
 
   //! Shortcut definition
@@ -713,7 +738,7 @@ import { State, Superstate, superstate } from ".";
         $.enter("turnOn?")
           // @ts-expect-error
           .exit("turnOff()")
-          .on("toggle() -> off")
+          .on("toggle() -> off"),
     );
   superstate<SwitchState>("switch")
     .state("off", "toggle() -> on")
@@ -722,7 +747,7 @@ import { State, Superstate, superstate } from ".";
       // @ts-expect-error
       ["-> turnOn", "toggle() -> off"],
       // @ts-expect-error
-      ($) => $.exit("turnOff?")
+      ($) => $.exit("turnOff?"),
     );
 
   //! Binding
@@ -805,7 +830,7 @@ import { State, Superstate, superstate } from ".";
   const buttonStateWithCondition = superstate<PushableButtonState>("button")
     .state("off", ($) => $.on("press() -> turnOn! -> on"))
     .state("on", ($) =>
-      $.if("press", ["(long) -> blink! -> pushed", "() -> turnOff! -> off"])
+      $.if("press", ["(long) -> blink! -> pushed", "() -> turnOff! -> off"]),
     )
     .state("pushed", "press() -> turnOff! -> off");
 
@@ -813,7 +838,7 @@ import { State, Superstate, superstate } from ".";
   const buttonStateMixed = superstate<PushableButtonState>("button")
     .state("off", "press() -> turnOn! -> on")
     .state("on", "press(long) -> blink! -> pushed", ($) =>
-      $.on("press() -> turnOff! -> off")
+      $.on("press() -> turnOff! -> off"),
     )
     .state("pushed", "press() -> turnOff! -> off");
 
@@ -826,7 +851,7 @@ import { State, Superstate, superstate } from ".";
       ["(long) -> blink -> pushed", "() -> turnOff! -> off"],
       ($) =>
         // @ts-expect-error
-        $.on("press() -> turnOff -> off")
+        $.on("press() -> turnOff -> off"),
     )
     .state("pushed", "press() -> turnOff! -> off");
 
@@ -934,8 +959,8 @@ import { State, Superstate, superstate } from ".";
       $.on("power() -> turnOff! -> off").sub(
         "os",
         osState,
-        "os.terminated -> shutdown() -> off"
-      )
+        "os.terminated -> shutdown() -> off",
+      ),
     );
 
   const pcStateNoActions = superstate<PCState>("pc")
@@ -944,8 +969,8 @@ import { State, Superstate, superstate } from ".";
       $.on("power() -> off").sub(
         "os",
         osState,
-        "os.terminated -> shutdown() -> off"
-      )
+        "os.terminated -> shutdown() -> off",
+      ),
     );
 
   const os = osState.host({
@@ -1023,9 +1048,9 @@ import { State, Superstate, superstate } from ".";
   //! Simple context
   {
     type SignUpFormState =
-      | State<"credentials", SignUpInitial>
-      | State<"profile", SignUpCredentials>
-      | State<"done", SignUpComplete>;
+      | superstate.State<"credentials", SignUpInitial>
+      | superstate.State<"profile", SignUpCredentials>
+      | superstate.State<"done", SignUpComplete>;
 
     interface SignUpInitial {
       ref: string;
@@ -1109,7 +1134,7 @@ import { State, Superstate, superstate } from ".";
         ref: context.ref,
         email: "koss@nocorp.me",
         password: "123456",
-      })
+      }),
     );
     form.send.submit("-> done", ($, context) =>
       $({
@@ -1118,7 +1143,7 @@ import { State, Superstate, superstate } from ".";
         password: context.password,
         fullName: "Sasha Koss",
         company: "No Corp",
-      })
+      }),
     );
 
     //! It disallows passing extra fields
@@ -1129,7 +1154,7 @@ import { State, Superstate, superstate } from ".";
         password: "123456",
         // @ts-expect-error
         error: "nope",
-      })
+      }),
     );
     form.send.submit("-> done", ($, context) =>
       $({
@@ -1140,7 +1165,7 @@ import { State, Superstate, superstate } from ".";
         company: "No Corp",
         // @ts-expect-error
         error: "nope",
-      })
+      }),
     );
 
     //! It disallows returning context from the updater
@@ -1185,8 +1210,8 @@ import { State, Superstate, superstate } from ".";
     //! It should not allow omitting incomaptible context fields
     {
       type SignUpFormState =
-        | State<"credentials", SignUpInitial>
-        | State<"profile", SignUpCredentials>;
+        | superstate.State<"credentials", SignUpInitial>
+        | superstate.State<"profile", SignUpCredentials>;
 
       interface SignUpInitial {
         ref: string | null;
@@ -1244,9 +1269,9 @@ import { State, Superstate, superstate } from ".";
       type FieldsWithErrors = Fields & ErrorFields;
 
       type FormState =
-        | State<"pending", Fields>
-        | State<"errored", Fields & ErrorFields>
-        | State<"complete", Fields>
+        | superstate.State<"pending", Fields>
+        | superstate.State<"errored", Fields & ErrorFields>
+        | superstate.State<"complete", Fields>
         | "canceled";
 
       const formState = superstate<FormState>("form")
@@ -1275,7 +1300,7 @@ import { State, Superstate, superstate } from ".";
         $({
           email,
           password,
-        })
+        }),
       );
 
       //! Should fail as we leak error field
@@ -1289,10 +1314,10 @@ import { State, Superstate, superstate } from ".";
         type Context = FormFields & ErrorFields;
 
         type FormState =
-          | State<"pending", Partial<Context>>
-          | State<"errored", Context>
+          | superstate.State<"pending", Partial<Context>>
+          | superstate.State<"errored", Context>
           //! Context here includes ErrorFields
-          | State<"complete", Context>
+          | superstate.State<"complete", Context>
           | "canceled";
 
         return superstate<FormState>("form")
@@ -1320,12 +1345,12 @@ import { State, Superstate, superstate } from ".";
             //! Can't connect as the context is incompatible
             // @ts-expect-error
             "form.complete -> submit() -> profile",
-          ])
+          ]),
         )
         .state("profile", ($) =>
           //! Can't connect as the context is incompatible
           // @ts-expect-error
-          $.sub("form", profileState, ["form.complete -> submit() -> done"])
+          $.sub("form", profileState, ["form.complete -> submit() -> done"]),
         )
         .final("done");
     }
@@ -1362,9 +1387,9 @@ import { State, Superstate, superstate } from ".";
       type FieldsWithErrors = Fields & ErrorFields;
 
       type FormState =
-        | State<"pending", Fields>
-        | State<"errored", Fields & ErrorFields>
-        | State<"complete", Fields>
+        | superstate.State<"pending", Fields>
+        | superstate.State<"errored", Fields & ErrorFields>
+        | superstate.State<"complete", Fields>
         | "canceled";
 
       const formState = superstate<FormState>("form")
@@ -1397,9 +1422,9 @@ import { State, Superstate, superstate } from ".";
   //#region Context/conditions
   {
     type SignUpFormState =
-      | State<"credentials", SignUpInitial>
-      | State<"profile", SignUpCredentials>
-      | State<"done", SignUpComplete>;
+      | superstate.State<"credentials", SignUpInitial>
+      | superstate.State<"profile", SignUpCredentials>
+      | superstate.State<"done", SignUpComplete>;
 
     interface ErrorFields {
       error?: string;
@@ -1435,6 +1460,9 @@ import { State, Superstate, superstate } from ".";
     //! It allows to omit passing optional context
     const form = formState.host();
 
+    type FormInterpreter = superstate.Instance<typeof formState>;
+    form satisfies FormInterpreter;
+
     //! Allows passing empty context
     formState.host({});
     formState.host({ context: {} });
@@ -1452,7 +1480,7 @@ import { State, Superstate, superstate } from ".";
         ...context,
         fullName: "Sasha Koss",
         company: "No Corp",
-      })
+      }),
     );
 
     //! It should not allow incorrect context
@@ -1484,9 +1512,9 @@ import { State, Superstate, superstate } from ".";
     type Context = FormFields & ErrorFields;
 
     type FormState =
-      | State<"pending", Partial<Context>>
-      | State<"errored", Context>
-      | State<"complete", FormFields & {}>
+      | superstate.State<"pending", Partial<Context>>
+      | superstate.State<"errored", Context>
+      | superstate.State<"complete", FormFields & {}>
       | "canceled";
 
     return superstate<FormState>("form")
@@ -1507,9 +1535,9 @@ import { State, Superstate, superstate } from ".";
   type DoneContext = CredentialsFields & ProfileFields;
 
   type SignUpState =
-    | State<"credentials">
-    | State<"profile", CredentialsFields>
-    | State<"done", DoneContext>;
+    | superstate.State<"credentials">
+    | superstate.State<"profile", CredentialsFields>
+    | superstate.State<"done", DoneContext>;
 
   interface CredentialsFields {
     email: string;
@@ -1527,10 +1555,10 @@ import { State, Superstate, superstate } from ".";
 
   const signUpState = superstate<SignUpState>("signUp")
     .state("credentials", ($) =>
-      $.sub("form", credentialsState, ["form.complete -> submit() -> profile"])
+      $.sub("form", credentialsState, ["form.complete -> submit() -> profile"]),
     )
     .state("profile", ($) =>
-      $.sub("form", profileState, ["form.complete -> submit() -> done"])
+      $.sub("form", profileState, ["form.complete -> submit() -> done"]),
     )
     .final("done");
 
@@ -1542,19 +1570,22 @@ import { State, Superstate, superstate } from ".";
           $.sub("form", credentialsState, [
             // @ts-expect-error
             "form.canceled -> submit() -> profile",
-          ])
+          ]),
         )
         .state("profile", ($) =>
           $.sub("form", profileState, [
             // @ts-expect-error
             "form.canceled -> submit() -> done",
-          ])
+          ]),
         )
         .final("done");
     }
 
     {
       const form = signUpState.host();
+
+      type FormInterpreter = superstate.Instance<typeof signUpState>;
+      form satisfies FormInterpreter;
 
       form.send.profile.form.submit("-> complete", {
         fullName: "Sasha Koss",
@@ -1568,16 +1599,16 @@ import { State, Superstate, superstate } from ".";
           $({
             email: email!,
             password: password!,
-          })
+          }),
       );
       form.send.credentials.form.submit("-> complete", ($, context) =>
         $({
           email: "koss@nocorp.me",
           password: "123456",
-        })
+        }),
       );
       form.send.profile.form.submit("-> complete", ($, { fullName, company }) =>
-        $({ fullName: fullName!, company: company! })
+        $({ fullName: fullName!, company: company! }),
       );
 
       //! It should not allow wrong context
@@ -1590,7 +1621,7 @@ import { State, Superstate, superstate } from ".";
       // @ts-expect-error
       form.send.profile.form.submit("-> complete", ($, { email, password }) =>
         // @ts-expect-error
-        $({ email, password })
+        $({ email, password }),
       );
 
       //! It won't accept incomplete context
@@ -1619,17 +1650,17 @@ import { State, Superstate, superstate } from ".";
       }
 
       type SignUpState =
-        | State<"credentials", RefFields>
-        | State<"profile", RefFields & CredentialsFields>
-        | State<"done", RefFields & DoneContext>;
+        | superstate.State<"credentials", RefFields>
+        | superstate.State<"profile", RefFields & CredentialsFields>
+        | superstate.State<"done", RefFields & DoneContext>;
 
       function createFormState<FormFields>() {
         type Context = FormFields & ErrorFields;
 
         type FormState =
-          | State<"pending", Context>
-          | State<"errored", Context>
-          | State<"complete", FormFields & {}>
+          | superstate.State<"pending", Context>
+          | superstate.State<"errored", Context>
+          | superstate.State<"complete", FormFields & {}>
           | "canceled";
 
         return superstate<FormState>("form")
@@ -1655,10 +1686,10 @@ import { State, Superstate, superstate } from ".";
         .state("credentials", ($) =>
           $.sub("form", credentialsState, [
             "form.complete -> submit() -> profile",
-          ])
+          ]),
         )
         .state("profile", ($) =>
-          $.sub("form", profileState, ["form.complete -> submit() -> done"])
+          $.sub("form", profileState, ["form.complete -> submit() -> done"]),
         )
         .final("done");
 
@@ -1855,6 +1886,9 @@ import { State, Superstate, superstate } from ".";
   {
     const form = signUpState.host();
 
+    type FormInterpreter = superstate.Instance<typeof signUpState>;
+    form satisfies FormInterpreter;
+
     //! It exposes context on the state
     {
       const state = form.in("credentials");
@@ -1949,7 +1983,7 @@ import { State, Superstate, superstate } from ".";
     .state("on", ($) =>
       $.enter("blip!")
         .on("power() -> turnOff! -> off")
-        .sub("os", osState, "os.terminated -> shutdown() -> off")
+        .sub("os", osState, "os.terminated -> shutdown() -> off"),
     );
 
   //! The name must be a string
@@ -1997,7 +2031,7 @@ import { State, Superstate, superstate } from ".";
   {
     function create<Reference>() {
       return <A, B, C>(
-        value: Superstate.Utils.Exact<Reference, A | B | C>
+        value: Superstate.Utils.Exact<Reference, A | B | C>,
       ) => {};
     }
 
@@ -2126,7 +2160,7 @@ import { State, Superstate, superstate } from ".";
   const playerState = superstate<PlayerState>("player")
     .state("stopped", "play() -> playing")
     .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
-      $.sub("volume", volumeState)
+      $.sub("volume", volumeState),
     )
     .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -2143,7 +2177,7 @@ import { State, Superstate, superstate } from ".";
 
   // Subscribe to the state updates:
   volume.on(["low", "medium", "high"], (update) =>
-    sound.setVolume(update.state.name)
+    sound.setVolume(update.state.name),
   );
 
   // Trigger the events:
@@ -2178,10 +2212,10 @@ import { State, Superstate, superstate } from ".";
     const pcState = superstate<PCState>("pc")
       .state("off", "press() -> on")
       .state("on", ($) =>
-        $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+        $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on"),
       )
       .state("sleep", ($) =>
-        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
       );
 
     const pc = pcState.host();
@@ -2240,7 +2274,7 @@ import { State, Superstate, superstate } from ".";
     // Use the builder function to define the states:
     const buttonState = superstate<ButtonState>("button")
       .state("on", ($) =>
-        $.enter("turnOn!").on("press() -> off").exit("turnOff!")
+        $.enter("turnOn!").on("press() -> off").exit("turnOff!"),
       )
       .state("off", ($) => $.on("press() -> on"));
   }
@@ -2254,7 +2288,7 @@ import { State, Superstate, superstate } from ".";
       .state("stopped", "play() -> playing")
       .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
         // Nest the volume state as `volume`
-        $.sub("volume", volumeState)
+        $.sub("volume", volumeState),
       )
       .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -2272,7 +2306,7 @@ import { State, Superstate, superstate } from ".";
 
     // Subscribe to the substate updates:
     player.on("playing.volume.low", (update) =>
-      console.log("The volume is low")
+      console.log("The volume is low"),
     );
 
     // The parent state will have the substate as a property on `sub`:
@@ -2300,7 +2334,7 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> off")
           // Nest the OS state as `os` and connect the `terminated` state
           // through `shutdown()` event to `off` state of the parent.
-          .sub("os", osState, "os.terminated -> shutdown() -> off")
+          .sub("os", osState, "os.terminated -> shutdown() -> off"),
       );
   }
 
@@ -2330,8 +2364,8 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> turnOff! -> off").sub(
           "os",
           osState,
-          "os.terminated -> shutdown() -> off"
-        )
+          "os.terminated -> shutdown() -> off",
+        ),
       );
 
     const pc = pcState.host({
@@ -2354,6 +2388,46 @@ import { State, Superstate, superstate } from ".";
         "power() -> turnOn!": () => console.log("Turning on"),
       },
     });
+  }
+
+  //! TypeScript:
+
+  {
+    // import { superstate } from "superstate";
+
+    interface Fields {
+      email: string;
+      password: string;
+    }
+
+    interface ErrorFields {
+      error: string;
+    }
+
+    type FormState =
+      | superstate.State<"pending", Fields>
+      | superstate.State<"errored", Fields & ErrorFields>
+      | superstate.State<"complete", Fields>
+      | "canceled";
+  }
+
+  {
+    // import { superstate } from "superstate";
+
+    type VolumeState = "low" | "medium" | "high";
+
+    const volumeState = superstate<VolumeState>("volume")
+      .state("low", "up() -> medium")
+      .state("medium", ["up() -> high", "down() -> low"])
+      .state("high", "down() -> medium");
+
+    type VolumeStatechart = typeof volumeState;
+
+    type VolumeInterpreter = superstate.Instance<VolumeStatechart>;
+
+    function createVolume(state: VolumeStatechart): VolumeInterpreter {
+      return state.host();
+    }
   }
 
   //! API
@@ -2405,7 +2479,7 @@ import { State, Superstate, superstate } from ".";
     // Define the state properties using the state builder object:
     const state = superstate<SwitchState>("switch")
       .state("off", ($) =>
-        $.enter("turnOffLights!").exit("turnOnLights!").on("turnOn() -> on")
+        $.enter("turnOffLights!").exit("turnOnLights!").on("turnOn() -> on"),
       )
       .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
   }
@@ -2414,7 +2488,7 @@ import { State, Superstate, superstate } from ".";
     // Use both string and builder function definitions:
     const state = superstate<SwitchState>("switch")
       .state("off", "-> turnOffLights!", ($) =>
-        $.exit("turnOnLights!").on("turnOn() -> on")
+        $.exit("turnOnLights!").on("turnOn() -> on"),
       )
       .state("on", ($) => $.on("turnOff() -> onOff! -> off"));
   }
@@ -2426,7 +2500,7 @@ import { State, Superstate, superstate } from ".";
       .state("stopped", "play() -> playing")
       .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
         // Define the substate using the builder function:
-        $.sub("volume", volumeState)
+        $.sub("volume", volumeState),
       )
       .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -2453,11 +2527,11 @@ import { State, Superstate, superstate } from ".";
       .state("off", "press() -> on")
       .state("on", ($) =>
         // Chain the transitions:
-        $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on")
+        $.on("press(long) -> off").on("press() -> sleep").on("restart() -> on"),
       )
       .state("sleep", ($) =>
         // Pass all at once:
-        $.on(["press(long) -> off", "press() -> on", "restart() -> on"])
+        $.on(["press(long) -> off", "press() -> on", "restart() -> on"]),
       );
   }
 
@@ -2471,12 +2545,12 @@ import { State, Superstate, superstate } from ".";
       .state("on", ($) =>
         // When `press` event with `long` condition is sent, transition to the `off` state.
         // Otherwise, transition to the `sleep` state.
-        $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on")
+        $.if("press", ["(long) -> off", "() -> sleep"]).on("restart() -> on"),
       )
       .state("sleep", ($) =>
         // When `press` event with `long` condition is sent, transition to the `off` state.
         // Otherwise, transition to the `on` state.
-        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
       );
   }
 
@@ -2488,10 +2562,10 @@ import { State, Superstate, superstate } from ".";
       // Mix with the `defs` argument:
       .state("on", "press() -> sleep", ($) =>
         // Single guarded transition:
-        $.if("press", "(long) -> off").on("restart() -> on")
+        $.if("press", "(long) -> off").on("restart() -> on"),
       )
       .state("sleep", ($) =>
-        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+        $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
       );
   }
 
@@ -2520,7 +2594,7 @@ import { State, Superstate, superstate } from ".";
       .state("stopped", "play() -> playing")
       .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
         // Nest the volume statechart as `volume`
-        $.sub("volume", volumeState)
+        $.sub("volume", volumeState),
       )
       .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -2559,7 +2633,7 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> off")
           // Nest the OS state as `os` and connect the `terminated` state
           // through `shutdown()` event to `off` state of the parent.
-          .sub("os", osState, "os.terminated -> shutdown() -> off")
+          .sub("os", osState, "os.terminated -> shutdown() -> off"),
       );
   }
 
@@ -2604,7 +2678,7 @@ import { State, Superstate, superstate } from ".";
     const pcState = superstate<PCState>("pc")
       .state("off", "power() -> powerOn! -> on")
       .state("on", ($) =>
-        $.on("power() -> powerOff! -> off").sub("os", osState)
+        $.on("power() -> powerOff! -> off").sub("os", osState),
       );
 
     const pc = pcState.host({
@@ -2646,7 +2720,7 @@ import { State, Superstate, superstate } from ".";
       .state("stopped", "play() -> playing")
       .state("playing", ["pause() -> paused", "stop() -> stopped"], ($) =>
         // Define the substate using the builder function:
-        $.sub("volume", volumeState)
+        $.sub("volume", volumeState),
       )
       .state("paused", ["play() -> playing", "stop() -> stopped"]);
 
@@ -2666,8 +2740,8 @@ import { State, Superstate, superstate } from ".";
         $.on("power() -> off").sub(
           "os",
           osState,
-          "os.terminated -> shutdown() -> off"
-        )
+          "os.terminated -> shutdown() -> off",
+        ),
       );
 
     //! instance.state
@@ -2846,12 +2920,12 @@ import { State, Superstate, superstate } from ".";
         const pcState = superstate<PCState>("pc")
           .state("off", "press() -> on")
           .state("sleep", ($) =>
-            $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on")
+            $.if("press", ["(long) -> off", "() -> on"]).on("restart() -> on"),
           )
           .state("on", ($) =>
             $.on("press(long) -> off")
               .on("press() -> sleep")
-              .on("restart() -> on")
+              .on("restart() -> on"),
           );
 
         const instance = pcState.host();
@@ -2886,7 +2960,7 @@ import { State, Superstate, superstate } from ".";
   //! Contexts
   {
     // Import the `State` type:
-    // import { State, superstate } from "superstate";
+    // import { superstate } from "superstate";
 
     // Specify the context types:
 
@@ -2902,9 +2976,9 @@ import { State, Superstate, superstate } from ".";
     // Define the states
 
     type FormState =
-      | State<"pending", Fields>
-      | State<"errored", Fields & ErrorFields>
-      | State<"complete", Fields>
+      | superstate.State<"pending", Fields>
+      | superstate.State<"errored", Fields & ErrorFields>
+      | superstate.State<"complete", Fields>
       | "canceled";
 
     // Define the form statechart:
@@ -2963,7 +3037,7 @@ import { State, Superstate, superstate } from ".";
 
     // Build new context using the previous state context:
     form.send.submit("error", "-> errored", ($, context) =>
-      $({ ...context, error: "Email is missing" })
+      $({ ...context, error: "Email is missing" }),
     );
 
     // @ts-expect-error
@@ -2973,7 +3047,7 @@ import { State, Superstate, superstate } from ".";
 
     // Cherry-pick email and password:
     form.send.submit("-> complete", ($, { email, password }) =>
-      $({ email, password })
+      $({ email, password }),
     );
 
     {
@@ -2984,9 +3058,9 @@ import { State, Superstate, superstate } from ".";
       // Accept form fields generic:
       function createFormState<FormFields>() {
         type FormState =
-          | State<"pending", FormFields & {}>
-          | State<"errored", FormFields & ErrorFields>
-          | State<"complete", FormFields & {}>;
+          | superstate.State<"pending", FormFields & {}>
+          | superstate.State<"errored", FormFields & ErrorFields>
+          | superstate.State<"complete", FormFields & {}>;
 
         return (
           superstate<FormState>("form")
@@ -3019,8 +3093,8 @@ import { State, Superstate, superstate } from ".";
       // Define the states with the context types:
       type SignUpState =
         | "credentials"
-        | State<"profile", CredentialsFields>
-        | State<"done", CredentialsFields & ProfileFields>;
+        | superstate.State<"profile", CredentialsFields>
+        | superstate.State<"done", CredentialsFields & ProfileFields>;
 
       // Create the credentials form statechart:
       const credentialsState = createFormState<CredentialsFields>();
@@ -3034,13 +3108,13 @@ import { State, Superstate, superstate } from ".";
           $.sub("form", credentialsState, [
             // When the form is complete, transition to profile:
             "form.complete -> submit() -> profile",
-          ])
+          ]),
         )
         .state("profile", ($) =>
           $.sub("form", profileState, [
             // When the form is complete, transition to done:
             "form.complete -> submit() -> done",
-          ])
+          ]),
         )
         .final("done");
 
@@ -3070,18 +3144,18 @@ import { State, Superstate, superstate } from ".";
 
       // Fill in the email field:
       signUp.send.credentials.form.update("-> pending", ($, { password }) =>
-        $({ email: "koss@nocorp.me", password })
+        $({ email: "koss@nocorp.me", password }),
       );
 
       // Fill in the password field:
       signUp.send.credentials.form.update("-> pending", ($, { email }) =>
-        $({ email, password: "123456" })
+        $({ email, password: "123456" }),
       );
 
       // Submit the form:
       signUp.send.credentials.form.submit(
         "-> complete",
-        ($, { email, password }) => $({ email, password })
+        ($, { email, password }) => $({ email, password }),
       );
 
       const profile = signUp.in("profile");
@@ -3094,7 +3168,7 @@ import { State, Superstate, superstate } from ".";
       // Submit the profile form:
       signUp.send.profile.form.submit(
         "-> complete",
-        ($, { fullName, company }) => $({ fullName, company })
+        ($, { fullName, company }) => $({ fullName, company }),
       );
 
       const done = signUp.in("done");

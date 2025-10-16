@@ -8,7 +8,7 @@ import { type Superstate } from "../types.js";
  * @returns The Mermaid diagram.
  */
 export function toMermaid<State extends Superstate.States.AnyState>(
-  factory: Superstate.Factories.Factory<State>
+  factory: Superstate.Factories.Factory<State>,
 ) {
   return [
     "%% Generated with Superstate",
@@ -29,7 +29,7 @@ function toStatechartLines<State extends Superstate.States.AnyState>(
   factory: Superstate.Factories.Factory<State>,
   parentName?: string,
   as?: string,
-  nameWithActions?: string
+  nameWithActions?: string,
 ) {
   const name = as || factory.name;
   const namePath = parentName ? `${parentName}.${name}` : name;
@@ -58,15 +58,15 @@ function toStatechartLines<State extends Superstate.States.AnyState>(
  */
 function toTransitionLines(
   states: Superstate.States.BuilderState[],
-  formatName: FormatName
+  formatName: FormatName,
 ) {
   const lines: string[] = [];
   for (const state of states) {
     for (const transition of state.transitions) {
       lines.push(
         `${formatName(transition.from)} --> ${formatName(
-          transition.to
-        )} : ${formatTransitionTraits(transition, formatName)}`
+          transition.to,
+        )} : ${formatTransitionTraits(transition, formatName)}`,
       );
     }
 
@@ -75,8 +75,8 @@ function toTransitionLines(
       for (const transition of substates[0]![1].transitions) {
         lines.push(
           `${formatName(state.name)}.${transition.from} --> ${formatName(
-            transition.to
-          )} : ${transition.event}`
+            transition.to,
+          )} : ${transition.event}`,
         );
       }
     } else if (substates.length > 1) {
@@ -85,7 +85,7 @@ function toTransitionLines(
           lines.push(
             `${formatName(state.name)}.${substateName}.${
               transition.from
-            } --> ${formatName(transition.to)} : ${transition.event}`
+            } --> ${formatName(transition.to)} : ${transition.event}`,
           );
         }
       }
@@ -97,21 +97,21 @@ function toTransitionLines(
 function toStateLines(
   states: Superstate.States.BuilderState[],
   statechartName: string,
-  formatName: FormatName
+  formatName: FormatName,
 ) {
   const lines: string[] = [];
   for (const state of states) {
     const nameWithActions = [state.name];
     for (const action of state.actions) {
       nameWithActions.push(
-        `${action.type === "enter" ? "entry" : "exit"} / ${action.name}`
+        `${action.type === "enter" ? "entry" : "exit"} / ${action.name}`,
       );
     }
 
     const substates = Object.entries(state.sub);
     if (!substates.length) {
       lines.push(
-        `state "${nameWithActions.join("\\n")}" as ${formatName(state.name)}`
+        `state "${nameWithActions.join("\\n")}" as ${formatName(state.name)}`,
       );
     } else if (substates.length === 1) {
       lines.push(
@@ -119,12 +119,12 @@ function toStateLines(
           substates[0]![1].factory,
           statechartName,
           state.name,
-          nameWithActions.join("\\n")
-        )
+          nameWithActions.join("\\n"),
+        ),
       );
     } else if (substates.length > 1) {
       lines.push(
-        `state "${nameWithActions.join("\\n")}" as ${formatName(state.name)} {`
+        `state "${nameWithActions.join("\\n")}" as ${formatName(state.name)} {`,
       );
       substates.forEach(([substateName, substate], index) => {
         lines.push(
@@ -132,9 +132,9 @@ function toStateLines(
             toStatechartLines(
               substate.factory,
               formatName(state.name),
-              substateName
-            )
-          )
+              substateName,
+            ),
+          ),
         );
         if (index !== substates.length - 1) lines.push(indentLine("--"));
       });
@@ -154,7 +154,7 @@ function toStateLines(
  */
 function formatTransitionTraits(
   transition: Superstate.Transitions.AnyTransition,
-  formatName: FormatName
+  formatName: FormatName,
 ) {
   const lines = [transition.event];
   if (transition.condition) lines.push(`if [${transition.condition}]`);

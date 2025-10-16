@@ -56,8 +56,8 @@ export namespace Superstate {
     export type FromDef<Def> = Def extends `-> ${infer Name}!`
       ? { type: "enter"; name: Name }
       : Def extends `${infer Name}! ->`
-      ? { type: "exit"; name: Name }
-      : never;
+        ? { type: "exit"; name: Name }
+        : never;
 
     /**
      * The action struct.
@@ -100,25 +100,26 @@ export namespace Superstate {
           ? true
           : false
         : // Else if the context is not present, or all optional...
-        Utils.RequiredKeys<
-            Arg extends { context: infer Context } ? Context : never
-          > extends never
-        ? // ...and all the rest are resolve to optional too:
-          Exclude<keyof Arg, "context"> extends infer Keys extends keyof Arg
-          ? // Prevent infinite recursion:
-            Keys extends never
-            ? never
-            : true extends DeepAllOptionalContextsArg<Arg[Keys]>
-            ? true
-            : false
-          : never
-        : never;
+          Utils.RequiredKeys<
+              Arg extends { context: infer Context } ? Context : never
+            > extends never
+          ? // ...and all the rest are resolve to optional too:
+            Exclude<keyof Arg, "context"> extends infer Keys extends keyof Arg
+            ? // Prevent infinite recursion:
+              Keys extends never
+              ? never
+              : true extends DeepAllOptionalContextsArg<Arg[Keys]>
+                ? true
+                : false
+            : never
+          : never;
 
-    export type HasBindings<State> = true extends IsActionable<State>
-      ? true
-      : true extends Contexts.HasInitialContext<State>
-      ? true
-      : false;
+    export type HasBindings<State> =
+      true extends IsActionable<State>
+        ? true
+        : true extends Contexts.HasInitialContext<State>
+          ? true
+          : false;
 
     /**
      * Converts action and context bindings to the argument structure.
@@ -221,7 +222,7 @@ export namespace Superstate {
      */
     export type Bindings<
       State extends States.AnyState,
-      ParentContext = null
+      ParentContext = null,
     > = State extends {
       name: infer StateName;
       actions: Array<infer Action>;
@@ -305,10 +306,10 @@ export namespace Superstate {
           | (keyof Substates extends never
               ? false
               : Substates[keyof Substates] extends {
-                  state: infer SubstateState;
-                }
-              ? IsActionable<SubstateState>
-              : never)
+                    state: infer SubstateState;
+                  }
+                ? IsActionable<SubstateState>
+                : never)
       : never;
   }
   //#endregion
@@ -346,7 +347,7 @@ export namespace Superstate {
       ToStateName extends string,
       Condition,
       Action,
-      Context
+      Context,
     > {
       event: EventName;
       condition: Condition;
@@ -370,7 +371,7 @@ export namespace Superstate {
     export type EventDef<
       ToStateName extends string,
       EventName extends string = string,
-      Condition extends string | "" = string | ""
+      Condition extends string | "" = string | "",
     > = `${EventName}(${Condition}) -> ${ToStateName}`;
 
     /**
@@ -380,7 +381,7 @@ export namespace Superstate {
       ToStateName extends string,
       EventName extends string = string,
       Condition extends string | "" = string | "",
-      Action extends string = string
+      Action extends string = string,
     > = `${EventName}(${Condition}) -> ${Action}! -> ${ToStateName}`;
 
     /**
@@ -395,7 +396,7 @@ export namespace Superstate {
      */
     export type EventCaseDef<
       ToStateName extends string,
-      Condition extends string | "" = string | ""
+      Condition extends string | "" = string | "",
     > = `(${Condition}) -> ${ToStateName}`;
 
     /**
@@ -404,7 +405,7 @@ export namespace Superstate {
     export type EventCaseDefWithAction<
       ToStateName extends string,
       Condition extends string | "" = string | "",
-      Action extends string = string
+      Action extends string = string,
     > = `(${Condition}) -> ${Action}! -> ${ToStateName}`;
 
     /**
@@ -413,17 +414,17 @@ export namespace Superstate {
     export type CaseDefToDef<
       StatechartInit extends States.AnyInit,
       EventName extends string,
-      Def_ extends CaseDef<StatechartInit["name"]>
+      Def_ extends CaseDef<StatechartInit["name"]>,
     > = Def_ extends Def_
       ? Def_ extends EventCaseDef<infer ToStateName, infer Condition>
         ? `${EventName}(${Condition}) -> ${ToStateName}`
         : Def_ extends EventCaseDefWithAction<
-            infer ToStateName,
-            infer Condition,
-            infer Action
-          >
-        ? `${EventName}(${Condition}) -> ${Action}! -> ${ToStateName}`
-        : never
+              infer ToStateName,
+              infer Condition,
+              infer Action
+            >
+          ? `${EventName}(${Condition}) -> ${Action}! -> ${ToStateName}`
+          : never
       : never;
 
     /**
@@ -439,35 +440,36 @@ export namespace Superstate {
     export type FromDef<
       StatechartInit extends States.AnyInit,
       FromStateInit extends StatechartInit,
-      Def_ extends Def<StatechartInit["name"]>
-    > = Def_ extends Transitions.EventDefWithAction<
-      infer ToStateName,
-      infer EventName,
-      infer Condition,
-      infer Action
-    >
-      ? Transition<
-          EventName,
-          FromStateInit["name"],
-          ToStateName,
-          Condition extends "" ? null : Condition,
-          { type: "transition"; name: Action },
-          States.FilterInit<StatechartInit, ToStateName>["context"]
-        >
-      : Def_ extends EventDef<
-          infer ToStateName,
-          infer EventName,
-          infer Condition
-        >
-      ? Transition<
-          EventName,
-          FromStateInit["name"],
-          ToStateName,
-          Condition extends "" ? null : Condition,
-          null,
-          States.FilterInit<StatechartInit, ToStateName>["context"]
-        >
-      : never;
+      Def_ extends Def<StatechartInit["name"]>,
+    > =
+      Def_ extends Transitions.EventDefWithAction<
+        infer ToStateName,
+        infer EventName,
+        infer Condition,
+        infer Action
+      >
+        ? Transition<
+            EventName,
+            FromStateInit["name"],
+            ToStateName,
+            Condition extends "" ? null : Condition,
+            { type: "transition"; name: Action },
+            States.FilterInit<StatechartInit, ToStateName>["context"]
+          >
+        : Def_ extends EventDef<
+              infer ToStateName,
+              infer EventName,
+              infer Condition
+            >
+          ? Transition<
+              EventName,
+              FromStateInit["name"],
+              ToStateName,
+              Condition extends "" ? null : Condition,
+              null,
+              States.FilterInit<StatechartInit, ToStateName>["context"]
+            >
+          : never;
 
     /**
      * Resolves the next state for the transition.
@@ -475,7 +477,7 @@ export namespace Superstate {
     export type MatchNextState<
       Statechart extends States.AnyState,
       EventName,
-      EventCondition extends string | null
+      EventCondition extends string | null,
     > = Statechart extends {
       transitions: Array<{
         event: EventName;
@@ -502,29 +504,30 @@ export namespace Superstate {
       StatechartInit extends States.AnyInit,
       StateInit extends StatechartInit,
       SubstateName extends string,
-      SubstateFactory
-    > = SubstateFactory extends Factories.Factory<infer State>
-      ? State extends State
-        ? State extends {
-            name: infer FinalName extends string;
-            final: true;
-            context: infer FinalContext extends Contexts.Constraint | null;
-          }
-          ? CompatibleInitWithSubstateFinalTransition<
-              StatechartInit,
-              StateInit,
-              FinalContext
-            > extends infer StateInit extends States.AnyInit
-            ? Substates.SubstateFinalTransitionDef<
-                SubstateName,
-                StateInit["name"],
-                FinalName,
-                string
-              >
+      SubstateFactory,
+    > =
+      SubstateFactory extends Factories.Factory<infer State>
+        ? State extends State
+          ? State extends {
+              name: infer FinalName extends string;
+              final: true;
+              context: infer FinalContext extends Contexts.Constraint | null;
+            }
+            ? CompatibleInitWithSubstateFinalTransition<
+                StatechartInit,
+                StateInit,
+                FinalContext
+              > extends infer StateInit extends States.AnyInit
+              ? Substates.SubstateFinalTransitionDef<
+                  SubstateName,
+                  StateInit["name"],
+                  FinalName,
+                  string
+                >
+              : never
             : never
           : never
-        : never
-      : never;
+        : never;
 
     /**
      * Resolves state inits compatible for a substate final transition binding.
@@ -532,16 +535,16 @@ export namespace Superstate {
     export type CompatibleInitWithSubstateFinalTransition<
       StatechartInit extends States.AnyInit,
       StateInit extends StatechartInit,
-      FinalContext extends Contexts.Constraint | null
+      FinalContext extends Contexts.Constraint | null,
     > = StatechartInit extends StatechartInit
       ? StatechartInit["context"] extends null
         ? StatechartInit
         : true extends Utils.Compare<
-            Contexts.Intersect<StateInit["context"], FinalContext>,
-            StatechartInit["context"]
-          >
-        ? StatechartInit
-        : never
+              Contexts.Intersect<StateInit["context"], FinalContext>,
+              StatechartInit["context"]
+            >
+          ? StatechartInit
+          : never
       : never;
 
     /**
@@ -563,7 +566,7 @@ export namespace Superstate {
 
     export interface Init<
       Name extends string,
-      Context extends Contexts.Constraint | null
+      Context extends Contexts.Constraint | null,
     > {
       name: Name;
       context: Context;
@@ -590,7 +593,7 @@ export namespace Superstate {
       Transition,
       Substates,
       Final,
-      Context
+      Context,
     > {
       name: StateName;
       actions: Action[];
@@ -644,9 +647,9 @@ export namespace Superstate {
    */
   export namespace Builder {
     export interface Machine {
-      <StateInit extends States.AnyInit | string>(name: string): Head<
-        States.NormalizeInit<StateInit>
-      >;
+      <StateInit extends States.AnyInit | string>(
+        name: string,
+      ): Head<States.NormalizeInit<StateInit>>;
     }
 
     export interface Head<StateInit extends States.AnyInit> {
@@ -661,7 +664,7 @@ export namespace Superstate {
     export interface Tail<
       StatechartInit extends States.AnyInit,
       ChainStateInit extends StatechartInit = StatechartInit,
-      Statechart extends States.AnyState = never
+      Statechart extends States.AnyState = never,
     > {
       state: StateFn<false, false, StatechartInit, ChainStateInit, Statechart>;
 
@@ -673,10 +676,10 @@ export namespace Superstate {
       StateInit extends StatechartInit,
       Action extends Actions.Action = never,
       TransitionDef extends Transitions.Def<StatechartInit["name"]> = never,
-      Substate extends Substates.AnySubstate = never
+      Substate extends Substates.AnySubstate = never,
     > {
       enter<ActionNameDef extends Actions.NameDef>(
-        name: ActionNameDef
+        name: ActionNameDef,
       ): StateFnGeneratorBuilder<
         StatechartInit,
         StateInit,
@@ -686,7 +689,7 @@ export namespace Superstate {
       >;
 
       exit<NameDef extends Actions.NameDef>(
-        name: NameDef
+        name: NameDef,
       ): StateFnGeneratorBuilder<
         StatechartInit,
         StateInit,
@@ -696,7 +699,7 @@ export namespace Superstate {
       >;
 
       on<Def extends Transitions.Def<StatechartInit["name"]>>(
-        transitions: Def[] | Def
+        transitions: Def[] | Def,
       ): StateFnGeneratorBuilder<
         StatechartInit,
         StateInit,
@@ -707,10 +710,10 @@ export namespace Superstate {
 
       if<
         EventName extends string,
-        Def extends Transitions.CaseDef<StatechartInit["name"]>
+        Def extends Transitions.CaseDef<StatechartInit["name"]>,
       >(
         name: EventName,
-        cases: Def[] | Def
+        cases: Def[] | Def,
       ): StateFnGeneratorBuilder<
         StatechartInit,
         StateInit,
@@ -728,11 +731,11 @@ export namespace Superstate {
           StateInit,
           SubstateName,
           SubstateFactory
-        > = never
+        > = never,
       >(
         name: SubstateName,
         factory: SubstateFactory,
-        defs?: TrasitionDef | TrasitionDef[]
+        defs?: TrasitionDef | TrasitionDef[],
       ): StateFnGeneratorBuilder<
         StatechartInit,
         StateInit,
@@ -757,10 +760,10 @@ export namespace Superstate {
       StateInit extends StatechartInit,
       Action extends Actions.Action,
       TransitionDef extends Transitions.Def<StatechartInit["name"]> = never,
-      Substate extends Substates.AnySubstate = never
+      Substate extends Substates.AnySubstate = never,
     > {
       (
-        $: StateFnGeneratorBuilder<StatechartInit, StateInit>
+        $: StateFnGeneratorBuilder<StatechartInit, StateInit>,
       ): StateFnGeneratorBuilder<
         StatechartInit,
         StateInit,
@@ -779,14 +782,30 @@ export namespace Superstate {
       StateDef extends States.Def<StatechartInit["name"]>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
-      Final extends boolean
-    > = States.FilterInit<
-      ChainStateInit,
-      StateName
-    > extends infer StateInit extends ChainStateInit
-      ? Exclude<ChainStateInit, StateInit> extends never
-        ? Factories.Factory<
-            States.BuilderStateToInstance<
+      Final extends boolean,
+    > =
+      States.FilterInit<
+        ChainStateInit,
+        StateName
+      > extends infer StateInit extends ChainStateInit
+        ? Exclude<ChainStateInit, StateInit> extends never
+          ? Factories.Factory<
+              States.BuilderStateToInstance<
+                | Statechart
+                | State<
+                    StatechartInit,
+                    StateInit,
+                    StateAction,
+                    StateDef,
+                    Substate,
+                    Initial,
+                    Final
+                  >
+              >
+            >
+          : Tail<
+              StatechartInit,
+              Exclude<ChainStateInit, StateInit>,
               | Statechart
               | State<
                   StatechartInit,
@@ -798,22 +817,7 @@ export namespace Superstate {
                   Final
                 >
             >
-          >
-        : Tail<
-            StatechartInit,
-            Exclude<ChainStateInit, StateInit>,
-            | Statechart
-            | State<
-                StatechartInit,
-                StateInit,
-                StateAction,
-                StateDef,
-                Substate,
-                Initial,
-                Final
-              >
-          >
-      : never;
+        : never;
 
     /**
      * Builder state. It constructs the state object from the builder chain
@@ -826,7 +830,7 @@ export namespace Superstate {
       StateDef_ extends Superstate.States.Def<StatechartInit["name"]>,
       Substate extends Substates.AnySubstate,
       Initial extends boolean,
-      Final extends boolean
+      Final extends boolean,
     > = {
       name: StateInit["name"];
       actions: Array<
@@ -853,10 +857,10 @@ export namespace Superstate {
       Final extends boolean,
       StatechartInit extends States.AnyInit,
       ChainStateInit extends StatechartInit = StatechartInit,
-      Statechart extends States.AnyState = never
+      Statechart extends States.AnyState = never,
     > {
       <StateName extends ChainStateInit["name"]>(
-        name: StateName
+        name: StateName,
       ): StateFnResult<
         StatechartInit,
         ChainStateInit,
@@ -874,7 +878,7 @@ export namespace Superstate {
         StateAction extends Actions.Action,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
         Substate extends Substates.AnySubstate,
-        Context
+        Context,
       >(
         name: StateName,
         generator: StateGenerator<
@@ -883,7 +887,7 @@ export namespace Superstate {
           StateAction,
           TransitionDef,
           Substate
-        >
+        >,
       ): StateFnResult<
         StatechartInit,
         ChainStateInit,
@@ -898,10 +902,10 @@ export namespace Superstate {
 
       <
         Name extends ChainStateInit["name"],
-        Def extends States.Def<StatechartInit["name"]>
+        Def extends States.Def<StatechartInit["name"]>,
       >(
         name: Name,
-        transitions: Def | Def[]
+        transitions: Def | Def[],
       ): StateFnResult<
         StatechartInit,
         ChainStateInit,
@@ -919,7 +923,7 @@ export namespace Superstate {
         StateAction extends Actions.Action,
         StateDef extends States.Def<StatechartInit["name"]>,
         TransitionDef extends Transitions.Def<StatechartInit["name"]>,
-        Substate extends Substates.AnySubstate
+        Substate extends Substates.AnySubstate,
       >(
         name: StateName,
         transitions: StateDef | StateDef[],
@@ -929,7 +933,7 @@ export namespace Superstate {
           StateAction,
           TransitionDef,
           Substate
-        >
+        >,
       ): StateFnResult<
         StatechartInit,
         ChainStateInit,
@@ -972,6 +976,11 @@ export namespace Superstate {
   //#endregion
 
   //#region Instances
+
+  export type InstanceDerive<
+    Factory extends Superstate.Factories.Factory<any>,
+  > = ReturnType<Factory["host"]>;
+
   /**
    * Instances namespace. Contains all the types related to hosted statechart
    * instances. Such as functions, return types, the instance itself, etc.
@@ -980,7 +989,7 @@ export namespace Superstate {
     export interface Instance<
       Statechart extends States.AnyState,
       Traits extends Traits.TraitsConstraint,
-      AsSubstate
+      AsSubstate,
     > extends Listeners.API<Statechart, Traits> {
       readonly sub: AsSubstate;
 
@@ -989,10 +998,11 @@ export namespace Superstate {
       readonly finalized: boolean;
 
       in<Target extends Targets.State<Traits["state"]>>(
-        target: Target | Target[]
+        target: Target | Target[],
       ): Targets.MatchState<Traits["state"], Target> | undefined;
     }
   }
+
   //#endregion
 
   //#region Listeners
@@ -1007,7 +1017,7 @@ export namespace Superstate {
      */
     export interface API<
       Statechart extends States.AnyState,
-      Traits extends Traits.TraitsConstraint
+      Traits extends Traits.TraitsConstraint,
     > {
       on: Listeners.On<Traits>;
 
@@ -1031,7 +1041,7 @@ export namespace Superstate {
     export interface On<Traits extends Traits.TraitsConstraint> {
       <Target extends Targets.On<Traits>>(
         target: Target | Target[],
-        listener: OnListener<Traits, Target>
+        listener: OnListener<Traits, Target>,
       ): Off;
     }
 
@@ -1040,34 +1050,34 @@ export namespace Superstate {
      */
     export interface OnListener<
       Traits extends Traits.TraitsConstraint,
-      Target extends Targets.On<Traits>
+      Target extends Targets.On<Traits>,
     > {
       (
         target: Target extends "**"
           ? Updates.DeepWildcardUpdate<Traits>
           : Target extends Targets.WildcardConstraint
-          ? Updates.WildcardUpdate<Traits["state"], Traits["event"], Target>
-          : Target extends
-              | Array<infer TargetString extends string>
-              | infer TargetString extends string
-          ? Targets.MatchState<
-              Traits["state"],
-              TargetString
-            > extends infer MatchedState
-            ? Targets.MatchEvent<
-                Traits["event"],
-                TargetString
-              > extends infer MatchedEvent
-              ?
-                  | (MatchedState extends { name: string }
-                      ? Updates.StateUpdate<MatchedState>
-                      : never)
-                  | (MatchedEvent extends never
-                      ? never
-                      : Updates.EventUpdate<MatchedEvent>)
-              : never
-            : never
-          : never
+            ? Updates.WildcardUpdate<Traits["state"], Traits["event"], Target>
+            : Target extends
+                  | Array<infer TargetString extends string>
+                  | (infer TargetString extends string)
+              ? Targets.MatchState<
+                  Traits["state"],
+                  TargetString
+                > extends infer MatchedState
+                ? Targets.MatchEvent<
+                    Traits["event"],
+                    TargetString
+                  > extends infer MatchedEvent
+                  ?
+                      | (MatchedState extends { name: string }
+                          ? Updates.StateUpdate<MatchedState>
+                          : never)
+                      | (MatchedEvent extends never
+                          ? never
+                          : Updates.EventUpdate<MatchedEvent>)
+                  : never
+                : never
+              : never,
       ): void;
     }
 
@@ -1090,13 +1100,13 @@ export namespace Superstate {
               ? // Add the send function to union
                 SendFn<SendTrait>
               : // Add the state with substates to union
-              SendTrait extends Traits.Send.StateConstraint
-              ? {
-                  [SubstateName in keyof SendTrait["sub"]]: SendProxy<
-                    SendTrait["sub"][SubstateName]
-                  >;
-                }
-              : never
+                SendTrait extends Traits.Send.StateConstraint
+                ? {
+                    [SubstateName in keyof SendTrait["sub"]]: SendProxy<
+                      SendTrait["sub"][SubstateName]
+                    >;
+                  }
+                : never
           >
         : never;
     };
@@ -1118,129 +1128,129 @@ export namespace Superstate {
               : // With condition, no context
                 (condition: Trait["condition"]) => Trait["next"] | null
             : Condition extends null
-            ? // No condition, with context
-              <
-                A,
-                B,
-                C,
-                D,
-                E,
-                F,
-                G,
-                H,
-                I,
-                J,
-                K,
-                L,
-                M,
-                N,
-                O,
-                P,
-                Q,
-                R,
-                S,
-                T,
-                U,
-                V,
-                W,
-                X,
-                Y,
-                Z
-              >(
-                to: `-> ${Trait["next"]["name"]}`,
-                context: Contexts.ContextArg<
-                  | A
-                  | B
-                  | C
-                  | D
-                  | E
-                  | F
-                  | G
-                  | H
-                  | I
-                  | J
-                  | K
-                  | L
-                  | M
-                  | N
-                  | O
-                  | P
-                  | Q
-                  | R
-                  | S
-                  | T
-                  | U
-                  | V
-                  | W
-                  | X
-                  | Y
-                  | Z,
-                  Trait["next"]["context"],
-                  Trait["from"]["context"]
-                >
-              ) => Trait["next"] | null
-            : // With condition, with context
-              <
-                A,
-                B,
-                C,
-                D,
-                E,
-                F,
-                G,
-                H,
-                I,
-                J,
-                K,
-                L,
-                M,
-                N,
-                O,
-                P,
-                Q,
-                R,
-                S,
-                T,
-                U,
-                V,
-                W,
-                X,
-                Y,
-                Z
-              >(
-                condition: Trait["condition"],
-                to: `-> ${Trait["next"]["name"]}`,
-                context: Contexts.ContextArg<
-                  | A
-                  | B
-                  | C
-                  | D
-                  | E
-                  | F
-                  | G
-                  | H
-                  | I
-                  | J
-                  | K
-                  | L
-                  | M
-                  | N
-                  | O
-                  | P
-                  | Q
-                  | R
-                  | S
-                  | T
-                  | U
-                  | V
-                  | W
-                  | X
-                  | Y
-                  | Z,
-                  Trait["next"]["context"],
-                  Trait["from"]["context"]
-                >
-              ) => Trait["next"] | null
+              ? // No condition, with context
+                <
+                  A,
+                  B,
+                  C,
+                  D,
+                  E,
+                  F,
+                  G,
+                  H,
+                  I,
+                  J,
+                  K,
+                  L,
+                  M,
+                  N,
+                  O,
+                  P,
+                  Q,
+                  R,
+                  S,
+                  T,
+                  U,
+                  V,
+                  W,
+                  X,
+                  Y,
+                  Z,
+                >(
+                  to: `-> ${Trait["next"]["name"]}`,
+                  context: Contexts.ContextArg<
+                    | A
+                    | B
+                    | C
+                    | D
+                    | E
+                    | F
+                    | G
+                    | H
+                    | I
+                    | J
+                    | K
+                    | L
+                    | M
+                    | N
+                    | O
+                    | P
+                    | Q
+                    | R
+                    | S
+                    | T
+                    | U
+                    | V
+                    | W
+                    | X
+                    | Y
+                    | Z,
+                    Trait["next"]["context"],
+                    Trait["from"]["context"]
+                  >,
+                ) => Trait["next"] | null
+              : // With condition, with context
+                <
+                  A,
+                  B,
+                  C,
+                  D,
+                  E,
+                  F,
+                  G,
+                  H,
+                  I,
+                  J,
+                  K,
+                  L,
+                  M,
+                  N,
+                  O,
+                  P,
+                  Q,
+                  R,
+                  S,
+                  T,
+                  U,
+                  V,
+                  W,
+                  X,
+                  Y,
+                  Z,
+                >(
+                  condition: Trait["condition"],
+                  to: `-> ${Trait["next"]["name"]}`,
+                  context: Contexts.ContextArg<
+                    | A
+                    | B
+                    | C
+                    | D
+                    | E
+                    | F
+                    | G
+                    | H
+                    | I
+                    | J
+                    | K
+                    | L
+                    | M
+                    | N
+                    | O
+                    | P
+                    | Q
+                    | R
+                    | S
+                    | T
+                    | U
+                    | V
+                    | W
+                    | X
+                    | Y
+                    | Z,
+                    Trait["next"]["context"],
+                    Trait["from"]["context"]
+                  >,
+                ) => Trait["next"] | null
           : never
         : never;
 
@@ -1286,7 +1296,7 @@ export namespace Superstate {
      */
     export type MatchState<
       FlatState extends Traits.StateConstraint,
-      Target extends string
+      Target extends string,
     > = FlatState extends { key: Target } ? FlatState["state"] : never;
 
     /**
@@ -1294,7 +1304,7 @@ export namespace Superstate {
      */
     export type MatchEvent<
       FlatEvent extends Traits.EventConstraint,
-      Target
+      Target,
     > = Target extends `${infer Key}()`
       ? FlatEvent extends { key: Key }
         ? FlatEvent["transition"]
@@ -1322,7 +1332,7 @@ export namespace Superstate {
     export type WildcardUpdate<
       State extends Traits.StateConstraint,
       Event extends Traits.EventConstraint,
-      Target extends Targets.WildcardConstraint
+      Target extends Targets.WildcardConstraint,
     > =
       | (State extends { wildcard: Target }
           ? StateUpdate<State["state"]>
@@ -1392,7 +1402,7 @@ export namespace Superstate {
     export interface FinalTransition<
       EventName extends string,
       ChildFromStateName extends string,
-      MachineToStateName extends string
+      MachineToStateName extends string,
     > {
       event: EventName;
       from: ChildFromStateName;
@@ -1407,7 +1417,7 @@ export namespace Superstate {
       SubstateName extends string,
       ParentToStateName extends string,
       ChildFinalStateName extends string,
-      TransitionName extends string
+      TransitionName extends string,
     > = `${SubstateName}.${ChildFinalStateName} -> ${TransitionName}() -> ${ParentToStateName}`;
 
     /**
@@ -1415,7 +1425,7 @@ export namespace Superstate {
      */
     export type SubstateFinalTransitionFromDef<
       StatechartInit extends States.AnyInit,
-      Def extends SubstateFinalTransitionDef<any, any, any, any>
+      Def extends SubstateFinalTransitionDef<any, any, any, any>,
     > = Def extends `${string}.${infer ChildFromStateName} -> ${infer EventName}() -> ${infer ParentToStateName}`
       ? {
           event: EventName;
@@ -1488,10 +1498,11 @@ export namespace Superstate {
 
     export type Event<
       Statechart extends States.AnyState,
-      Prefix extends string | "" = ""
+      Prefix extends string | "" = "",
     > =
       // First we get the root level events
-      | (Transition<Statechart> extends infer Transition extends TransitionConstraint
+      | (Transition<Statechart> extends infer Transition extends
+          TransitionConstraint
           ? Transition extends Transition
             ? {
                 key: `${Prefix}${Transition["transition"]["event"]}`;
@@ -1566,7 +1577,7 @@ export namespace Superstate {
 
     export type State<
       Statechart extends States.AnyState,
-      Prefix extends string | "" = ""
+      Prefix extends string | "" = "",
     > =
       // First we get the root level states
       | (Statechart extends {
@@ -1604,7 +1615,8 @@ export namespace Superstate {
           : never);
 
     export type Transition<State extends States.AnyState> =
-      Transitions.FromState<State> extends infer Transition extends Transitions.AnyTransition
+      Transitions.FromState<State> extends infer Transition extends
+        Transitions.AnyTransition
         ? Transition extends Transition
           ? States.FilterState<
               State,
@@ -1624,7 +1636,7 @@ export namespace Superstate {
     export namespace Send {
       export type FromState<
         State extends States.AnyState,
-        ParentState extends States.AnyState | null = null
+        ParentState extends States.AnyState | null = null,
       > = {
         [Namespace in Events.Name<State> | Substates.Parents<State>["name"]]:
           | // Assign event function
@@ -1653,7 +1665,7 @@ export namespace Superstate {
       export type EventFromState<
         State extends States.AnyState,
         ParentState extends States.AnyState | null,
-        Namespace
+        Namespace,
       > = EventFromStateInner<
         State,
         ParentState,
@@ -1667,7 +1679,7 @@ export namespace Superstate {
         Namespace,
         Transition,
         TransitionForCondition = Transition,
-        TransitionForFrom = Transition
+        TransitionForFrom = Transition,
       > = Transition extends {
         to: infer To;
       }
@@ -1732,7 +1744,7 @@ export namespace Superstate {
         Condition extends string | null,
         From extends States.AnyState,
         Next extends States.AnyState,
-        Parent extends States.AnyState | null
+        Parent extends States.AnyState | null,
       > extends Base<"event", Namespace> {
         condition: Condition;
         from: From;
@@ -1768,10 +1780,10 @@ export namespace Superstate {
           | (keyof Substates extends never
               ? false
               : Substates[keyof Substates] extends {
-                  state: infer SubstateState;
-                }
-              ? HasInitialContext<SubstateState>
-              : never)
+                    state: infer SubstateState;
+                  }
+                ? HasInitialContext<SubstateState>
+                : never)
       : never;
 
     /**
@@ -1784,8 +1796,8 @@ export namespace Superstate {
       ? Context extends never
         ? never
         : keyof Context extends never
-        ? never
-        : Context
+          ? never
+          : Context
       : never;
 
     /**
@@ -1827,7 +1839,7 @@ export namespace Superstate {
 
     export type ContextArgFn<Context, PrevContext> = (
       updater: ContextUpdater<Context>,
-      context: PrevContext
+      context: PrevContext,
     ) => ExactContext<Context>;
 
     export type ContextUpdater<Context> = <
@@ -1856,7 +1868,7 @@ export namespace Superstate {
       W,
       X,
       Y,
-      Z
+      Z,
     >(
       context: Utils.Exact<
         Context,
@@ -1886,7 +1898,7 @@ export namespace Superstate {
         | X
         | Y
         | Z
-      >
+      >,
     ) => ExactContext<Context>;
 
     export type ExactContext<Context> = Context & {
@@ -1920,8 +1932,8 @@ export namespace Superstate {
             [Key in keyof Type]: Type[Key] extends never
               ? never
               : RequiredKey<Type, Key> extends true
-              ? Key
-              : never;
+                ? Key
+                : never;
           }[keyof Type],
           undefined
         >
@@ -1930,21 +1942,19 @@ export namespace Superstate {
     /**
      * Resolves true if the passed key is a required field of the passed model.
      */
-    export type RequiredKey<Model, Key extends keyof Model> = StaticKey<
-      Model,
-      Key
-    > extends true
-      ? Partial<Pick<Model, Key>> extends Pick<Model, Key>
-        ? false
-        : true
-      : false;
+    export type RequiredKey<Model, Key extends keyof Model> =
+      StaticKey<Model, Key> extends true
+        ? Partial<Pick<Model, Key>> extends Pick<Model, Key>
+          ? false
+          : true
+        : false;
 
     /**
      * Resolves true if the given key is statically defined in the given type.
      */
     export type StaticKey<
       Model,
-      Key extends keyof Model
+      Key extends keyof Model,
     > = Key extends keyof WithoutIndexed<Model> ? true : false;
 
     /**
@@ -1954,10 +1964,10 @@ export namespace Superstate {
       [Key in keyof Model as string extends Key
         ? never
         : number extends Key
-        ? never
-        : symbol extends Key
-        ? never
-        : Key]: Model[Key];
+          ? never
+          : symbol extends Key
+            ? never
+            : Key]: Model[Key];
     };
 
     /**
@@ -1973,7 +1983,7 @@ export namespace Superstate {
      */
     export type UnionValue<
       Type,
-      UnionKey extends UnionKeys<Type>
+      UnionKey extends UnionKeys<Type>,
     > = Type extends {
       [Key in UnionKey]: unknown;
     }
@@ -1991,21 +2001,21 @@ export namespace Superstate {
      * Resolves true if both types are equal.
      * Source: https://github.com/microsoft/TypeScript/issues/48100#issuecomment-1193266100
      */
-    export type Compare<TypeA, TypeB> = (<
-      Type
-    >() => Type extends Simplify<TypeA> ? 1 : 2) extends <
-      Type
-    >() => Type extends Simplify<TypeB> ? 1 : 2
-      ? true
-      : false;
+    export type Compare<TypeA, TypeB> =
+      (<Type>() => Type extends Simplify<TypeA> ? 1 : 2) extends <
+        Type,
+      >() => Type extends Simplify<TypeB> ? 1 : 2
+        ? true
+        : false;
 
     /**
      * Simplifies the type. Required for {@link Compare}.
      * See: https://github.com/microsoft/TypeScript/issues/48100#issuecomment-1193266100
      */
-    export type Simplify<Type> = Type extends Record<any, unknown>
-      ? { [Key in keyof Type]: Simplify<Type[Key]> }
-      : Type;
+    export type Simplify<Type> =
+      Type extends Record<any, unknown>
+        ? { [Key in keyof Type]: Simplify<Type[Key]> }
+        : Type;
 
     /**
      * Converts union to an intersection.

@@ -40,7 +40,7 @@ export function superstate(name) {
           const transition = transitionFromDef(stateName, def);
           if (transition) return state.transitions.push(transition);
           state.actions.push(actionFromDef(def));
-        }
+        },
       );
 
       const builderFn = typeof arg1 === "function" ? arg1 : arg2;
@@ -51,7 +51,7 @@ export function superstate(name) {
             []
               .concat(defs)
               .forEach((def) =>
-                state.transitions.push(transitionFromDef(stateName, def))
+                state.transitions.push(transitionFromDef(stateName, def)),
               );
             return this;
           },
@@ -63,8 +63,8 @@ export function superstate(name) {
               .concat(conditions)
               .forEach((condition) =>
                 state.transitions.push(
-                  transitionFromDef(stateName, eventName + condition)
-                )
+                  transitionFromDef(stateName, eventName + condition),
+                ),
               );
             return this;
           },
@@ -163,7 +163,7 @@ export function superstate(name) {
           const index = subscriptions.indexOf(subscription);
           const unsubscribed = subscriptions.splice(index, 1);
           unsubscribed.forEach((subscription) =>
-            subscriptionOffs.get(subscription)?.forEach((off) => off())
+            subscriptionOffs.get(subscription)?.forEach((off) => off()),
           );
           subscriptionOffs.delete(subscription);
         };
@@ -185,7 +185,7 @@ export function superstate(name) {
                 const transition = findTransition(
                   maybeEventName,
                   condition || null,
-                  toFromDef(toDef)
+                  toFromDef(toDef),
                 );
                 if (!transition) return null;
 
@@ -194,7 +194,7 @@ export function superstate(name) {
 
                 const context = resolveContext(
                   eventContext,
-                  currentState.context
+                  currentState.context,
                 );
                 const nextState = { ...state, context };
 
@@ -224,7 +224,7 @@ export function superstate(name) {
 
             return fnProxy;
           },
-        }
+        },
       ),
       //#endregion
 
@@ -255,11 +255,11 @@ export function superstate(name) {
           const substate = currentState.sub[substateName];
           push(
             substate,
-            (rest.length ? `${rest.join(".")}.` : "") + target.signature
+            (rest.length ? `${rest.join(".")}.` : "") + target.signature,
           );
         } else if (target.type === "**") {
           Object.values(currentState.sub).map((substate) =>
-            push(substate, "**")
+            push(substate, "**"),
           );
         }
       });
@@ -285,7 +285,7 @@ export function superstate(name) {
           });
         })(currentState);
         updates.forEach((state) =>
-          subscription.listener({ type: "state", state })
+          subscription.listener({ type: "state", state }),
         );
       }
     }
@@ -317,7 +317,7 @@ export function superstate(name) {
         Object.entries(state.sub).map(([name, substate]) => {
           const substateInstance = substate.factory.host(
             bindings[state.name]?.[name],
-            state
+            state,
           );
           substate.transitions.forEach((transition) => {
             const landingState = findTransitionTarget(transition);
@@ -332,7 +332,7 @@ export function superstate(name) {
             });
           });
           return [name, substateInstance];
-        })
+        }),
       );
 
       // Transition to the new state
@@ -341,7 +341,7 @@ export function superstate(name) {
 
       // Subscribe the substates
       subscriptions.forEach((subscription) =>
-        subcribeSubstates(subscription, true)
+        subcribeSubstates(subscription, true),
       );
 
       // Trigger enter actions
@@ -378,7 +378,7 @@ export function superstate(name) {
               (type === "event"
                 ? target.event === entity.event &&
                   target.condition === entity.condition
-                : target.state === entity.name))
+                : target.state === entity.name)),
         ) && listeners.push(subscription.listener);
       });
 
