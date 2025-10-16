@@ -251,6 +251,19 @@ import { Superstate, superstate } from ".";
       //! The state is paused or playing
       state.name satisfies "paused" | "playing";
   }
+
+  //! Active state
+  {
+    const state = player.state;
+
+    if (state.name === "playing") {
+      state.name satisfies "playing";
+
+      state satisfies superstate.State<typeof playerState, "playing">;
+      // @ts-expect-error
+      state satisfies superstate.State<typeof playerState, "paused">;
+    }
+  }
 }
 //#endregion
 
@@ -1048,9 +1061,9 @@ import { Superstate, superstate } from ".";
   //! Simple context
   {
     type SignUpFormState =
-      | superstate.State<"credentials", SignUpInitial>
-      | superstate.State<"profile", SignUpCredentials>
-      | superstate.State<"done", SignUpComplete>;
+      | superstate.Def<"credentials", SignUpInitial>
+      | superstate.Def<"profile", SignUpCredentials>
+      | superstate.Def<"done", SignUpComplete>;
 
     interface SignUpInitial {
       ref: string;
@@ -1210,8 +1223,8 @@ import { Superstate, superstate } from ".";
     //! It should not allow omitting incomaptible context fields
     {
       type SignUpFormState =
-        | superstate.State<"credentials", SignUpInitial>
-        | superstate.State<"profile", SignUpCredentials>;
+        | superstate.Def<"credentials", SignUpInitial>
+        | superstate.Def<"profile", SignUpCredentials>;
 
       interface SignUpInitial {
         ref: string | null;
@@ -1269,9 +1282,9 @@ import { Superstate, superstate } from ".";
       type FieldsWithErrors = Fields & ErrorFields;
 
       type FormState =
-        | superstate.State<"pending", Fields>
-        | superstate.State<"errored", Fields & ErrorFields>
-        | superstate.State<"complete", Fields>
+        | superstate.Def<"pending", Fields>
+        | superstate.Def<"errored", Fields & ErrorFields>
+        | superstate.Def<"complete", Fields>
         | "canceled";
 
       const formState = superstate<FormState>("form")
@@ -1314,10 +1327,10 @@ import { Superstate, superstate } from ".";
         type Context = FormFields & ErrorFields;
 
         type FormState =
-          | superstate.State<"pending", Partial<Context>>
-          | superstate.State<"errored", Context>
+          | superstate.Def<"pending", Partial<Context>>
+          | superstate.Def<"errored", Context>
           //! Context here includes ErrorFields
-          | superstate.State<"complete", Context>
+          | superstate.Def<"complete", Context>
           | "canceled";
 
         return superstate<FormState>("form")
@@ -1387,9 +1400,9 @@ import { Superstate, superstate } from ".";
       type FieldsWithErrors = Fields & ErrorFields;
 
       type FormState =
-        | superstate.State<"pending", Fields>
-        | superstate.State<"errored", Fields & ErrorFields>
-        | superstate.State<"complete", Fields>
+        | superstate.Def<"pending", Fields>
+        | superstate.Def<"errored", Fields & ErrorFields>
+        | superstate.Def<"complete", Fields>
         | "canceled";
 
       const formState = superstate<FormState>("form")
@@ -1422,9 +1435,9 @@ import { Superstate, superstate } from ".";
   //#region Context/conditions
   {
     type SignUpFormState =
-      | superstate.State<"credentials", SignUpInitial>
-      | superstate.State<"profile", SignUpCredentials>
-      | superstate.State<"done", SignUpComplete>;
+      | superstate.Def<"credentials", SignUpInitial>
+      | superstate.Def<"profile", SignUpCredentials>
+      | superstate.Def<"done", SignUpComplete>;
 
     interface ErrorFields {
       error?: string;
@@ -1512,9 +1525,9 @@ import { Superstate, superstate } from ".";
     type Context = FormFields & ErrorFields;
 
     type FormState =
-      | superstate.State<"pending", Partial<Context>>
-      | superstate.State<"errored", Context>
-      | superstate.State<"complete", FormFields & {}>
+      | superstate.Def<"pending", Partial<Context>>
+      | superstate.Def<"errored", Context>
+      | superstate.Def<"complete", FormFields & {}>
       | "canceled";
 
     return superstate<FormState>("form")
@@ -1535,9 +1548,9 @@ import { Superstate, superstate } from ".";
   type DoneContext = CredentialsFields & ProfileFields;
 
   type SignUpState =
-    | superstate.State<"credentials">
-    | superstate.State<"profile", CredentialsFields>
-    | superstate.State<"done", DoneContext>;
+    | superstate.Def<"credentials">
+    | superstate.Def<"profile", CredentialsFields>
+    | superstate.Def<"done", DoneContext>;
 
   interface CredentialsFields {
     email: string;
@@ -1650,17 +1663,17 @@ import { Superstate, superstate } from ".";
       }
 
       type SignUpState =
-        | superstate.State<"credentials", RefFields>
-        | superstate.State<"profile", RefFields & CredentialsFields>
-        | superstate.State<"done", RefFields & DoneContext>;
+        | superstate.Def<"credentials", RefFields>
+        | superstate.Def<"profile", RefFields & CredentialsFields>
+        | superstate.Def<"done", RefFields & DoneContext>;
 
       function createFormState<FormFields>() {
         type Context = FormFields & ErrorFields;
 
         type FormState =
-          | superstate.State<"pending", Context>
-          | superstate.State<"errored", Context>
-          | superstate.State<"complete", FormFields & {}>
+          | superstate.Def<"pending", Context>
+          | superstate.Def<"errored", Context>
+          | superstate.Def<"complete", FormFields & {}>
           | "canceled";
 
         return superstate<FormState>("form")
@@ -2405,9 +2418,9 @@ import { Superstate, superstate } from ".";
     }
 
     type FormState =
-      | superstate.State<"pending", Fields>
-      | superstate.State<"errored", Fields & ErrorFields>
-      | superstate.State<"complete", Fields>
+      | superstate.Def<"pending", Fields>
+      | superstate.Def<"errored", Fields & ErrorFields>
+      | superstate.Def<"complete", Fields>
       | "canceled";
   }
 
@@ -2428,6 +2441,27 @@ import { Superstate, superstate } from ".";
     function createVolume(state: VolumeStatechart): VolumeInterpreter {
       return state.host();
     }
+  }
+
+  {
+    // import { superstate } from "superstate";
+
+    type VolumeState = "low" | "medium" | "high";
+
+    const volumeState = superstate<VolumeState>("volume")
+      .state("low", "up() -> medium")
+      .state("medium", ["up() -> high", "down() -> low"])
+      .state("high", "down() -> medium");
+
+    type VolumeStatechart = typeof volumeState;
+
+    function getHigh(state: superstate.State<VolumeStatechart, "high">) {
+      state.name satisfies "high";
+    }
+
+    const volume = volumeState.host();
+
+    if (volume.state.name === "high") getHigh(volume.state);
   }
 
   //! API
@@ -2976,9 +3010,9 @@ import { Superstate, superstate } from ".";
     // Define the states
 
     type FormState =
-      | superstate.State<"pending", Fields>
-      | superstate.State<"errored", Fields & ErrorFields>
-      | superstate.State<"complete", Fields>
+      | superstate.Def<"pending", Fields>
+      | superstate.Def<"errored", Fields & ErrorFields>
+      | superstate.Def<"complete", Fields>
       | "canceled";
 
     // Define the form statechart:
@@ -3058,9 +3092,9 @@ import { Superstate, superstate } from ".";
       // Accept form fields generic:
       function createFormState<FormFields>() {
         type FormState =
-          | superstate.State<"pending", FormFields & {}>
-          | superstate.State<"errored", FormFields & ErrorFields>
-          | superstate.State<"complete", FormFields & {}>;
+          | superstate.Def<"pending", FormFields & {}>
+          | superstate.Def<"errored", FormFields & ErrorFields>
+          | superstate.Def<"complete", FormFields & {}>;
 
         return (
           superstate<FormState>("form")
@@ -3093,8 +3127,8 @@ import { Superstate, superstate } from ".";
       // Define the states with the context types:
       type SignUpState =
         | "credentials"
-        | superstate.State<"profile", CredentialsFields>
-        | superstate.State<"done", CredentialsFields & ProfileFields>;
+        | superstate.Def<"profile", CredentialsFields>
+        | superstate.Def<"done", CredentialsFields & ProfileFields>;
 
       // Create the credentials form statechart:
       const credentialsState = createFormState<CredentialsFields>();

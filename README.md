@@ -412,7 +412,7 @@ const pc = pcState.host({
 
 Superstate allows pairing states with a data structure called context. A state with assigned context will require you to pass the specified data structure when sending events or hosting the statechart.
 
-To define states with context, use the `State` type that you can import from the library:
+To define states with context, use the `superstate.Def` type that you can access via the `superstate` namespace:
 
 ```ts
 import { superstate } from "superstate";
@@ -432,9 +432,9 @@ interface ErrorFields {
 
 type FormState =
   // Pass the context as the second generic parameter:
-  | superstate.State<"pending", Fields>
-  | superstate.State<"errored", Fields & ErrorFields>
-  | superstate.State<"complete", Fields>
+  | superstate.Def<"pending", Fields>
+  | superstate.Def<"errored", Fields & ErrorFields>
+  | superstate.Def<"complete", Fields>
   // You can also mix with strings:
   | "canceled";
 
@@ -554,9 +554,9 @@ interface ErrorFields {
 // Accept form fields generic:
 function createFormState<FormFields>() {
   type FormState =
-    | superstate.State<"pending", FormFields & {}>
-    | superstate.State<"errored", FormFields & ErrorFields>
-    | superstate.State<"complete", FormFields & {}>;
+    | superstate.Def<"pending", FormFields & {}>
+    | superstate.Def<"errored", FormFields & ErrorFields>
+    | superstate.Def<"complete", FormFields & {}>;
 
   return (
     superstate<FormState>("form")
@@ -593,8 +593,8 @@ interface ProfileFields {
 // Define the states with the context types:
 type SignUpState =
   | "credentials"
-  | superstate.State<"profile", CredentialsFields>
-  | superstate.State<"done", CredentialsFields & ProfileFields>;
+  | superstate.Def<"profile", CredentialsFields>
+  | superstate.Def<"done", CredentialsFields & ProfileFields>;
 
 // Create the credentials form statechart:
 const credentialsState = createFormState<CredentialsFields>();
@@ -651,7 +651,7 @@ const signUp = signUpState.host({
 });
 ```
 
-We could have made the initial context optional (`State<"pending", Partial<FormFields>>`) and skipped specifying the initial context when hosting, but then you wouldn't learn about it, would you?
+We could have made the initial context optional (`Def<"pending", Partial<FormFields>>`) and skipped specifying the initial context when hosting, but then you wouldn't learn about it, would you?
 
 Now, let's fill out the first form and submit it:
 
@@ -709,14 +709,14 @@ if (done) {
 
 There're just two types that Superstate exports:
 
-1. `superstate` - Namespace exposing most common helper types (i.e., `superstate.Instance<typeof statechart>` or `superstate.State<"name", Context>`).
+1. `superstate` - Namespace exposing most common helper types (i.e., `superstate.Instance<typeof statechart>` or `superstate.Def<"name", Context>`).
 2. `Superstate` - Namespace exposing all internal types used in the library.
 
 The former exposes the most common types that you might need when working with Superstate.
 
-## `superstate.State`
+## `superstate.Def`
 
-`superstate.State` allows defining states with context:
+`superstate.Def` allows defining states with context:
 
 ```ts
 import { superstate } from "superstate";
@@ -731,9 +731,9 @@ interface ErrorFields {
 }
 
 type FormState =
-  | superstate.State<"pending", Fields>
-  | superstate.State<"errored", Fields & ErrorFields>
-  | superstate.State<"complete", Fields>
+  | superstate.Def<"pending", Fields>
+  | superstate.Def<"errored", Fields & ErrorFields>
+  | superstate.Def<"complete", Fields>
   | "canceled";
 ```
 
@@ -758,6 +758,31 @@ type VolumeInterpreter = superstate.Instance<VolumeStatechart>;
 function createVolume(state: VolumeStatechart): VolumeInterpreter {
   return state.host();
 }
+```
+
+## `superstate.State`
+
+`superstate.State` allows defining the type of a specific instance state:
+
+```ts
+import { superstate } from "superstate";
+
+type VolumeState = "low" | "medium" | "high";
+
+const volumeState = superstate<VolumeState>("volume")
+  .state("low", "up() -> medium")
+  .state("medium", ["up() -> high", "down() -> low"])
+  .state("high", "down() -> medium");
+
+type VolumeStatechart = typeof volumeState;
+
+function getHigh(state: superstate.State<VolumeStatechart, "high">) {
+  state.name satisfies "high";
+}
+
+const volume = volumeState.host();
+
+if (volume.state.name === "high") getHigh(volume.state);
 ```
 
 ## API
