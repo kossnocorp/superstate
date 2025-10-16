@@ -8,6 +8,16 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v1.0.0-beta.6 - 2025-10-16
+
+### Changed
+
+- **BREAKING**: Changed `superstate.State` to `superstate.Def` to better reflect its purpose and free up the `State` name for specific instance state type.
+
+### Added
+
+- Added `superstate.State` type to represent a specific instance state.
+
 ## v1.0.0-beta.5 - 2025-10-16
 
 ### Changed

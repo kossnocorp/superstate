@@ -561,6 +561,17 @@ export namespace Superstate {
   //#endregion
 
   //#region States
+
+  export type StateDerive<
+    Factory extends Factories.AnyFactory,
+    StateName extends Factory extends Factories.Factory<infer State>
+      ? State["name"]
+      : never,
+  > =
+    Factory extends Factories.Factory<infer State>
+      ? State & { name: StateName }
+      : never;
+
   export namespace States {
     export type AnyInit = Init<string, Contexts.Constraint | null>;
 
@@ -950,6 +961,7 @@ export namespace Superstate {
   //#endregion
 
   //#region Factories
+
   /**
    * The factories namespace. It contains all the types related to factories,
    * the entity that creates statechart instances.
@@ -973,6 +985,7 @@ export namespace Superstate {
       ): Instances.Instance<State, Traits.Traits<State>, never>;
     }
   }
+
   //#endregion
 
   //#region Instances

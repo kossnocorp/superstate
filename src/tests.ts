@@ -1999,7 +1999,7 @@ describe("Superstate", () => {
           );
         });
 
-        it("does't break when checking for non-active substates", () => {
+        it("does't break when checking for non-state substates", () => {
           const mugState = createMugWithTeaState();
           const mug = mugState.host();
           expect(mug.in("full.tea.water")).toBe(null);
@@ -2129,9 +2129,9 @@ function createFormState<FormFields>() {
   type Context = FormFields & ErrorFields;
 
   type FormState =
-    | superstate.State<"pending", Context>
-    | superstate.State<"errored", Context>
-    | superstate.State<"complete", FormFields & {}>
+    | superstate.Def<"pending", Context>
+    | superstate.Def<"errored", Context>
+    | superstate.Def<"complete", FormFields & {}>
     | "canceled";
 
   return superstate<FormState>("form")
@@ -2158,9 +2158,9 @@ type ProfileContext = RefFields & CredentialsFields;
 type DoneContext = RefFields & CredentialsFields & ProfileFields;
 
 type SignUpState =
-  | superstate.State<"credentials", RefFields>
-  | superstate.State<"profile", ProfileContext>
-  | superstate.State<"done", DoneContext>;
+  | superstate.Def<"credentials", RefFields>
+  | superstate.Def<"profile", ProfileContext>
+  | superstate.Def<"done", DoneContext>;
 
 interface CredentialsFields {
   email: string;
@@ -2189,8 +2189,8 @@ function createSignUpState() {
 
 type WizardState =
   | "credentials"
-  | superstate.State<"profile", ProfileContext>
-  | superstate.State<"done", ProfileFields & CredentialsFields>;
+  | superstate.Def<"profile", ProfileContext>
+  | superstate.Def<"done", ProfileFields & CredentialsFields>;
 
 function createWizardState() {
   return superstate<WizardState>("wizard")
