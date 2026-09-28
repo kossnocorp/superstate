@@ -1,0 +1,65 @@
+{
+  "name": "superstate",
+  "version": "1.0.0-beta.7",
+  "description": "",
+  "main": "index.js",
+  "module": "index.mjs",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "import": {
+        "types": "./index.d.mts",
+        "default": "./index.mjs"
+      }
+    },
+    "./mermaid": {
+      "require": {
+        "types": "./mermaid/index.d.ts",
+        "default": "./mermaid/index.js"
+      },
+      "import": {
+        "types": "./mermaid/index.d.mts",
+        "default": "./mermaid/index.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "size": "size-limit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kossnocorp/superstate.git"
+  },
+  "keywords": [
+    "state"
+  ],
+  "author": "Sasha Koss <koss@nocorp.me>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kossnocorp/superstate/issues"
+  },
+  "homepage": "https://github.com/kossnocorp/superstate#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.24.1",
+    "@babel/core": "^7.24.4",
+    "@babel/plugin-transform-modules-commonjs": "^7.24.1",
+    "@babel/preset-env": "^7.24.4",
+    "@babel/preset-typescript": "^7.24.1",
+    "@parcel/watcher": "^2.4.1",
+    "@swc/core": "^1.4.12",
+    "babel-plugin-add-import-extension": "^1.6.0",
+    "benny": "^3.7.1",
+    "bytes-iec": "^3.1.1",
+    "glob": "^10.3.12",
+    "picocolors": "^1.0.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.5.0-beta",
+    "vitest": "^1.4.0",
+    "xstate": "^5.9.1"
+  }
+}
