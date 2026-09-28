@@ -19,18 +19,19 @@ size-watch:
 benchmark:
 	@bun ./benchmark.ts
 
-test-types: install-attw build 
+test-types: install-attw build
 	@cd lib && attw --pack
 
 build: prepare-build
-	@npx tsc -p tsconfig.lib.json 
+	@npx tsc -p tsconfig.lib.json
 	@env BABEL_ENV=esm npx babel src --config-file ./babel.config.lib.json --source-root src --out-dir lib --extensions .mjs,.ts --out-file-extension .mjs --quiet
 	@env BABEL_ENV=cjs npx babel src --config-file ./babel.config.lib.json --source-root src --out-dir lib --extensions .mjs,.ts --out-file-extension .js --quiet
 	@node copy.mjs
+	@cp ../../README.md lib/README.md
 	@rm -rf lib/types.*js
 	@make build-mts
 	@rm lib/types.d.mts
-	
+
 build-mts:
 	@find lib -name '*.d.ts' | while read file; do \
 		new_file=$${file%.d.ts}.d.mts; \

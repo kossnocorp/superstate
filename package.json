@@ -1,0 +1,5 @@
+{
+  "name": "@js-fns/repo",
+  "description": "Superstate monorepo",
+  "type": "module"
+}

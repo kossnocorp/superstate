@@ -56,6 +56,7 @@
     "benny": "^3.7.1",
     "bytes-iec": "^3.1.1",
     "glob": "^10.3.12",
+    "minimatch": "^10.2.6",
     "picocolors": "^1.0.0",
     "prettier": "^3.6.2",
     "typescript": "^5.5.0-beta",
